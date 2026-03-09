@@ -22,7 +22,7 @@ The framework is route-configurable: users set their departure country, arrival 
 | Component library | shadcn/ui (Radix UI primitives) |
 | Icons | Lucide Icons |
 | Animation | Framer Motion |
-| Font | Inter (variable, via `next/font/google`) |
+| Font | Figtree (weights 400/500/600/700, via `next/font/google`) |
 | LLM — Aisling (full assessment) | `claude-sonnet-4-6` (latest claude-sonnet-4; configurable via `MODEL_AISLING` env var) |
 | LLM — Light assessment | `claude-haiku-4-5-20251001` (latest claude-haiku-4-5; configurable via `MODEL_LIGHT_ASSESSMENT` env var) |
 | App hosting | Fly.io (EU region — Amsterdam or Frankfurt) |
@@ -168,12 +168,12 @@ Justified by three specific patterns in the UX spec:
 - No decorative motion. If removing the animation changes nothing, remove it
 - Duration: 150–300ms for most transitions. Snappy, not cinematic
 
-### Font: Inter
+### Font: Figtree
 
-Inter variable font via `next/font/google` (`display: 'swap'`, `subsets: ['latin']`).
+Figtree via `next/font/google` (`display: 'swap'`, `subsets: ['latin']`, weights 400/500/600/700). Figtree is a geometric sans-serif with subtly rounded terminals that give it warmth without sacrificing professionalism. It reads cleanly at small sizes on mobile and has good tabular number support for cost figures.
 
 ```
-font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+font-family: 'Figtree', ui-sans-serif, system-ui, -apple-system, sans-serif;
 ```
 
 **Type scale:**
