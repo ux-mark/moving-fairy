@@ -1,0 +1,2 @@
+-- Moving Fairy — Seed Data
+-- Add seed data here as needed during development.

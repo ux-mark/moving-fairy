@@ -8,17 +8,22 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    plugins: {
-      "jsx-a11y": jsxA11y,
-    },
+    // jsx-a11y plugin is already registered by eslint-config-next,
+    // so we only add the recommended rules here
     rules: {
       ...jsxA11y.configs.recommended.rules,
+    },
+  },
+  {
+    // shadcn/ui Label component spreads htmlFor via props — not a real violation
+    files: ["src/components/ui/label.tsx"],
+    rules: {
+      "jsx-a11y/label-has-associated-control": "off",
     },
   },
   prettierConfig,
   // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
