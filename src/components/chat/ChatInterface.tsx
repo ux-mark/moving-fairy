@@ -35,7 +35,12 @@ interface ChatMessage {
   };
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  /** When true, omits the outer h-svh wrapper and renders without the Boxes nav link (used inside AppLayout) */
+  embedded?: boolean;
+}
+
+export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -252,10 +257,10 @@ export function ChatInterface() {
   );
 
   return (
-    <div className="flex h-svh flex-col bg-background">
+    <div className={embedded ? "flex h-full flex-col bg-background" : "flex h-svh flex-col bg-background"}>
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+        <div className={embedded ? "flex h-14 items-center justify-between px-4" : "mx-auto flex h-14 max-w-2xl items-center justify-between px-4"}>
           <h1 className="text-base font-semibold text-primary">
             Moving Fairy
           </h1>
@@ -269,12 +274,14 @@ export function ChatInterface() {
             >
               AI Logic
             </Button>
-            <Link href="/boxes">
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <Package className="size-4" />
-                Boxes
-              </Button>
-            </Link>
+            {!embedded && (
+              <Link href="/boxes">
+                <Button variant="ghost" size="sm" className="gap-1.5">
+                  <Package className="size-4" />
+                  Boxes
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -285,7 +292,7 @@ export function ChatInterface() {
         className="flex-1 overflow-y-auto"
         onScroll={handleScroll}
       >
-        <div className="mx-auto max-w-2xl py-4">
+        <div className={embedded ? "py-4 px-2" : "mx-auto max-w-2xl py-4"}>
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center gap-3 py-16 text-center px-4">
               <p className="text-base text-muted-foreground">
@@ -341,7 +348,7 @@ export function ChatInterface() {
       {/* AI Logic Panel */}
       {showAILogic && (
         <div className="shrink-0 max-h-48 overflow-hidden transition-all">
-          <div className="mx-auto max-w-2xl">
+          <div className={embedded ? "" : "mx-auto max-w-2xl"}>
             <AILogicPanel events={logicEvents} isStreaming={isStreaming} />
           </div>
         </div>
@@ -349,7 +356,7 @@ export function ChatInterface() {
 
       {/* Input bar */}
       <div className="shrink-0">
-        <div className="mx-auto max-w-2xl">
+        <div className={embedded ? "" : "mx-auto max-w-2xl"}>
           <InputBar onSend={sendMessage} disabled={isStreaming} />
         </div>
       </div>
