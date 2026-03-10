@@ -8,16 +8,16 @@ const STATUS_COLORS: Record<BoxStatus, { bgColor: string; fgColor: string }> = {
     fgColor: "var(--color-text-muted)",
   },
   packed: {
-    bgColor: "color-mix(in srgb, var(--color-primary, #2d6a4f) 15%, transparent)",
-    fgColor: "var(--color-primary, #2d6a4f)",
+    bgColor: "color-mix(in srgb, var(--color-primary, #16a34a) 15%, transparent)",
+    fgColor: "var(--color-primary, #16a34a)",
   },
   shipped: {
     bgColor: "color-mix(in srgb, #3b82f6 15%, transparent)",
     fgColor: "#1d4ed8",
   },
   arrived: {
-    bgColor: "color-mix(in srgb, var(--color-primary, #2d6a4f) 15%, transparent)",
-    fgColor: "var(--color-primary, #2d6a4f)",
+    bgColor: "color-mix(in srgb, var(--color-primary, #16a34a) 15%, transparent)",
+    fgColor: "var(--color-primary, #16a34a)",
   },
 };
 

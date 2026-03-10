@@ -6,6 +6,20 @@
   --gradient-cta: linear-gradient(135deg, #16a34a, #22c55e);
   --gradient-nav-bar: linear-gradient(135deg, #16a34a, #15803d);
 
+  /* Warning text tokens (amber scale) */
+  --color-warning-text: #92400E;        /* maps to DS --color-warning-dark */
+  --color-warning-text-strong: #78350F; /* darker amber for emphasis */
+  --color-warning-text-muted: #B45309;  /* lighter amber */
+
+  /* Transition alias — maps to DS --transition-medium */
+  --transition-normal: 0.2s ease;
+
+  /* Subtle border (not in DS base tokens) */
+  --color-border-subtle: #f3f4f6;
+
+  /* Disabled text */
+  --color-text-disabled: #9ca3af;
+
   /* Section accents */
   --accent-dashboard: #16a34a;
   --accent-apply: #d97706;

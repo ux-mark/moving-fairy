@@ -44,9 +44,9 @@
 }
 
 .typeOptionActive {
-  border-color: var(--color-primary, #2d6a4f);
-  background: color-mix(in srgb, var(--color-primary, #2d6a4f) 10%, transparent);
-  color: var(--color-primary, #2d6a4f);
+  border-color: var(--color-primary, #16a34a);
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 10%, transparent);
+  color: var(--color-primary, #16a34a);
 }
 
 /* Room name */
@@ -74,8 +74,8 @@
 }
 
 .inputField:focus-visible {
-  border-color: var(--color-primary, #2d6a4f);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d6a4f) 20%, transparent);
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
 .inputFieldError {

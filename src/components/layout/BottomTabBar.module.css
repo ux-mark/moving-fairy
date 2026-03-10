@@ -33,6 +33,6 @@
 }
 
 .tabActive {
-  border-top: 2px solid var(--color-primary, #2d6a4f);
-  color: var(--color-primary, #2d6a4f);
+  border-top: 2px solid var(--color-primary, #16a34a);
+  color: var(--color-primary, #16a34a);
 }

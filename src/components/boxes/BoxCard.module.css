@@ -139,8 +139,8 @@
 }
 
 .addItemInput:focus-visible {
-  border-color: var(--color-primary, #2d6a4f);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d6a4f) 20%, transparent);
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
 /* Mark as packed */

@@ -32,8 +32,8 @@
 }
 
 .tabActive {
-  border-bottom: 2px solid var(--color-primary, #2d6a4f);
-  color: var(--color-primary, #2d6a4f);
+  border-bottom: 2px solid var(--color-primary, #16a34a);
+  color: var(--color-primary, #16a34a);
 }
 
 .scrollArea {
@@ -159,8 +159,8 @@
 }
 
 .itemNameInput:focus {
-  border-color: var(--color-primary, #2d6a4f);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #2d6a4f) 20%, transparent);
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
 .verdictSelect {
@@ -177,8 +177,8 @@
 }
 
 .verdictSelect:focus {
-  border-color: var(--color-primary, #2d6a4f);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #2d6a4f) 20%, transparent);
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
 /* Verdict group collapsible */
@@ -350,7 +350,7 @@
 .retryButton {
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-primary, #2d6a4f);
+  color: var(--color-primary, #16a34a);
   text-decoration: underline;
   text-underline-offset: 2px;
   background: none;
@@ -359,7 +359,7 @@
 }
 
 .retryButton:hover {
-  color: color-mix(in srgb, var(--color-primary, #2d6a4f) 80%, black);
+  color: color-mix(in srgb, var(--color-primary, #16a34a) 80%, black);
 }
 
 /* Collapsible content inner spacing */

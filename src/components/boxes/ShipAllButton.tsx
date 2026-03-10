@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Truck } from "lucide-react";
 import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
@@ -20,6 +20,7 @@ export function ShipAllButton({
   isSubmitting,
 }: ShipAllButtonProps) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const handleConfirm = useCallback(() => {
     onConfirm();
@@ -38,6 +39,7 @@ export function ShipAllButton({
   return (
     <>
       <Button
+        ref={triggerRef}
         variant="secondary"
         size="sm"
         className={styles.trigger ?? ""}
@@ -55,6 +57,7 @@ export function ShipAllButton({
         confirmLabel={isSubmitting ? "Updating..." : "Mark as shipped"}
         cancelLabel="Cancel"
         onConfirm={handleConfirm}
+        triggerRef={triggerRef}
         {...(isSubmitting !== undefined ? { isConfirming: isSubmitting } : {})}
       />
     </>

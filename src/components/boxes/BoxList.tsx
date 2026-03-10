@@ -152,7 +152,7 @@ export function BoxList({
           heading="No boxes yet"
           description="Start packing by telling Aisling which room you're tackling, or create a new box below."
           ctaLabel="New box"
-          onCtaClick={() => setCreatePanelOpen(true)}
+          onCtaClick={onCreateBox ? () => setCreatePanelOpen(true) : () => undefined}
         />
 
         <CreateBoxPanel

@@ -56,6 +56,7 @@ export function BoxCard({
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const isShipped = box.status === "shipped" || box.status === "arrived";
   const isPacking = box.status === "packing";
@@ -238,6 +239,7 @@ export function BoxCard({
                 {isPacking && onMarkPacked && (
                   <div className={styles.markPackedRow}>
                     <Button
+                      ref={triggerRef}
                       variant="outline"
                       size="sm"
                       style={{ width: "100%" }}
@@ -265,6 +267,7 @@ export function BoxCard({
         confirmLabel="Yes, packed"
         cancelLabel="Not yet"
         onConfirm={handleConfirmPacked}
+        triggerRef={triggerRef}
       />
     </>
   );
