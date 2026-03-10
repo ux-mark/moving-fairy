@@ -24,6 +24,11 @@ export async function POST(
   if (body.item_assessment_id !== undefined) opts.itemAssessmentId = body.item_assessment_id
   if (body.item_name !== undefined) opts.itemName = body.item_name
 
-  const boxItem = await addItemToBox(boxId, opts)
-  return Response.json(boxItem, { status: 201 })
+  try {
+    const boxItem = await addItemToBox(boxId, opts)
+    return Response.json(boxItem, { status: 201 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return Response.json({ ok: false, error: message }, { status: 500 })
+  }
 }
