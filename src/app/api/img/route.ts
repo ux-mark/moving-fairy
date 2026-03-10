@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 const isDev = process.env.NODE_ENV !== 'production'
 const allowedHostnames = [
   new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname,
+  'storage.googleapis.com',
   ...(isDev ? ['127.0.0.1', 'localhost'] : []),
 ]
 

@@ -11,7 +11,6 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-import Image from "next/image";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
@@ -362,7 +361,7 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
   return (
     <div className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
       {item.image_url ? (
-        <Image src={item.image_url} alt="" width={32} height={32} className="size-8 shrink-0 rounded object-cover" />
+        <img src={`/api/img?url=${encodeURIComponent(item.image_url)}`} alt="" className="size-8 shrink-0 rounded object-cover" />
       ) : (
         <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted">
           <ShoppingBag className="size-3.5 text-muted-foreground" />

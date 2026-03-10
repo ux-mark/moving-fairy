@@ -1,0 +1,15 @@
+# Architectural Decisions
+
+## ADR-001: Image storage path convention (2026-03-10)
+
+- **Status**: accepted
+- **Context**: Needed a storage path convention for uploaded item images in Supabase Storage.
+- **Decision**: Images stored at `{user_profile_id}/{uuid}.webp` in the `item-images` bucket. Bucket is public since the chat route fetches images server-side to convert to base64 for Claude, and the image proxy route also needs direct access.
+- **Consequences**: Public bucket means URLs are predictable if someone knows the profile ID and image UUID. Acceptable for now since image content is household items, not sensitive data. Can add signed URLs later if needed.
+
+## ADR-002: Image optimisation pipeline (2026-03-10)
+
+- **Status**: accepted
+- **Context**: Raw phone photos can be 5-15MB. Need to optimise before storage and before sending to Claude as base64.
+- **Decision**: Use `sharp` to auto-rotate (EXIF), resize longest edge to 1024px (without enlargement), convert to WebP at 80% quality. This runs server-side in the upload route.
+- **Consequences**: Adds `sharp` as a dependency (native binary). Output is typically 50-200KB per image, well-suited for base64 embedding in Claude API calls.
