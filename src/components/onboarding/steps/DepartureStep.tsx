@@ -22,7 +22,7 @@ export function DepartureStep({ value, onChange }: DepartureStepProps) {
         <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+      <fieldset className="fieldsetReset">
         <legend className="srOnly">Departure country</legend>
         <div className={styles.optionGrid}>
           {countries.map((country) => (

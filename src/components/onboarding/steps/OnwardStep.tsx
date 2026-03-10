@@ -61,7 +61,7 @@ export function OnwardStep({
         <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+      <fieldset className="fieldsetReset">
         <legend className="srOnly">Onward move plans</legend>
         <div className={styles.optionGrid}>
           {intentOptions.map((option) => (
@@ -102,7 +102,7 @@ export function OnwardStep({
             <p className={styles.subQuestionLabel}>
               Where are you thinking of moving next?
             </p>
-            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <fieldset className="fieldsetReset">
               <legend className="srOnly">Onward country</legend>
               <div className={styles.optionGrid}>
                 {availableCountries.map((country) => (
@@ -129,7 +129,7 @@ export function OnwardStep({
             <p className={styles.subQuestionLabel}>
               When are you thinking about that move?
             </p>
-            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <fieldset className="fieldsetReset">
               <legend className="srOnly">Onward timeline</legend>
               <div className={styles.optionGrid}>
                 {TIMELINE_OPTIONS.map((option) => (

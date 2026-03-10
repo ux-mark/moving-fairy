@@ -32,14 +32,13 @@ interface BoxCardProps {
 }
 
 function BoxIcon({ boxType }: { boxType: Box["box_type"] }) {
-  const iconStyle = { width: 20, height: 20, color: "var(--color-text-muted)", flexShrink: 0 };
   switch (boxType) {
     case BoxType.CARRYON:
-      return <Briefcase style={iconStyle} />;
+      return <Briefcase className={styles.boxIcon} />;
     case BoxType.CHECKED_LUGGAGE:
-      return <Luggage style={iconStyle} />;
+      return <Luggage className={styles.boxIcon} />;
     default:
-      return <Package style={iconStyle} />;
+      return <Package className={styles.boxIcon} />;
   }
 }
 
@@ -194,7 +193,7 @@ export function BoxCard({
                                 onRemoveItem(box.id, item.id);
                               }}
                               aria-label={`Remove ${item.item_name} from ${box.label}`}
-                              style={{ minHeight: 44, minWidth: 44, flexShrink: 0, color: "var(--color-text-muted)" }}
+                              className={styles.removeItemButton ?? ""}
                             >
                               <XIcon style={{ width: 16, height: 16 }} />
                             </Button>
@@ -208,7 +207,7 @@ export function BoxCard({
                 {/* Add to this box — inline input */}
                 {showAddInput && (
                   <div className={styles.addItemRow}>
-                    <div style={{ flex: 1, position: "relative" }}>
+                    <div className={styles.addItemInputWrap}>
                       <input
                         ref={inputRef}
                         type="text"
@@ -242,7 +241,7 @@ export function BoxCard({
                       ref={triggerRef}
                       variant="outline"
                       size="sm"
-                      style={{ width: "100%" }}
+                      className={styles.markPackedButton ?? ""}
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmPackedOpen(true);

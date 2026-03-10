@@ -159,3 +159,18 @@
   color: var(--color-text-muted);
   line-height: 1.5;
 }
+
+.errorBanner {
+  margin-top: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-error-bg, #fef2f2);
+  border: 1px solid var(--color-error-border, #fecaca);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--color-error);
+}
+
+.stepContainer {
+  position: relative;
+  min-height: 320px;
+}

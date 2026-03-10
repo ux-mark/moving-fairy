@@ -6,7 +6,11 @@
   border-top: 3px solid var(--color-primary);
   background: var(--color-bg-card);
   box-shadow: var(--shadow-card);
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
 }
 
 .cardShipped {
@@ -148,4 +152,27 @@
 /* Mark as packed */
 .markPackedRow {
   margin-top: 12px;
+}
+
+.boxIcon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.removeItemButton {
+  min-height: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.addItemInputWrap {
+  flex: 1;
+  position: relative;
+}
+
+.markPackedButton {
+  width: 100%;
 }

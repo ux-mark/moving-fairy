@@ -131,6 +131,12 @@
   color: var(--color-text-muted);
 }
 
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Submit + cancel */
 .submitButton {
   width: 100%;

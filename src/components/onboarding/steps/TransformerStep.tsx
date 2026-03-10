@@ -38,7 +38,7 @@ export function TransformerStep({
         <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+      <fieldset className="fieldsetReset">
         <legend className="srOnly">Do you own a voltage transformer?</legend>
         <div className={styles.optionGrid}>
           {options.map((option) => (

@@ -109,7 +109,7 @@ export function CreateBoxPanel({
 
         {/* Room name input */}
         {showRoomName && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className={styles.fieldGroup}>
             <label htmlFor="room-name" className={styles.labelText}>
               {boxType === BoxType.SINGLE_ITEM
                 ? "What is this item?"
@@ -172,7 +172,7 @@ export function CreateBoxPanel({
         <Button
           variant="primary"
           size="md"
-          className={styles.submitButton ?? ""}
+          className={cn(styles.submitButton, "ctaLift")}
           onClick={handleSubmit}
           {...(isSubmitting !== undefined ? { disabled: isSubmitting } : {})}
         >

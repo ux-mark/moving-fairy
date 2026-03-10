@@ -208,7 +208,7 @@ export function ProfileEditPanel({
           {/* Departure country */}
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Moving from</span>
-            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <fieldset className="fieldsetReset">
               <legend className="srOnly">Departure country</legend>
               <div className={styles.optionGrid}>
                 {countries.map((country) => (
@@ -239,7 +239,7 @@ export function ProfileEditPanel({
           {/* Arrival country */}
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Moving to</span>
-            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <fieldset className="fieldsetReset">
               <legend className="srOnly">Arrival country</legend>
               <div className={styles.optionGrid}>
                 {availableArrivalCountries.map((country) => (
@@ -268,7 +268,7 @@ export function ProfileEditPanel({
           {/* Onward move */}
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Planning an onward move?</span>
-            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <fieldset className="fieldsetReset">
               <legend className="srOnly">Onward move plans</legend>
               <div className={styles.optionGrid}>
                 {(
@@ -310,7 +310,7 @@ export function ProfileEditPanel({
             <div className={styles.onwardDetails}>
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Onward country</span>
-                <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+                <fieldset className="fieldsetReset">
                   <legend className="srOnly">Onward country</legend>
                   <div className={styles.optionGrid}>
                     {availableOnwardCountries.map((country) => (
@@ -334,7 +334,7 @@ export function ProfileEditPanel({
 
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Timeline</span>
-                <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+                <fieldset className="fieldsetReset">
                   <legend className="srOnly">Onward timeline</legend>
                   <div className={styles.optionGrid}>
                     {TIMELINE_OPTIONS.map((option) => (
@@ -362,7 +362,7 @@ export function ProfileEditPanel({
           {showTransformer && (
             <div className={styles.fieldGroup}>
               <span className={styles.label}>Voltage transformer</span>
-              <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+              <fieldset className="fieldsetReset">
                 <legend className="srOnly">
                   Do you own a voltage transformer?
                 </legend>

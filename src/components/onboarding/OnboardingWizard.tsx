@@ -13,6 +13,7 @@ import { ArrivalStep } from "./steps/ArrivalStep";
 import { OnwardStep } from "./steps/OnwardStep";
 import { TransformerStep } from "./steps/TransformerStep";
 import { ApiKeyStep } from "./steps/ApiKeyStep";
+import stepStyles from "./steps/step.module.css";
 
 type OnwardIntent = "yes" | "maybe" | "no";
 
@@ -191,7 +192,7 @@ export function OnboardingWizard() {
       nextDisabled={!canAdvance() || isSubmitting}
     >
       {/* Step content with Framer Motion transitions */}
-      <div style={{ position: "relative", minHeight: "320px" }}>
+      <div className={stepStyles.stepContainer}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={currentStep}
@@ -276,18 +277,7 @@ export function OnboardingWizard() {
 
       {/* Error message */}
       {error && (
-        <p
-          style={{
-            marginTop: "16px",
-            borderRadius: "8px",
-            background: "var(--color-error-bg)",
-            border: "1px solid var(--color-error-border)",
-            padding: "12px 16px",
-            fontSize: "14px",
-            color: "var(--color-error)",
-          }}
-          role="alert"
-        >
+        <p className={stepStyles.errorBanner} role="alert">
           {error}
         </p>
       )}
