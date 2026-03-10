@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { Camera, X } from "lucide-react";
 
-import { ChatInput, Button } from "@thefairies/design-system/components";
+import { ChatInput, Button, useToast } from "@thefairies/design-system/components";
 import styles from "./InputBar.module.css";
 
 interface InputBarProps {
@@ -18,6 +18,7 @@ export function InputBar({ onSend, disabled = false }: InputBarProps) {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,13 +36,13 @@ export function InputBar({ onSend, disabled = false }: InputBarProps) {
       }
 
       if (images.length + files.length > 20) {
-        alert("You can attach up to 20 photos at a time — only the first 20 were added.");
+        addToast("warning", "You can attach up to 20 photos at a time — only the first 20 were added.");
       }
       setImages((prev) => [...prev, ...newImages].slice(0, 20));
       // Reset file input so the same file can be re-selected
       e.target.value = "";
     },
-    [images.length]
+    [images.length, addToast]
   );
 
   const removeImage = useCallback((index: number) => {
@@ -108,11 +109,13 @@ export function InputBar({ onSend, disabled = false }: InputBarProps) {
       if (uploadFailed && imageUrls.length < images.length) {
         const failedCount = images.length - imageUrls.length;
         if (imageUrls.length === 0) {
-          alert(
+          addToast(
+            "error",
             `${failedCount === 1 ? "The image" : `All ${failedCount} images`} couldn't be uploaded. Please try again.`
           );
         } else {
-          alert(
+          addToast(
+            "warning",
             `${failedCount} of ${images.length} ${images.length === 1 ? "image" : "images"} couldn't be uploaded. The rest will be sent.`
           );
         }
@@ -134,7 +137,7 @@ export function InputBar({ onSend, disabled = false }: InputBarProps) {
       const validUrls = imageUrls.filter(Boolean);
       onSend(trimmed, validUrls);
     },
-    [images, onSend]
+    [images, onSend, addToast]
   );
 
   // Image preview strip — passed as aboveInput slot

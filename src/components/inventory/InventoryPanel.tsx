@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -10,6 +11,11 @@ import {
   Plane,
   ShoppingBag,
 } from "lucide-react";
+import {
+  EmptyState,
+  Skeleton,
+  SkeletonGroup,
+} from "@thefairies/design-system/components";
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
@@ -56,6 +62,7 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("container");
   const prefersReducedMotion = useReducedMotion();
   const isEmpty = assessments.length === 0 && boxes.length === 0;
+  const router = useRouter();
 
   return (
     <div className={cn(styles.panel, className)} aria-live="polite">
@@ -84,7 +91,12 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
         ) : error ? (
           <ErrorState error={error} onRetry={refreshInventory} />
         ) : isEmpty ? (
-          <EmptyStateView />
+          <EmptyState
+            heading="No items assessed yet"
+            description="Start a conversation with Aisling — snap a photo of something or type an item name."
+            ctaLabel="Chat with Aisling"
+            onCtaClick={() => router.push("/chat")}
+          />
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -436,31 +448,15 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
 /*  States                                                             */
 /* ------------------------------------------------------------------ */
 
-function EmptyStateView() {
-  return (
-    <div className={styles.emptyState}>
-      <div className={styles.emptyIcon}>
-        <Package style={{ width: 32, height: 32, color: "var(--color-text-muted)", opacity: 0.6 }} />
-      </div>
-      <div>
-        <p className={styles.emptyTitle}>No items assessed yet</p>
-        <p className={styles.emptyBody}>
-          Start a conversation with Aisling — snap a photo of something or type an item name.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function LoadingSkeleton() {
   return (
     <div className={styles.skeleton}>
       {[1, 2, 3].map((i) => (
-        <div key={i} className={styles.skeletonGroup}>
-          <div className={styles.skeletonLabel} />
-          <div className={styles.skeletonCard} />
-          <div className={styles.skeletonCard} />
-        </div>
+        <SkeletonGroup key={i} label="Loading inventory">
+          <Skeleton height={16} width="40%" borderRadius="var(--radius-sm)" style={{ marginBottom: 8 }} />
+          <Skeleton height={56} width="100%" borderRadius="var(--radius-md)" style={{ marginBottom: 6 }} />
+          <Skeleton height={56} width="100%" borderRadius="var(--radius-md)" />
+        </SkeletonGroup>
       ))}
     </div>
   );

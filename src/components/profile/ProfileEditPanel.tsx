@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   EditPanel,
   Button,
+  Spinner,
 } from "@thefairies/design-system/components";
 
 import { cn } from "@/lib/utils";
@@ -198,11 +198,7 @@ export function ProfileEditPanel({
     >
       {isLoading ? (
         <div className={styles.loadingWrapper}>
-          <Loader2
-            className="size-5 animate-spin motion-reduce:animate-none"
-            style={{ color: "var(--color-text-muted)" }}
-            aria-hidden="true"
-          />
+          <Spinner size="md" />
         </div>
       ) : (
         <div className={styles.form}>
@@ -466,10 +462,7 @@ export function ProfileEditPanel({
           >
             {isSaving ? (
               <>
-                <Loader2
-                  className="size-4 animate-spin motion-reduce:animate-none"
-                  aria-hidden="true"
-                />
+                <Spinner size="sm" />
                 Saving...
               </>
             ) : success ? (

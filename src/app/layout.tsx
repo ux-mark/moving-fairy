@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Source_Sans_3 } from "next/font/google";
+import { ToastProvider } from "@thefairies/design-system/components";
 import '@thefairies/design-system/styles/tokens.css';
 import '@thefairies/design-system/styles/animations.css';
 import './moving-fairy-tokens.css';
@@ -25,7 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={sourceSans.variable}>
-      <body className="antialiased" suppressHydrationWarning>{children}</body>
+      <body className="antialiased" suppressHydrationWarning>
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Package, Plus } from "lucide-react";
-import { Button } from "@thefairies/design-system/components";
+import { Plus } from "lucide-react";
+import {
+  Button,
+  EmptyState,
+} from "@thefairies/design-system/components";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
@@ -145,28 +148,12 @@ export function BoxList({
   if (boxes.length === 0 && unboxedItems.length === 0) {
     return (
       <>
-        <div className={styles.emptyState}>
-          <Package style={{ width: 48, height: 48, color: "var(--color-text-muted)", opacity: 0.5 }} />
-          <div className={styles.emptyCtaWrap}>
-            <p className={styles.emptyTitle}>No boxes yet.</p>
-            <p className={styles.emptyBody}>
-              {"Start packing by telling Aisling which room you\u2019re tackling, or tap \u2018New box\u2019 below."}
-            </p>
-          </div>
-          {onCreateBox && (
-            <div style={{ width: "100%", maxWidth: 320 }}>
-              <Button
-                variant="primary"
-                size="lg"
-                style={{ width: "100%", gap: 6 }}
-                onClick={() => setCreatePanelOpen(true)}
-              >
-                <Plus style={{ width: 16, height: 16 }} />
-                New box
-              </Button>
-            </div>
-          )}
-        </div>
+        <EmptyState
+          heading="No boxes yet"
+          description="Start packing by telling Aisling which room you're tackling, or create a new box below."
+          ctaLabel="New box"
+          onCtaClick={() => setCreatePanelOpen(true)}
+        />
 
         <CreateBoxPanel
           open={createPanelOpen}

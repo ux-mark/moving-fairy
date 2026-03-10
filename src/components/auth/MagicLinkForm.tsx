@@ -1,8 +1,8 @@
 "use client"
 
 import { FormEvent, useState } from "react"
-import { Check, Loader2 } from "lucide-react"
-import { Button } from "@thefairies/design-system/components"
+import { Check } from "lucide-react"
+import { Button, Spinner } from "@thefairies/design-system/components"
 import { createClient } from "@/lib/supabase/client"
 import styles from "./MagicLinkForm.module.css"
 
@@ -115,10 +115,7 @@ export function MagicLinkForm() {
       >
         {formState === "sending" ? (
           <>
-            <Loader2
-              className="mr-2 size-4 animate-spin"
-              aria-hidden="true"
-            />
+            <Spinner size="sm" />
             Sending...
           </>
         ) : (
