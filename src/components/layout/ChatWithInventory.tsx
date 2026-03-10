@@ -12,7 +12,7 @@ export function ChatWithInventory() {
   return (
     <AppLayout
       chatPanel={<ChatInterface embedded />}
-      inventoryPanel={<InventoryPanel className="h-full" />}
+      inventoryPanel={<InventoryPanel />}
     />
   );
 }
