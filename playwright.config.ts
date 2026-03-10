@@ -9,7 +9,7 @@ export default defineConfig({
   ...(process.env.CI ? { workers: 1 } : {}),
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },
@@ -35,8 +35,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
+    command: 'pnpm dev --port 3001',
+    url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
   },
 })
