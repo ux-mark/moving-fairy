@@ -1,0 +1,72 @@
+/* TypingIndicator — wrapper around DS ThinkingDots pattern */
+
+.wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 16px;
+}
+
+.bubble {
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-card, hsl(var(--card)));
+  padding: 12px 16px;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  border: 1px solid var(--color-border-default, hsl(var(--border)));
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Animated dot — mirrors DS Chat.module.css .dot */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-circle, 9999px);
+  background: var(--color-primary, hsl(var(--primary)));
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Static dot for prefers-reduced-motion */
+.dotStatic {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-circle, 9999px);
+  background: var(--color-primary, hsl(var(--primary)));
+  opacity: 0.6;
+}
+
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.label {
+  font-size: 12px;
+  color: var(--color-text-secondary, hsl(var(--muted-foreground)));
+}

@@ -1,0 +1,94 @@
+/* AILogicPanel — developer tool panel showing Aisling's tool calls */
+
+.panel {
+  border-top: 1px solid var(--color-border-default, hsl(var(--border)));
+  background: var(--color-bg-subtle, hsl(var(--muted) / 0.5));
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--color-border-subtle, hsl(var(--border) / 0.6));
+}
+
+.title {
+  color: var(--color-text-secondary, hsl(var(--muted-foreground)));
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success, #22c55e);
+}
+
+.liveDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-circle, 9999px);
+  background: var(--color-success, #22c55e);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.empty {
+  color: var(--color-text-disabled, hsl(var(--muted-foreground) / 0.6));
+  font-size: 12px;
+}
+
+.eventList {
+  overflow-y: auto;
+  max-height: 144px;
+  padding: 4px 8px;
+}
+
+.eventRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 0;
+  line-height: 1.5;
+}
+
+/* call badge — blue */
+.badgeCall {
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  padding: 0 4px;
+  background: hsl(217 91% 60% / 0.1);
+  color: hsl(217 91% 60%);
+}
+
+/* result badge — green */
+.badgeResult {
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  padding: 0 4px;
+  background: hsl(160 84% 39% / 0.1);
+  color: hsl(160 84% 39%);
+}
+
+.toolName {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--color-text-primary, hsl(var(--foreground) / 0.8));
+}
+
+.dataPreview {
+  color: var(--color-text-secondary, hsl(var(--muted-foreground) / 0.7));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

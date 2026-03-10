@@ -8,7 +8,7 @@ import { InputBar } from "@/components/chat/InputBar";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { AILogicPanel, type LogicEvent } from "@/components/chat/AILogicPanel";
-import { Button } from "@/components/ui/button";
+import { Button } from "@thefairies/design-system/components";
 
 interface ChatMessage {
   id: string;
