@@ -10,9 +10,14 @@ export async function GET() {
   const session = await getSession(sessionId)
   if (!session) return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
 
-  const boxes = await getBoxes(session.user_profile_id)
-  const boxesWithItems = await Promise.all(boxes.map((b) => getBox(b.id)))
-  return Response.json(boxesWithItems)
+  try {
+    const boxes = await getBoxes(session.user_profile_id)
+    const boxesWithItems = await Promise.all(boxes.map((b) => getBox(b.id)))
+    return Response.json(boxesWithItems)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return Response.json({ ok: false, error: message }, { status: 500 })
+  }
 }
 
 interface CreateBoxBody {
@@ -34,12 +39,17 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: 'room_name is required' }, { status: 400 })
   }
 
-  const box = await createBox(
-    session.user_profile_id,
-    body.room_name,
-    (body.box_type as BoxType) ?? BoxType.STANDARD,
-    body.size ? (body.size as BoxSize) : undefined,
-    body.item_label
-  )
-  return Response.json(box, { status: 201 })
+  try {
+    const box = await createBox(
+      session.user_profile_id,
+      body.room_name,
+      (body.box_type as BoxType) ?? BoxType.STANDARD,
+      body.size ? (body.size as BoxSize) : undefined,
+      body.item_label
+    )
+    return Response.json(box, { status: 201 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return Response.json({ ok: false, error: message }, { status: 500 })
+  }
 }
