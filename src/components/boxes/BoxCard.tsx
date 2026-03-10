@@ -10,22 +10,16 @@ import {
   Plus,
   X as XIcon,
 } from "lucide-react";
+import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { BoxSizeBadge } from "@/components/boxes/BoxSizeBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+import styles from "./BoxCard.module.css";
 
 interface BoxCardProps {
   box: Box;
@@ -38,14 +32,14 @@ interface BoxCardProps {
 }
 
 function BoxIcon({ boxType }: { boxType: Box["box_type"] }) {
-  const className = "size-5 shrink-0 text-muted-foreground";
+  const iconStyle = { width: 20, height: 20, color: "var(--color-text-muted)", flexShrink: 0 };
   switch (boxType) {
     case BoxType.CARRYON:
-      return <Briefcase className={className} />;
+      return <Briefcase style={iconStyle} />;
     case BoxType.CHECKED_LUGGAGE:
-      return <Luggage className={className} />;
+      return <Luggage style={iconStyle} />;
     default:
-      return <Package className={className} />;
+      return <Package style={iconStyle} />;
   }
 }
 
@@ -114,33 +108,26 @@ export function BoxCard({
 
   return (
     <>
-      <div
-        className={cn(
-          "rounded-lg border border-border bg-card transition-colors",
-          isShipped && "opacity-70"
-        )}
-      >
+      <div className={cn(styles.card, isShipped && styles.cardShipped)}>
         {/* Collapsed header — always visible */}
         <div
           role="button"
           tabIndex={0}
           onClick={handleToggle}
           onKeyDown={handleKeyDown}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left cursor-pointer select-none"
+          className={styles.header}
           aria-expanded={isOpen}
           aria-label={`${box.label}, ${items.length} ${items.length === 1 ? "item" : "items"}, status: ${box.status}`}
         >
           <BoxIcon boxType={box.box_type} />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-semibold text-foreground truncate">
-                {box.label}
-              </span>
+          <div className={styles.headerContent}>
+            <div className={styles.headerTopRow}>
+              <span className={styles.boxLabel}>{box.label}</span>
               {showSize && <BoxSizeBadge size={box.size!} />}
               <BoxStatusBadge status={box.status} />
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <div className={styles.headerMeta}>
               <span>
                 {items.length} {items.length === 1 ? "item" : "items"}
               </span>
@@ -149,10 +136,8 @@ export function BoxCard({
           </div>
 
           <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-muted-foreground transition-transform",
-              isOpen && "rotate-180"
-            )}
+            className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+            style={{ width: 16, height: 16 }}
           />
         </div>
 
@@ -172,34 +157,25 @@ export function BoxCard({
                   ? { duration: 0 }
                   : { type: "spring", stiffness: 300, damping: 30 }
               }
-              className="overflow-hidden"
+              className={styles.expandedContent}
             >
-              <div className="border-t border-border px-4 py-3">
+              <div className={styles.expandedInner}>
                 {/* Items list */}
                 {items.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No items in this box yet.
-                  </p>
+                  <p className={styles.emptyMessage}>No items in this box yet.</p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className={styles.itemList}>
                     {items.map((item) => {
                       const assessment = item.item_assessment_id
                         ? assessments?.[item.item_assessment_id]
                         : undefined;
 
                       return (
-                        <li
-                          key={item.id}
-                          className="flex min-h-[44px] items-center justify-between gap-2 text-sm"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-foreground truncate">
-                              {item.item_name}
-                            </span>
+                        <li key={item.id} className={styles.itemRow}>
+                          <div className={styles.itemRowLeft}>
+                            <span className={styles.itemName}>{item.item_name}</span>
                             {item.quantity > 1 && (
-                              <span className="text-muted-foreground">
-                                x{item.quantity}
-                              </span>
+                              <span className={styles.itemQty}>x{item.quantity}</span>
                             )}
                             {assessment && (
                               <VerdictBadge
@@ -212,15 +188,15 @@ export function BoxCard({
                           {!isShipped && onRemoveItem && (
                             <Button
                               variant="ghost"
-                              size="icon-xs"
+                              size="icon-sm"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onRemoveItem(box.id, item.id);
                               }}
                               aria-label={`Remove ${item.item_name} from ${box.label}`}
-                              className="shrink-0 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-destructive"
+                              style={{ minHeight: 44, minWidth: 44, flexShrink: 0, color: "var(--color-text-muted)" }}
                             >
-                              <XIcon />
+                              <XIcon style={{ width: 16, height: 16 }} />
                             </Button>
                           )}
                         </li>
@@ -231,8 +207,8 @@ export function BoxCard({
 
                 {/* Add to this box — inline input */}
                 {showAddInput && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="relative flex-1">
+                  <div className={styles.addItemRow}>
+                    <div style={{ flex: 1, position: "relative" }}>
                       <input
                         ref={inputRef}
                         type="text"
@@ -240,7 +216,7 @@ export function BoxCard({
                         onChange={(e) => setAddItemValue(e.target.value)}
                         onKeyDown={handleAddItemKeyDown}
                         placeholder="Type an item name to add..."
-                        className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className={styles.addItemInput}
                         aria-label={`Add item to ${box.label}`}
                       />
                     </div>
@@ -254,18 +230,18 @@ export function BoxCard({
                       disabled={!addItemValue.trim()}
                       aria-label="Add item"
                     >
-                      <Plus />
+                      <Plus style={{ width: 16, height: 16 }} />
                     </Button>
                   </div>
                 )}
 
                 {/* Mark as packed button */}
                 {isPacking && onMarkPacked && (
-                  <div className="mt-3">
+                  <div className={styles.markPackedRow}>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full"
+                      style={{ width: "100%" }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmPackedOpen(true);
@@ -282,25 +258,15 @@ export function BoxCard({
       </div>
 
       {/* Mark as packed confirmation dialog */}
-      <Dialog open={confirmPackedOpen} onOpenChange={setConfirmPackedOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark as packed?</DialogTitle>
-            <DialogDescription>
-              Mark {box.label} as packed? You can still edit it later.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmPackedOpen(false)}
-            >
-              Not yet
-            </Button>
-            <Button onClick={handleConfirmPacked}>Yes, packed</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        isOpen={confirmPackedOpen}
+        onClose={() => setConfirmPackedOpen(false)}
+        title="Mark as packed?"
+        description={`Mark ${box.label} as packed? You can still edit it later.`}
+        confirmLabel="Yes, packed"
+        cancelLabel="Not yet"
+        onConfirm={handleConfirmPacked}
+      />
     </>
   );
 }

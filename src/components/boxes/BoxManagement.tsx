@@ -7,6 +7,8 @@ import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWa
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { BoxSize, BoxType } from "@/lib/constants";
 
+import styles from "./BoxManagement.module.css";
+
 interface BoxManagementProps {
   initialBoxes: Box[];
   initialBoxItems: Record<string, BoxItem[]>;
@@ -263,7 +265,7 @@ export function BoxManagement({
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className={styles.container}>
       {pendingWarning && (
         <LightAssessmentWarning
           warningCard={pendingWarning.warningCard}

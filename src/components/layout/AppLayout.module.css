@@ -1,0 +1,123 @@
+/* AppLayout — DS tokens */
+
+.root {
+  display: flex;
+  height: 100svh;
+  flex-direction: column;
+  background: var(--color-bg-page);
+}
+
+/* Skip nav */
+.skipNav {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.skipNav:focus {
+  position: absolute;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  clip: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-primary, #2d6a4f);
+  padding: 8px 16px;
+  color: #fff;
+  outline: none;
+}
+
+/* Mobile: compact cost strip */
+.mobileStrip {
+  flex-shrink: 0;
+}
+
+.mobileStripInner {
+  display: flex;
+  align-items: center;
+}
+
+.mobileStripCost {
+  flex: 1;
+}
+
+.mobileStripActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+}
+
+/* Desktop: side-by-side */
+.desktopLayout {
+  display: none;
+  flex: 1;
+}
+
+@media (min-width: 768px) {
+  .mobileStrip {
+    display: none;
+  }
+
+  .desktopLayout {
+    display: flex;
+  }
+}
+
+.inventoryAside {
+  display: flex;
+  width: 40%;
+  min-width: 320px;
+  max-width: 480px;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border-default);
+}
+
+.inventoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-default);
+  padding: 6px 12px;
+}
+
+.editMoveButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.chatMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* Mobile: tabbed content */
+.mobileTabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .mobileTabs {
+    display: none;
+  }
+}
+
+.tabPanel {
+  flex: 1;
+  overflow: hidden;
+}
+
+.tabPanelHidden {
+  display: none;
+}

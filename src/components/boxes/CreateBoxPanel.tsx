@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Button } from "@thefairies/design-system/components";
 
 import { SlidePanel } from "@/components/shared/SlidePanel";
-import { Button } from "@/components/ui/button";
 import { BOX_SIZE_CBM, BoxSize, BoxType } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+import styles from "./CreateBoxPanel.module.css";
+
+// Note: SlidePanel will be migrated to DS EditPanel in a future pass.
 
 const SIZES: BoxSize[] = ["XS", "S", "M", "L"];
 
@@ -79,13 +83,11 @@ export function CreateBoxPanel({
 
   return (
     <SlidePanel open={open} onClose={handleClose} title="New box">
-      <div className="space-y-5">
+      <div className={styles.form}>
         {/* Box type selector */}
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-foreground">
-            Box type
-          </legend>
-          <div className="grid grid-cols-2 gap-2">
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Box type</legend>
+          <div className={styles.typeGrid}>
             {BOX_TYPES.map((t) => (
               <button
                 key={t.value}
@@ -95,10 +97,8 @@ export function CreateBoxPanel({
                   setError("");
                 }}
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                  boxType === t.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-card text-foreground hover:bg-muted"
+                  styles.typeOption,
+                  boxType === t.value && styles.typeOptionActive
                 )}
               >
                 {t.label}
@@ -109,11 +109,8 @@ export function CreateBoxPanel({
 
         {/* Room name input */}
         {showRoomName && (
-          <div className="space-y-2">
-            <label
-              htmlFor="room-name"
-              className="text-sm font-medium text-foreground"
-            >
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label htmlFor="room-name" className={styles.labelText}>
               {boxType === BoxType.SINGLE_ITEM
                 ? "What is this item?"
                 : "What room is this box for?"}
@@ -135,12 +132,12 @@ export function CreateBoxPanel({
               aria-invalid={!!error}
               aria-describedby={error ? "room-name-error" : undefined}
               className={cn(
-                "h-10 w-full rounded-lg border bg-transparent px-3 text-base text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                error ? "border-destructive" : "border-input"
+                styles.inputField,
+                error && styles.inputFieldError
               )}
             />
             {error && (
-              <p id="room-name-error" className="text-sm text-destructive">
+              <p id="room-name-error" className={styles.errorMessage}>
                 {error}
               </p>
             )}
@@ -149,28 +146,22 @@ export function CreateBoxPanel({
 
         {/* Size selector — segmented control */}
         {showSize && (
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">
-              Box size
-            </legend>
-            <div className="flex rounded-lg border border-border bg-muted p-1">
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Box size</legend>
+            <div className={styles.sizeControl}>
               {SIZES.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSize(s)}
                   className={cn(
-                    "flex-1 rounded-md px-2 py-2 text-center text-sm font-medium transition-colors",
-                    size === s
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    styles.sizeOption,
+                    size === s && styles.sizeOptionActive
                   )}
                   aria-pressed={size === s}
                 >
-                  <span className="block">{s}</span>
-                  <span className="block text-[10px] font-normal text-muted-foreground">
-                    {BOX_SIZE_CBM[s]} CBM
-                  </span>
+                  <span className={styles.sizeLabel}>{s}</span>
+                  <span className={styles.sizeCbm}>{BOX_SIZE_CBM[s]} CBM</span>
                 </button>
               ))}
             </div>
@@ -179,9 +170,11 @@ export function CreateBoxPanel({
 
         {/* Submit */}
         <Button
-          className="w-full h-11"
+          variant="primary"
+          size="md"
+          className={styles.submitButton ?? ""}
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          {...(isSubmitting !== undefined ? { disabled: isSubmitting } : {})}
         >
           {isSubmitting ? "Creating..." : "Create box"}
         </Button>
@@ -189,7 +182,7 @@ export function CreateBoxPanel({
         <button
           type="button"
           onClick={handleClose}
-          className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className={styles.cancelButton}
         >
           Cancel
         </button>

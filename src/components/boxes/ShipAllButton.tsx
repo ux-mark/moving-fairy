@@ -2,16 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { Truck } from "lucide-react";
+import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import styles from "./ShipAllButton.module.css";
 
 interface ShipAllButtonProps {
   boxCount: number;
@@ -47,32 +40,23 @@ export function ShipAllButton({
       <Button
         variant="secondary"
         size="sm"
-        className="gap-1.5"
+        className={styles.trigger ?? ""}
         onClick={() => setOpen(true)}
       >
-        <Truck className="size-4" />
+        <Truck style={{ width: 16, height: 16 }} />
         Mark all as shipped
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark all as shipped?</DialogTitle>
-            <DialogDescription>
-              This includes {parts.join(" and ")}. Shipped items become
-              read-only.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirm} disabled={isSubmitting}>
-              {isSubmitting ? "Updating..." : "Mark as shipped"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        title="Mark all as shipped?"
+        description={`This includes ${parts.join(" and ")}. Shipped items become read-only.`}
+        confirmLabel={isSubmitting ? "Updating..." : "Mark as shipped"}
+        cancelLabel="Cancel"
+        onConfirm={handleConfirm}
+        {...(isSubmitting !== undefined ? { isConfirming: isSubmitting } : {})}
+      />
     </>
   );
 }

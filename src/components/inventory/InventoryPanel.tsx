@@ -10,8 +10,6 @@ import {
   Plane,
   ShoppingBag,
 } from "lucide-react";
-
-
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
@@ -25,6 +23,8 @@ import type { Verdict } from "@/lib/constants";
 import { useInventory } from "@/lib/hooks/useInventory";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { cn } from "@/lib/utils";
+
+import styles from "./InventoryPanel.module.css";
 
 type ViewMode = "container" | "verdict";
 
@@ -58,43 +58,33 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
   const isEmpty = assessments.length === 0 && boxes.length === 0;
 
   return (
-    <div className={cn("flex h-full flex-col bg-background", className)} aria-live="polite">
+    <div className={cn(styles.panel, className)} aria-live="polite">
       <CostSummary data={costSummary} variant="full" />
 
-      <div className="flex shrink-0 border-b border-border bg-card">
+      <div className={styles.tabBar}>
         <button
           type="button"
           onClick={() => setViewMode("container")}
-          className={cn(
-            "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-            viewMode === "container"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
         >
           By container
         </button>
         <button
           type="button"
           onClick={() => setViewMode("verdict")}
-          className={cn(
-            "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-            viewMode === "verdict"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
         >
           By verdict
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className={styles.scrollArea}>
         {isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
           <ErrorState error={error} onRetry={refreshInventory} />
         ) : isEmpty ? (
-          <EmptyState />
+          <EmptyStateView />
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -170,10 +160,10 @@ function ContainerView({
   );
 
   return (
-    <div className="space-y-1 pb-6">
+    <div className={styles.viewStack}>
       {luggageBoxes.length > 0 && (
         <Section icon={Plane} title="Travelling with me">
-          <div className="space-y-2 px-4 pb-3">
+          <div className={styles.sectionContent}>
             {luggageBoxes.map((box) => (
               <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
             ))}
@@ -183,7 +173,7 @@ function ContainerView({
 
       {freightBoxes.length > 0 && (
         <Section icon={Package} title="Freight boxes">
-          <div className="space-y-2 px-4 pb-3">
+          <div className={styles.sectionContent}>
             {freightBoxes.map((box) => (
               <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
             ))}
@@ -193,16 +183,13 @@ function ContainerView({
 
       {singleItems.length > 0 && (
         <Section icon={Luggage} title="Large items — shipping individually">
-          <div className="space-y-2 px-4 pb-3">
+          <div className={styles.sectionContent}>
             {singleItems.map((box) => (
-              <div
-                key={box.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
-              >
+              <div key={box.id} className={styles.singleItemRow}>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{box.label}</p>
+                  <p className={styles.singleItemLabel}>{box.label}</p>
                   {box.cbm !== null && (
-                    <p className="text-xs text-muted-foreground">{box.cbm} CBM</p>
+                    <p className={styles.singleItemSubLabel}>{box.cbm} CBM</p>
                   )}
                 </div>
                 <BoxStatusBadge status={box.status} />
@@ -214,7 +201,7 @@ function ContainerView({
 
       {unboxedItems.length > 0 && (
         <Section icon={PackagePlus} title="Not yet boxed">
-          <div className="space-y-1 px-4 pb-3">
+          <div className={styles.collapsibleItems}>
             {unboxedItems.map((item) => (
               <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
             ))}
@@ -248,7 +235,7 @@ function VerdictView({
   );
 
   return (
-    <div className="space-y-1 pb-6">
+    <div className={styles.viewStack}>
       {grouped.map(({ verdict, items }) => (
         <VerdictGroup key={verdict} verdict={verdict} items={items} onRefresh={onRefresh} />
       ))}
@@ -269,20 +256,18 @@ function VerdictGroup({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50">
-        <div className="flex items-center gap-2">
+      <CollapsibleTrigger className={styles.verdictTrigger}>
+        <div className={styles.verdictTriggerLeft}>
           <VerdictBadge verdict={verdict} />
-          <span className="text-xs text-muted-foreground">{items.length}</span>
+          <span className={styles.verdictCount}>{items.length}</span>
         </div>
         <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            isOpen && "rotate-180"
-          )}
+          className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+          style={{ width: 16, height: 16 }}
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="space-y-1 px-4 pb-3">
+        <div className={styles.collapsibleItems}>
           {items.map((item) => (
             <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
           ))}
@@ -301,15 +286,15 @@ function Section({
   title,
   children,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <div className="flex items-center gap-2 px-4 py-3">
-        <Icon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className={styles.sectionHeader}>
+        <Icon style={{ width: 16, height: 16, color: "var(--color-text-muted)" }} />
+        <h3 className={styles.sectionTitle}>{title}</h3>
       </div>
       {children}
     </div>
@@ -359,16 +344,20 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
   );
 
   return (
-    <div className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
+    <div className={styles.itemRow}>
       {item.image_url ? (
-        <img src={`/api/img?url=${encodeURIComponent(item.image_url)}`} alt="" className="size-8 shrink-0 rounded object-cover" />
+        <img
+          src={`/api/img?url=${encodeURIComponent(item.image_url)}`}
+          alt=""
+          className={styles.itemThumb}
+        />
       ) : (
-        <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted">
-          <ShoppingBag className="size-3.5 text-muted-foreground" />
+        <div className={styles.itemThumbPlaceholder}>
+          <ShoppingBag style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
         </div>
       )}
 
-      <div className="min-w-0 flex-1">
+      <div className={styles.itemName}>
         {isEditing ? (
           <input
             type="text"
@@ -382,7 +371,7 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
                 setIsEditing(false);
               }
             }}
-            className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
+            className={styles.itemNameInput}
             // eslint-disable-next-line jsx-a11y/no-autofocus -- inline edit mode requires immediate focus
             autoFocus
           />
@@ -390,7 +379,7 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="max-w-full truncate text-left text-sm text-foreground hover:underline"
+            className={styles.itemNameButton}
             title="Click to edit name"
           >
             {item.item_name}
@@ -401,7 +390,7 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
       <select
         value={selectedVerdict}
         onChange={(e) => handleVerdictChange(e.target.value)}
-        className="h-7 shrink-0 rounded border border-border bg-background px-1.5 text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
+        className={styles.verdictSelect}
         aria-label={`Verdict for ${item.item_name}`}
       >
         {VERDICT_ORDER.map((v) => (
@@ -419,28 +408,21 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-muted-foreground">Not shipping</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {items.length}
-          </span>
+      <CollapsibleTrigger className={styles.notShippingTrigger}>
+        <div className={styles.verdictTriggerLeft}>
+          <span className={styles.notShippingLabel}>Not shipping</span>
+          <span className={styles.notShippingCount}>{items.length}</span>
         </div>
         <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            isOpen && "rotate-180"
-          )}
+          className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+          style={{ width: 16, height: 16 }}
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="space-y-1 px-4 pb-3">
+        <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-md px-2 py-1.5"
-            >
-              <span className="truncate text-sm text-muted-foreground">{item.item_name}</span>
+            <div key={item.id} className={styles.notShippingItem}>
+              <span className={styles.notShippingItemName}>{item.item_name}</span>
               <VerdictBadge verdict={item.verdict} className="text-[10px]" />
             </div>
           ))}
@@ -454,15 +436,15 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
 /*  States                                                             */
 /* ------------------------------------------------------------------ */
 
-function EmptyState() {
+function EmptyStateView() {
   return (
-    <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-      <div className="flex size-16 items-center justify-center rounded-full bg-muted">
-        <Package className="size-8 text-muted-foreground/60" />
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIcon}>
+        <Package style={{ width: 32, height: 32, color: "var(--color-text-muted)", opacity: 0.6 }} />
       </div>
       <div>
-        <p className="text-base font-medium text-foreground">No items assessed yet</p>
-        <p className="mt-1.5 max-w-[280px] text-sm text-muted-foreground">
+        <p className={styles.emptyTitle}>No items assessed yet</p>
+        <p className={styles.emptyBody}>
           Start a conversation with Aisling — snap a photo of something or type an item name.
         </p>
       </div>
@@ -472,12 +454,12 @@ function EmptyState() {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className={styles.skeleton}>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="space-y-2">
-          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-          <div className="h-14 animate-pulse rounded-lg bg-muted" />
-          <div className="h-14 animate-pulse rounded-lg bg-muted" />
+        <div key={i} className={styles.skeletonGroup}>
+          <div className={styles.skeletonLabel} />
+          <div className={styles.skeletonCard} />
+          <div className={styles.skeletonCard} />
         </div>
       ))}
     </div>
@@ -486,13 +468,9 @@ function LoadingSkeleton() {
 
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="text-sm text-destructive">{error}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80"
-      >
+    <div className={styles.errorState}>
+      <p className={styles.errorText}>{error}</p>
+      <button type="button" onClick={onRetry} className={styles.retryButton}>
         Try again
       </button>
     </div>

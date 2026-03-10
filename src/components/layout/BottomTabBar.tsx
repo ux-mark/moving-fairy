@@ -3,6 +3,7 @@
 import { MessageCircle, Package } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import styles from "./BottomTabBar.module.css";
 
 export type ActiveTab = "chat" | "inventory";
 
@@ -14,7 +15,7 @@ interface BottomTabBarProps {
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
   return (
     <div
-      className="flex shrink-0 items-stretch border-t border-border bg-card md:hidden"
+      className={styles.bar}
       role="tablist"
       aria-label="Main navigation"
     >
@@ -25,15 +26,9 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
         aria-selected={activeTab === "chat"}
         aria-controls="mobile-tabpanel-chat"
         onClick={() => onTabChange("chat")}
-        className={cn(
-          "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors",
-          "min-h-[48px]",
-          activeTab === "chat"
-            ? "border-t-2 border-primary text-primary"
-            : "text-muted-foreground"
-        )}
+        className={cn(styles.tab, activeTab === "chat" && styles.tabActive)}
       >
-        <MessageCircle className="size-5" />
+        <MessageCircle style={{ width: 20, height: 20 }} />
         <span>Chat</span>
       </button>
       <button
@@ -43,15 +38,9 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
         aria-selected={activeTab === "inventory"}
         aria-controls="mobile-tabpanel-inventory"
         onClick={() => onTabChange("inventory")}
-        className={cn(
-          "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors",
-          "min-h-[48px]",
-          activeTab === "inventory"
-            ? "border-t-2 border-primary text-primary"
-            : "text-muted-foreground"
-        )}
+        className={cn(styles.tab, activeTab === "inventory" && styles.tabActive)}
       >
-        <Package className="size-5" />
+        <Package style={{ width: 20, height: 20 }} />
         <span>Inventory</span>
       </button>
     </div>

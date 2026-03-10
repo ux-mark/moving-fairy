@@ -1,0 +1,149 @@
+/* BoxCard — DS tokens */
+
+.card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  transition: border-color var(--transition-fast);
+}
+
+.cardShipped {
+  opacity: 0.7;
+}
+
+.header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.headerTopRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.boxLabel {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Expanded content */
+.expandedContent {
+  overflow: hidden;
+}
+
+.expandedInner {
+  border-top: 1px solid var(--color-border-default);
+  padding: 12px 16px;
+}
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemRow {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.itemRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.itemName {
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemQty {
+  color: var(--color-text-muted);
+}
+
+.emptyMessage {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* Add item row */
+.addItemRow {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addItemInput {
+  flex: 1;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.addItemInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.addItemInput:focus-visible {
+  border-color: var(--color-primary, #2d6a4f);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d6a4f) 20%, transparent);
+}
+
+/* Mark as packed */
+.markPackedRow {
+  margin-top: 12px;
+}

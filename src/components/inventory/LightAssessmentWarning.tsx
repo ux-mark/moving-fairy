@@ -1,7 +1,9 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@thefairies/design-system/components";
+
+import styles from "./LightAssessmentWarning.module.css";
 import { cn } from "@/lib/utils";
 
 interface FlagMessage {
@@ -47,45 +49,40 @@ export function LightAssessmentWarning({
 }: LightAssessmentWarningProps) {
   return (
     <div
-      className={cn(
-        "rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30",
-        className
-      )}
+      className={cn(styles.card, className)}
       role="alert"
       aria-live="assertive"
     >
-      <div className="flex items-start gap-3">
+      <div className={styles.inner}>
         <AlertTriangle
-          className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+          className={styles.icon}
+          style={{ width: 20, height: 20 }}
           aria-hidden="true"
         />
-        <div className="flex-1 space-y-2">
-          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-            {warningCard.title}
-          </p>
+        <div className={styles.body}>
+          <p className={styles.title}>{warningCard.title}</p>
 
           {flagMessages.length > 0 && (
-            <ul className="space-y-1.5">
+            <ul className={styles.flagList}>
               {flagMessages.map((fm) => (
-                <li key={fm.flag} className="text-sm text-amber-800 dark:text-amber-200">
-                  <span className="font-medium">{fm.label}:</span>{" "}
+                <li key={fm.flag} className={styles.flagItem}>
+                  <span className={styles.flagItemLabel}>{fm.label}:</span>{" "}
                   {fm.detail}
                 </li>
               ))}
             </ul>
           )}
 
-          <p className="text-xs text-amber-700 dark:text-amber-300">
+          <p className={styles.confirmPrompt}>
             Add{" "}
-            <span className="font-medium">{warningCard.item_name}</span> to
+            <span style={{ fontWeight: 500 }}>{warningCard.item_name}</span> to
             the box anyway?
           </p>
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className={styles.actions}>
             <Button
               size="sm"
               variant="outline"
-              className="border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-100 dark:hover:bg-amber-800/50"
               onClick={() => onConfirm(confirmPayload)}
             >
               Add anyway
@@ -93,7 +90,6 @@ export function LightAssessmentWarning({
             <Button
               size="sm"
               variant="ghost"
-              className="text-amber-700 hover:bg-amber-100 hover:text-amber-900 dark:text-amber-300 dark:hover:bg-amber-900/30 dark:hover:text-amber-100"
               onClick={onDismiss}
             >
               {"Don't add"}

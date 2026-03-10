@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Settings } from "lucide-react";
+import { Button } from "@thefairies/design-system/components";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
@@ -10,9 +11,10 @@ import {
 } from "@/components/layout/BottomTabBar";
 import { CostSummary } from "@/components/inventory/CostSummary";
 import { ProfileEditPanel } from "@/components/profile/ProfileEditPanel";
-import { Button } from "@/components/ui/button";
 import { useInventory } from "@/lib/hooks/useInventory";
 import { cn } from "@/lib/utils";
+
+import styles from "./AppLayout.module.css";
 
 interface AppLayoutProps {
   chatPanel: React.ReactNode;
@@ -35,12 +37,9 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
   const { costSummary, refreshInventory } = useInventory();
 
   return (
-    <div className="flex h-svh flex-col bg-background">
+    <div className={styles.root}>
       {/* Skip navigation link */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline-none"
-      >
+      <a href="#main-content" className={styles.skipNav}>
         Skip to main content
       </a>
 
@@ -52,20 +51,20 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
       />
 
       {/* Mobile: compact cost strip with edit trigger */}
-      <div className="shrink-0 md:hidden">
-        <div className="flex items-center">
-          <div className="flex-1">
+      <div className={styles.mobileStrip}>
+        <div className={styles.mobileStripInner}>
+          <div className={styles.mobileStripCost}>
             <CostSummary data={costSummary} variant="compact" />
           </div>
-          <div className="mr-2 flex items-center gap-1">
+          <div className={styles.mobileStripActions}>
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={() => setProfileOpen(true)}
               aria-label="Edit move details"
-              className="text-muted-foreground"
+              style={{ color: "var(--color-text-muted)" }}
             >
-              <Settings className="size-4" />
+              <Settings style={{ width: 16, height: 16 }} />
             </Button>
             <SignOutButton />
           </div>
@@ -73,17 +72,17 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
       </div>
 
       {/* Desktop: side-by-side layout */}
-      <div className="hidden flex-1 md:flex">
+      <div className={styles.desktopLayout}>
         {/* Inventory panel — left side */}
-        <aside className="flex w-[40%] min-w-[320px] max-w-[480px] flex-col border-r border-border" aria-label="Inventory">
-          <div className="flex items-center justify-end gap-1 border-b border-border px-3 py-1.5">
+        <aside className={styles.inventoryAside} aria-label="Inventory">
+          <div className={styles.inventoryHeader}>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setProfileOpen(true)}
-              className="gap-1.5 text-xs text-muted-foreground"
+              className={styles.editMoveButton ?? ""}
             >
-              <Settings className="size-3.5" />
+              <Settings style={{ width: 14, height: 14 }} />
               Edit move details
             </Button>
             <SignOutButton />
@@ -92,18 +91,15 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
         </aside>
 
         {/* Chat panel — right side */}
-        <main id="main-content" className="flex flex-1 flex-col">
+        <main id="main-content" className={styles.chatMain}>
           {chatPanel}
         </main>
       </div>
 
       {/* Mobile: tabbed content */}
-      <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+      <div className={styles.mobileTabs}>
         <div
-          className={cn(
-            "flex-1 overflow-hidden",
-            activeTab === "chat" ? "block" : "hidden"
-          )}
+          className={cn(styles.tabPanel, activeTab !== "chat" && styles.tabPanelHidden)}
           id="mobile-tabpanel-chat"
           role="tabpanel"
           aria-labelledby="mobile-tab-chat"
@@ -111,10 +107,7 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
           {chatPanel}
         </div>
         <div
-          className={cn(
-            "flex-1 overflow-hidden",
-            activeTab === "inventory" ? "block" : "hidden"
-          )}
+          className={cn(styles.tabPanel, activeTab !== "inventory" && styles.tabPanelHidden)}
           id="mobile-tabpanel-inventory"
           role="tabpanel"
           aria-labelledby="mobile-tab-inventory"

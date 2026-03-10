@@ -1,20 +1,31 @@
-import { Check } from "lucide-react";
-
+import { Badge } from "@thefairies/design-system/components";
 import type { BoxStatus } from "@/lib/constants";
-import { cn } from "@/lib/utils";
 
-const STATUS_STYLES: Record<BoxStatus, string> = {
-  packing: "bg-muted text-muted-foreground",
-  packed: "bg-primary/15 text-primary",
-  shipped: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  arrived: "bg-primary/15 text-primary",
+// DS token colours mapped per status
+const STATUS_COLORS: Record<BoxStatus, { bgColor: string; fgColor: string }> = {
+  packing: {
+    bgColor: "var(--color-bg-subtle)",
+    fgColor: "var(--color-text-muted)",
+  },
+  packed: {
+    bgColor: "color-mix(in srgb, var(--color-primary, #2d6a4f) 15%, transparent)",
+    fgColor: "var(--color-primary, #2d6a4f)",
+  },
+  shipped: {
+    bgColor: "color-mix(in srgb, #3b82f6 15%, transparent)",
+    fgColor: "#1d4ed8",
+  },
+  arrived: {
+    bgColor: "color-mix(in srgb, var(--color-primary, #2d6a4f) 15%, transparent)",
+    fgColor: "var(--color-primary, #2d6a4f)",
+  },
 };
 
 const STATUS_LABELS: Record<BoxStatus, string> = {
   packing: "Packing",
   packed: "Packed",
   shipped: "Shipped",
-  arrived: "Arrived",
+  arrived: "Arrived ✓",
 };
 
 interface BoxStatusBadgeProps {
@@ -23,16 +34,14 @@ interface BoxStatusBadgeProps {
 }
 
 export function BoxStatusBadge({ status, className }: BoxStatusBadgeProps) {
+  const { bgColor, fgColor } = STATUS_COLORS[status];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-        STATUS_STYLES[status],
-        className
-      )}
-    >
-      {STATUS_LABELS[status]}
-      {status === "arrived" && <Check className="size-3" />}
-    </span>
+    <Badge
+      label={STATUS_LABELS[status]}
+      bgColor={bgColor}
+      fgColor={fgColor}
+      size="sm"
+      {...(className ? { className } : {})}
+    />
   );
 }
