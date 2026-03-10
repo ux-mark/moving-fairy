@@ -54,18 +54,44 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const openingTriggeredRef = useRef(false);
 
-  // Check for session on mount and trigger Aisling's opening message
+  // Check for session on mount and trigger Aisling's opening or welcome-back message
   useEffect(() => {
     const hasSession = document.cookie.includes("session_id=");
     if (!hasSession) {
       router.push("/onboarding");
       return;
     }
-    // Trigger opening message only once on fresh load
-    if (!openingTriggeredRef.current) {
-      openingTriggeredRef.current = true;
-      sendMessage("__opening__", []);
-    }
+    if (openingTriggeredRef.current) return;
+    openingTriggeredRef.current = true;
+
+    // Load session to detect returning user
+    fetch("/api/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.ok) {
+          sendMessage("__opening__", []);
+          return;
+        }
+
+        if (data.has_history && data.recent_messages?.length > 0) {
+          // Returning user — restore recent messages and send welcome-back
+          const restored: ChatMessage[] = data.recent_messages.map(
+            (m: { id: string; role: string; content: string }) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })
+          );
+          setMessages(restored);
+          sendMessage("__welcome_back__", []);
+        } else {
+          // New user
+          sendMessage("__opening__", []);
+        }
+      })
+      .catch(() => {
+        sendMessage("__opening__", []);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -92,9 +118,11 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
       setLogicEvents([]);
 
       const isOpeningTrigger = text === "__opening__";
+      const isWelcomeBack = text === "__welcome_back__";
+      const isInternalTrigger = isOpeningTrigger || isWelcomeBack;
 
-      // Add user message to the list (suppress internal opening trigger)
-      if (!isOpeningTrigger) {
+      // Add user message to the list (suppress internal triggers)
+      if (!isInternalTrigger) {
         const userMsg: ChatMessage = {
           id: `user-${Date.now()}`,
           role: "user",
@@ -108,6 +136,8 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
       setStreamingLabel(
         isOpeningTrigger
           ? "Aisling is getting ready..."
+          : isWelcomeBack
+          ? "Aisling is checking in..."
           : imageUrls.length > 0
           ? "Aisling is looking at your photo..."
           : "Aisling is thinking..."

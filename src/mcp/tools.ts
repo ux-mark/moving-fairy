@@ -21,6 +21,22 @@ function getAdminClient() {
 
 // ─── UserProfile ───────────────────────────────────────────────────────────
 
+export async function updateUserProfile(
+  profileId: string,
+  changes: Partial<Pick<UserProfile, 'departure_country' | 'arrival_country' | 'onward_country' | 'onward_timeline' | 'equipment' | 'anthropic_api_key'>>
+): Promise<UserProfile> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('user_profile')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', profileId)
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update profile')
+  return data as UserProfile
+}
+
 export async function getUserProfile(sessionId: string): Promise<UserProfile | null> {
   const supabase = getAdminClient()
   // Resolve session → user_profile_id → profile
