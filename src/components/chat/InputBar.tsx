@@ -62,6 +62,7 @@ export function InputBar({ onSend, disabled = false, textareaRef: externalRef }:
 
     // Upload images first
     const imageUrls: string[] = [];
+    let uploadFailed = false;
     if (images.length > 0) {
       setUploading(true);
       try {
@@ -69,14 +70,33 @@ export function InputBar({ onSend, disabled = false, textareaRef: externalRef }:
           const formData = new FormData();
           formData.append("file", img.file);
 
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-          });
+          try {
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
 
-          if (res.ok) {
-            const data = await res.json();
-            imageUrls.push(data.url);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.url) {
+                imageUrls.push(data.url);
+              } else {
+                uploadFailed = true;
+              }
+            } else {
+              uploadFailed = true;
+              let errMsg = "Upload failed";
+              try {
+                const errData = await res.json();
+                if (errData.error) errMsg = errData.error;
+              } catch {
+                // ignore parse error
+              }
+              console.error(`[InputBar] Image upload failed: ${errMsg}`);
+            }
+          } catch (err) {
+            uploadFailed = true;
+            console.error("[InputBar] Image upload error:", err);
           }
         }
       } finally {
@@ -84,15 +104,38 @@ export function InputBar({ onSend, disabled = false, textareaRef: externalRef }:
       }
     }
 
+    // If some uploads failed, warn the user
+    if (uploadFailed && imageUrls.length < images.length) {
+      const failedCount = images.length - imageUrls.length;
+      if (imageUrls.length === 0) {
+        alert(
+          `${failedCount === 1 ? "The image" : `All ${failedCount} images`} couldn't be uploaded. Please try again.`
+        );
+      } else {
+        alert(
+          `${failedCount} of ${images.length} ${images.length === 1 ? "image" : "images"} couldn't be uploaded. The rest will be sent.`
+        );
+      }
+    }
+
+    // Don't send if we had images but all uploads failed and no text
+    if (!trimmed && imageUrls.length === 0) {
+      // Keep images in the input so the user can retry
+      if (uploadFailed) return;
+      // Clean up and bail
+      images.forEach((img) => URL.revokeObjectURL(img.preview));
+      setImages([]);
+      return;
+    }
+
     // Clean up previews
     images.forEach((img) => URL.revokeObjectURL(img.preview));
     setImages([]);
     setText("");
 
-    // Don't send if we had images but all uploads failed
-    if (!trimmed && imageUrls.length === 0) return;
-
-    onSend(trimmed, imageUrls);
+    // Filter out any falsy URLs as a safety net
+    const validUrls = imageUrls.filter(Boolean);
+    onSend(trimmed, validUrls);
 
     // Refocus textarea
     textareaRef.current?.focus();
