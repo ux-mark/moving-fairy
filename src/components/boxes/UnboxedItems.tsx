@@ -100,6 +100,7 @@ function UnboxedItemRow({
             className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-expanded={dropdownOpen}
             aria-haspopup="listbox"
+            aria-label={`Add ${item.item_name} to a box`}
           >
             Add to box
             <ChevronDown className="size-3" />
@@ -114,6 +115,10 @@ function UnboxedItemRow({
               />
               <ul
                 role="listbox"
+                aria-label={`Available boxes for ${item.item_name}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setDropdownOpen(false);
+                }}
                 className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
               >
                 {availableBoxes.map((box) => (
