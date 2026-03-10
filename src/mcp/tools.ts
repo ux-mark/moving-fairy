@@ -276,7 +276,7 @@ export async function getCostSummary(userProfileId: string): Promise<{
 
 // ─── Box ───────────────────────────────────────────────────────────────────
 
-export function computeBoxLabel(
+function computeBoxLabel(
   boxType: BoxType,
   roomName: string,
   boxNumber: number,
