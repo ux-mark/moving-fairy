@@ -1,0 +1,28 @@
+import type { Metadata } from "next";
+import { Source_Sans_3 } from "next/font/google";
+import "./globals.css";
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+  weight: ["400", "500", "600", "700"],
+});
+
+export const metadata: Metadata = {
+  title: "Moving Fairy",
+  description:
+    "Your relocation fairy — helping you decide what to keep, ship, sell, or leave behind.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" className={sourceSans.variable}>
+      <body className="antialiased" suppressHydrationWarning>{children}</body>
+    </html>
+  );
+}
