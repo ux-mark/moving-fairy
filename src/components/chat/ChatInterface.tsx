@@ -29,7 +29,9 @@ interface ChatMessage {
     voltage_compatible?: boolean;
     needs_transformer?: boolean;
     estimated_ship_cost_usd?: number;
+    currency?: string;
     estimated_replace_cost_usd?: number;
+    replace_currency?: string;
   };
 }
 
@@ -45,14 +47,22 @@ export function ChatInterface() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const openingTriggeredRef = useRef(false);
 
-  // Check for session on mount
+  // Check for session on mount and trigger Aisling's opening message
   useEffect(() => {
-    const hasSession = document.cookie.includes("session_active=");
+    const hasSession = document.cookie.includes("session_id=");
     if (!hasSession) {
       router.push("/onboarding");
+      return;
     }
-  }, [router]);
+    // Trigger opening message only once on fresh load
+    if (!openingTriggeredRef.current) {
+      openingTriggeredRef.current = true;
+      sendMessage("__opening__", []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -76,18 +86,24 @@ export function ChatInterface() {
       setError(null);
       setLogicEvents([]);
 
-      // Add user message to the list
-      const userMsg: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: "user",
-        content: text,
-        ...(imageUrls.length > 0 ? { imageUrls } : {}),
-      };
+      const isOpeningTrigger = text === "__opening__";
 
-      setMessages((prev) => [...prev, userMsg]);
+      // Add user message to the list (suppress internal opening trigger)
+      if (!isOpeningTrigger) {
+        const userMsg: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: "user",
+          content: text,
+          ...(imageUrls.length > 0 ? { imageUrls } : {}),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+      }
+
       setIsStreaming(true);
       setStreamingLabel(
-        imageUrls.length > 0
+        isOpeningTrigger
+          ? "Aisling is getting ready..."
+          : imageUrls.length > 0
           ? "Aisling is looking at your photo..."
           : "Aisling is thinking..."
       );
@@ -160,7 +176,9 @@ export function ChatInterface() {
                         voltage_compatible: parsed.voltage_compatible,
                         needs_transformer: parsed.needs_transformer,
                         estimated_ship_cost_usd: parsed.estimated_ship_cost_usd,
+                        currency: parsed.currency,
                         estimated_replace_cost_usd: parsed.estimated_replace_cost_usd,
+                        replace_currency: parsed.replace_currency,
                       },
                     },
                   ]);
