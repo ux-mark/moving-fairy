@@ -1,0 +1,170 @@
+/* ChatInterface — DS tokens */
+
+/* ---- Root wrapper ---- */
+
+.rootStandalone {
+  display: flex;
+  height: 100svh;
+  flex-direction: column;
+  background: var(--color-bg-page, hsl(var(--background)));
+}
+
+.rootEmbedded {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  background: var(--color-bg-page, hsl(var(--background)));
+}
+
+/* ---- Header ---- */
+
+.header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-default, hsl(var(--border)));
+  background: var(--color-bg-page, hsl(var(--background)));
+}
+
+.headerInner {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.headerInnerConstrained {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 672px; /* Tailwind max-w-2xl */
+}
+
+.headerTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-primary, hsl(var(--primary)));
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- Messages scroll area ---- */
+
+.messagesScroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.messagesInner {
+  padding: 16px 0;
+  max-width: 672px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.messagesInnerEmbedded {
+  padding: 16px 8px;
+}
+
+/* ---- Empty state ---- */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  text-align: center;
+}
+
+.emptyStateText {
+  font-size: 1rem;
+  color: var(--color-text-muted, hsl(var(--muted-foreground)));
+}
+
+/* ---- Error banner ---- */
+
+.errorWrapper {
+  padding: 8px 16px;
+}
+
+.errorBox {
+  border-radius: var(--radius-lg, 8px);
+  background: hsl(var(--destructive) / 0.1);
+  padding: 12px 16px;
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: hsl(var(--destructive));
+}
+
+.errorDismiss {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--destructive));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ---- Scroll-to-bottom button ---- */
+
+.scrollButtonWrapper {
+  position: absolute;
+  bottom: 112px; /* bottom-28 = 7rem */
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.scrollButton {
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-bg-card, hsl(var(--card)));
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted, hsl(var(--muted-foreground)));
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  outline: 1px solid var(--color-border-default, hsl(var(--border)));
+  outline-offset: -1px;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast, 0.15s);
+}
+
+.scrollButton:hover {
+  background: var(--color-bg-subtle, hsl(var(--muted)));
+}
+
+/* ---- AI Logic panel wrapper ---- */
+
+.aiLogicWrapper {
+  flex-shrink: 0;
+  max-height: 192px;
+  overflow: hidden;
+  transition: max-height var(--transition-normal, 0.2s);
+}
+
+.aiLogicInner {
+  max-width: 672px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- Input bar wrapper ---- */
+
+.inputWrapper {
+  flex-shrink: 0;
+}
+
+.inputInner {
+  max-width: 672px;
+  margin-left: auto;
+  margin-right: auto;
+}

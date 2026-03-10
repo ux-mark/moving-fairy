@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RecommendationCard, type RecommendationStatus } from "@thefairies/design-system/components";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { Verdict } from "@/lib/constants";
+import styles from "./MessageBubble.module.css";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,7 +76,7 @@ function renderInlineFormatting(text: string) {
       return boldParts.map((bp, j) => {
         if (bp.startsWith("**") && bp.endsWith("**")) {
           return (
-            <strong key={`${i}-${j}`} className="font-semibold">
+            <strong key={`${i}-${j}`} className={styles.inlineBold}>
               {bp.slice(2, -2)}
             </strong>
           );
@@ -87,7 +88,7 @@ function renderInlineFormatting(text: string) {
             return (
               <em
                 key={`${i}-${j}-${k}`}
-                className="italic text-muted-foreground"
+                className={styles.inlineItalic}
               >
                 {ip.slice(1, -1)}
               </em>
@@ -97,7 +98,8 @@ function renderInlineFormatting(text: string) {
         });
       });
     }
-    return <VerdictBadge key={i} verdict={part.value} className="mx-0.5" />;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return <VerdictBadge key={i} verdict={part.value} className={styles.verdictBadgeSpacing!} />;
   });
 }
 
@@ -219,7 +221,7 @@ function AssessmentCard({
   };
 
   return (
-    <div className="mx-4 my-2">
+    <div className={styles.assessmentCardWrapper}>
       <RecommendationCard
         title={card.item}
         rationale={card.rationale}
@@ -259,24 +261,24 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
   if (isUser) {
     return (
       <div
-        className="flex w-full justify-end px-4 py-1.5"
+        className={`${styles.messageRow} ${styles.messageRowUser}`}
         aria-label="You said:"
       >
-        <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-3 text-primary-foreground sm:max-w-[75%]">
+        <div className={styles.bubbleUser}>
           {message.imageUrls && message.imageUrls.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
+            <div className={styles.imageStrip}>
               {message.imageUrls.map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
                   src={`/api/img?url=${encodeURIComponent(url)}`}
                   alt={`Submitted item ${i + 1}`}
-                  className="max-w-[280px] rounded-lg object-contain sm:max-w-[400px]"
+                  className={styles.submittedImage}
                 />
               ))}
             </div>
           )}
-          <div className="whitespace-pre-wrap text-base leading-relaxed">
+          <div className={styles.userText}>
             {message.content}
           </div>
         </div>
@@ -287,11 +289,11 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
   // ---- Case B: Assistant prose message — soft bubble, left-aligned ----
   return (
     <div
-      className="flex w-full justify-start px-4 py-1.5"
+      className={`${styles.messageRow} ${styles.messageRowAssistant}`}
       aria-label="Aisling said:"
     >
-      <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-muted/40 sm:max-w-[75%]">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+      <div className={styles.bubbleAssistant}>
+        <div className={styles.assistantText}>
           {renderInlineFormatting(message.content)}
         </div>
       </div>

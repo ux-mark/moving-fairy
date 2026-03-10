@@ -9,6 +9,7 @@ import { MessageBubble } from "@/components/chat/MessageBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { AILogicPanel, type LogicEvent } from "@/components/chat/AILogicPanel";
 import { Button } from "@thefairies/design-system/components";
+import styles from "./ChatInterface.module.css";
 
 interface ChatMessage {
   id: string;
@@ -280,26 +281,25 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
   );
 
   return (
-    <div className={embedded ? "flex h-full flex-col bg-background" : "flex h-svh flex-col bg-background"}>
+    <div className={embedded ? styles.rootEmbedded : styles.rootStandalone}>
       {/* Header */}
-      <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className={embedded ? "flex h-14 items-center justify-between px-4" : "mx-auto flex h-14 max-w-2xl items-center justify-between px-4"}>
-          <h1 className="text-base font-semibold text-primary">
+      <header className={styles.header}>
+        <div className={`${styles.headerInner}${embedded ? "" : ` ${styles.headerInnerConstrained}`}`}>
+          <h1 className={styles.headerTitle}>
             Moving Fairy
           </h1>
-          <div className="flex items-center gap-1">
+          <div className={styles.headerActions}>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowAILogic((v) => !v)}
               aria-pressed={showAILogic}
-              className="gap-1.5 text-xs"
             >
               AI Logic
             </Button>
             {!embedded && (
               <Link href="/boxes">
-                <Button variant="ghost" size="sm" className="gap-1.5">
+                <Button variant="ghost" size="sm">
                   <Package className="size-4" />
                   Boxes
                 </Button>
@@ -312,13 +312,13 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
       {/* Messages */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto"
+        className={styles.messagesScroll}
         onScroll={handleScroll}
       >
-        <div className={embedded ? "py-4 px-2" : "mx-auto max-w-2xl py-4"}>
+        <div className={embedded ? styles.messagesInnerEmbedded : styles.messagesInner}>
           {messages.length === 0 && !isStreaming && (
-            <div className="flex flex-col items-center gap-3 py-16 text-center px-4">
-              <p className="text-base text-muted-foreground">
+            <div className={styles.emptyState}>
+              <p className={styles.emptyStateText}>
                 Aisling is getting ready... give her a moment.
               </p>
             </div>
@@ -337,13 +337,13 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
 
           {/* Error */}
           {error && (
-            <div className="px-4 py-2">
-              <div className="rounded-lg bg-destructive/10 px-4 py-3" role="alert">
-                <p className="text-sm text-destructive">{error}</p>
+            <div className={styles.errorWrapper}>
+              <div className={styles.errorBox} role="alert">
+                <p className={styles.errorText}>{error}</p>
                 <button
                   type="button"
                   onClick={() => setError(null)}
-                  className="mt-2 text-sm font-medium text-destructive underline underline-offset-2"
+                  className={styles.errorDismiss}
                 >
                   Dismiss
                 </button>
@@ -357,11 +357,11 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
 
       {/* Scroll to bottom button */}
       {showScrollButton && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2">
+        <div className={styles.scrollButtonWrapper}>
           <button
             type="button"
             onClick={scrollToBottom}
-            className="rounded-full bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-md ring-1 ring-border transition-colors hover:bg-muted"
+            className={styles.scrollButton}
           >
             Scroll to bottom
           </button>
@@ -370,16 +370,16 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
 
       {/* AI Logic Panel */}
       {showAILogic && (
-        <div className="shrink-0 max-h-48 overflow-hidden transition-all">
-          <div className={embedded ? "" : "mx-auto max-w-2xl"}>
+        <div className={styles.aiLogicWrapper}>
+          <div className={embedded ? undefined : styles.aiLogicInner}>
             <AILogicPanel events={logicEvents} isStreaming={isStreaming} />
           </div>
         </div>
       )}
 
       {/* Input bar */}
-      <div className="shrink-0">
-        <div className={embedded ? "" : "mx-auto max-w-2xl"}>
+      <div className={styles.inputWrapper}>
+        <div className={embedded ? undefined : styles.inputInner}>
           <InputBar onSend={sendMessage} disabled={isStreaming} />
         </div>
       </div>
