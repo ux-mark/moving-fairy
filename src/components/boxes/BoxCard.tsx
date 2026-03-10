@@ -180,7 +180,6 @@ export function BoxCard({
                             {assessment && (
                               <VerdictBadge
                                 verdict={assessment.verdict}
-                                className="text-[10px] px-1.5 py-0.5"
                               />
                             )}
                           </div>

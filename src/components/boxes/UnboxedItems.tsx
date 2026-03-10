@@ -80,7 +80,6 @@ function UnboxedItemRow({
         <span className={styles.itemName}>{item.item_name}</span>
         <VerdictBadge
           verdict={item.verdict}
-          className="px-1.5 py-0.5 text-[10px]"
         />
       </div>
 

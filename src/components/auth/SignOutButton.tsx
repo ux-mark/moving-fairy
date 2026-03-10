@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { Button } from "@thefairies/design-system/components"
 import { createClient } from "@/lib/supabase/client"
+import styles from "./SignOutButton.module.css"
 
 export function SignOutButton() {
   const router = useRouter()
@@ -23,8 +24,8 @@ export function SignOutButton() {
       onClick={handleSignOut}
       title="Sign out"
     >
-      <LogOut className="size-3.5" aria-hidden="true" />
-      <span className="sr-only sm:not-sr-only">Sign out</span>
+      <LogOut className={styles.icon} aria-hidden="true" />
+      <span className={styles.label}>Sign out</span>
     </Button>
   )
 }

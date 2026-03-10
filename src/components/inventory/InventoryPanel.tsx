@@ -435,7 +435,7 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
           {items.map((item) => (
             <div key={item.id} className={styles.notShippingItem}>
               <span className={styles.notShippingItemName}>{item.item_name}</span>
-              <VerdictBadge verdict={item.verdict} className="text-[10px]" />
+              <VerdictBadge verdict={item.verdict} />
             </div>
           ))}
         </div>
