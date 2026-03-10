@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Figtree } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const figtree = Figtree({
+const sourceSans = Source_Sans_3({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-figtree",
+  variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
 });
 
@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${figtree.variable} antialiased`}>{children}</body>
+    <html lang="en" className={sourceSans.variable}>
+      <body className="antialiased" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
