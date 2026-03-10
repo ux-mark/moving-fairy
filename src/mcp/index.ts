@@ -1,0 +1,21 @@
+// MCP tool re-exports — all database access from the app goes through here
+export {
+  getUserProfile,
+  createUserProfile,
+  createSession,
+  getSession,
+  appendMessage,
+  saveItemAssessment,
+  updateItemAssessment,
+  getItemAssessments,
+  getCostSummary,
+  createBox,
+  addItemToBox,
+  removeItemFromBox,
+  getBox,
+  getBoxes,
+  saveBoxManifestPhoto,
+  getBoxManifest,
+  setAllBoxesShipped,
+  updateBoxCbm,
+} from './tools'

@@ -45,6 +45,18 @@ function countryToModuleCode(country: string): string {
   return country.toLowerCase()
 }
 
+function countryToCurrency(country: string): string {
+  const map: Record<string, string> = {
+    US: 'USD',
+    IE: 'EUR',
+    AU: 'AUD',
+    CA: 'CAD',
+    UK: 'GBP',
+    NZ: 'NZD',
+  }
+  return map[country.toUpperCase()] ?? 'USD'
+}
+
 // ─── Tool definitions ───────────────────────────────────────────────────────
 
 const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
@@ -74,11 +86,19 @@ const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
         },
         estimated_ship_cost: {
           type: 'number',
-          description: 'Estimated shipping cost in USD',
+          description: 'Estimated shipping cost in departure currency',
+        },
+        currency: {
+          type: 'string',
+          description: 'Currency code for estimated_ship_cost (e.g. "USD" for US departure)',
         },
         estimated_replace_cost: {
           type: 'number',
-          description: 'Estimated replacement cost at destination in USD',
+          description: 'Estimated replacement cost at arrival destination',
+        },
+        replace_currency: {
+          type: 'string',
+          description: 'Currency code for estimated_replace_cost (e.g. "EUR" for Ireland arrival)',
         },
       },
       required: ['item_name', 'verdict'],
@@ -202,8 +222,10 @@ const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
         image_url: { type: 'string', description: 'Storage URL of uploaded item image if from a photo assessment' },
         voltage_compatible: { type: 'boolean', description: 'Whether item works at destination voltage' },
         needs_transformer: { type: 'boolean', description: 'Whether item needs a voltage transformer' },
-        estimated_ship_cost_usd: { type: 'number', description: 'Estimated shipping cost in USD (SHIP/CARRY only)' },
-        estimated_replace_cost_usd: { type: 'number', description: 'Estimated replacement cost at destination in USD (SHIP/CARRY only)' },
+        estimated_ship_cost_usd: { type: 'number', description: 'Estimated shipping cost in departure currency (SHIP/CARRY only)' },
+        currency: { type: 'string', description: 'Currency code for estimated_ship_cost_usd (e.g. "USD")' },
+        estimated_replace_cost_usd: { type: 'number', description: 'Estimated replacement cost at arrival destination (SHIP/CARRY only)' },
+        replace_currency: { type: 'string', description: 'Currency code for estimated_replace_cost_usd (e.g. "EUR")' },
       },
       required: ['item', 'verdict', 'confidence', 'rationale', 'action'],
     },
@@ -262,7 +284,9 @@ async function executeTool(
           voltage_compatible: (input.voltage_compatible as boolean) ?? null,
           needs_transformer: (input.needs_transformer as boolean) ?? null,
           estimated_ship_cost: (input.estimated_ship_cost as number) ?? null,
+          currency: (input.currency as string) ?? null,
           estimated_replace_cost: (input.estimated_replace_cost as number) ?? null,
+          replace_currency: (input.replace_currency as string) ?? null,
         })
         return JSON.stringify({ success: true, assessment_id: record.id })
       }
@@ -566,6 +590,9 @@ export async function POST(req: NextRequest) {
     const voltageModule = readKnowledgeFile('voltage.md')
     const shippingEconModule = readKnowledgeFile('shipping-economics.md')
 
+    const departureCurrency = departureCountry ? countryToCurrency(departureCountry) : 'USD'
+    const arrivalCurrency = arrivalCountry ? countryToCurrency(arrivalCountry) : 'EUR'
+
     const profileBlock = profile
       ? `## User Profile
 
@@ -576,6 +603,10 @@ Onward timeline: ${profile.onward_timeline ?? 'N/A'}
 Equipment: ${JSON.stringify(profile.equipment ?? {})}
 User profile ID: ${profile.id}
 Session ID: ${sessionId}
+Departure currency: ${departureCurrency}
+Arrival currency: ${arrivalCurrency}
+
+When calling save_item_assessment, always set currency="${departureCurrency}" and replace_currency="${arrivalCurrency}".
 `
       : ''
 
@@ -602,6 +633,12 @@ Session ID: ${sessionId}
         content: m.content,
       }))
 
+    // ── Detect opening trigger ─────────────────────────────────────────────────
+    const isOpeningTrigger = message === '__opening__'
+    const effectiveMessage = isOpeningTrigger
+      ? '[SYSTEM: This is the start of a new session. Greet the user warmly. Confirm their move details (departure, arrival, and onward country if set). Invite them to start going through their things.]'
+      : message
+
     // Build current user message with optional images
     const userContent: Anthropic.Messages.ContentBlockParam[] = []
 
@@ -620,7 +657,7 @@ Session ID: ${sessionId}
       } as Anthropic.Messages.ImageBlockParam)
     }
 
-    if (message) userContent.push({ type: 'text', text: message })
+    if (effectiveMessage) userContent.push({ type: 'text', text: effectiveMessage })
 
     anthropicMessages.push({ role: 'user', content: userContent })
 
@@ -652,14 +689,17 @@ Session ID: ${sessionId}
           controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
           controller.close()
 
-          const persistedUserContent =
-            message || `[${allImageUrls.length} image${allImageUrls.length > 1 ? 's' : ''}]`
-          await appendMessage(sessionId, {
-            id: userMessageId,
-            role: 'user',
-            content: persistedUserContent,
-            created_at: now,
-          })
+          // Don't persist the internal opening trigger as a user message
+          if (!isOpeningTrigger) {
+            const persistedUserContent =
+              message || `[${allImageUrls.length} image${allImageUrls.length > 1 ? 's' : ''}]`
+            await appendMessage(sessionId, {
+              id: userMessageId,
+              role: 'user',
+              content: persistedUserContent,
+              created_at: now,
+            })
+          }
           await appendMessage(sessionId, {
             id: assistantMessageId,
             role: 'assistant',
