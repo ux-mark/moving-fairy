@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Settings } from "lucide-react";
 
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   BottomTabBar,
   type ActiveTab,
@@ -56,15 +57,18 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
           <div className="flex-1">
             <CostSummary data={costSummary} variant="compact" />
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setProfileOpen(true)}
-            aria-label="Edit move details"
-            className="mr-2 text-muted-foreground"
-          >
-            <Settings className="size-4" />
-          </Button>
+          <div className="mr-2 flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setProfileOpen(true)}
+              aria-label="Edit move details"
+              className="text-muted-foreground"
+            >
+              <Settings className="size-4" />
+            </Button>
+            <SignOutButton />
+          </div>
         </div>
       </div>
 
@@ -72,7 +76,7 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
       <div className="hidden flex-1 md:flex">
         {/* Inventory panel — left side */}
         <aside className="flex w-[40%] min-w-[320px] max-w-[480px] flex-col border-r border-border" aria-label="Inventory">
-          <div className="flex items-center justify-end border-b border-border px-3 py-1.5">
+          <div className="flex items-center justify-end gap-1 border-b border-border px-3 py-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -82,6 +86,7 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
               <Settings className="size-3.5" />
               Edit move details
             </Button>
+            <SignOutButton />
           </div>
           {inventoryPanel}
         </aside>

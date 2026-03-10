@@ -1,13 +1,14 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
 export default async function Home() {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (sessionId) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
     redirect('/chat')
   }
 
@@ -43,7 +44,7 @@ export default async function Home() {
 
         {/* Primary CTA */}
         <Link
-          href="/onboarding"
+          href="/auth/login"
           className={cn(
             'inline-flex h-12 items-center justify-center rounded-lg',
             'bg-primary px-8 text-base font-semibold text-primary-foreground',
@@ -55,6 +56,21 @@ export default async function Home() {
         >
           Let&rsquo;s get started
         </Link>
+
+        {/* Sign in link */}
+        <p className="mt-4 text-sm text-muted-foreground">
+          Already have an account?{' '}
+          <Link
+            href="/auth/login"
+            className={cn(
+              'font-medium text-primary underline underline-offset-2',
+              'transition-colors hover:text-primary/80',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:rounded-sm'
+            )}
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
     </main>
   )
