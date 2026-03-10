@@ -22,7 +22,7 @@
     "@base-ui/react": "^1.2.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.0",
-    "@thefairies/design-system": "git+https://github.com/ux-mark/thefairies-ds.git",
+    "@thefairies/design-system": "github:ux-mark/thefairies-ds#feature/moving-fairy-components",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.2",
