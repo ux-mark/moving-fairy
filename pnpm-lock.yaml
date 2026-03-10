@@ -22,7 +22,7 @@ importers:
         version: 2.99.0
       '@thefairies/design-system':
         specifier: git+https://github.com/ux-mark/thefairies-ds.git
-        version: git+https://github.com/ux-mark/thefairies-ds.git#c4ac029762aa0e534dce5a4c49307dfd945332ad(@babel/core@7.29.0)(@playwright/test@1.58.2)
+        version: git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b(@babel/core@7.29.0)(@playwright/test@1.58.2)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1314,8 +1314,8 @@ packages:
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
 
-  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#c4ac029762aa0e534dce5a4c49307dfd945332ad':
-    resolution: {commit: c4ac029762aa0e534dce5a4c49307dfd945332ad, repo: https://github.com/ux-mark/thefairies-ds.git, type: git}
+  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b':
+    resolution: {commit: 3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b, repo: https://github.com/ux-mark/thefairies-ds.git, type: git}
     version: 0.1.0
 
   '@ts-morph/common@0.27.0':
@@ -5049,7 +5049,7 @@ snapshots:
     dependencies:
       '@testing-library/dom': 10.4.1
 
-  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#c4ac029762aa0e534dce5a4c49307dfd945332ad(@babel/core@7.29.0)(@playwright/test@1.58.2)':
+  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b(@babel/core@7.29.0)(@playwright/test@1.58.2)':
     dependencies:
       lucide-react: 0.468.0(react@19.2.3)
       next: 15.5.12(@babel/core@7.29.0)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
