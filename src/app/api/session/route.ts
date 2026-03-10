@@ -53,6 +53,9 @@ export async function GET() {
   const messages = Array.isArray(session.messages) ? session.messages : []
   const hasHistory = messages.length > 0
 
+  // Strip sensitive fields before returning profile
+  const { anthropic_api_key: _, ...safeProfile } = profile
+
   return Response.json({
     ok: true,
     session: {
@@ -61,7 +64,7 @@ export async function GET() {
       created_at: session.created_at,
       updated_at: session.updated_at,
     },
-    profile,
+    profile: safeProfile,
     summary,
     has_history: hasHistory,
     recent_messages: messages.slice(-20),
