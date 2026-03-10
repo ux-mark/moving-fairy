@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 
-import { getSession, getBoxes, getBox } from '@/mcp'
-import { BoxList } from '@/components/boxes/BoxList'
+import { getSession, getBoxes, getBox, getItemAssessments } from '@/mcp'
+import { BoxManagement } from '@/components/boxes/BoxManagement'
 import { Button } from '@/components/ui/button'
+import { Verdict } from '@/lib/constants'
 
 export default async function BoxesPage() {
   const cookieStore = await cookies()
@@ -15,9 +16,18 @@ export default async function BoxesPage() {
   const session = await getSession(sessionId)
   if (!session) redirect('/onboarding')
 
-  const boxes = await getBoxes(session.user_profile_id)
+  const [boxes, assessments] = await Promise.all([
+    getBoxes(session.user_profile_id),
+    getItemAssessments(session.user_profile_id),
+  ])
+
   const boxesWithItems = await Promise.all(boxes.map((b) => getBox(b.id)))
   const boxItems = Object.fromEntries(boxesWithItems.map((b) => [b.id, b.items]))
+
+  // Only SHIP and CARRY assessments matter for box management
+  const relevantAssessments = assessments.filter(
+    (a) => a.verdict === Verdict.SHIP || a.verdict === Verdict.CARRY
+  )
 
   return (
     <div className="min-h-svh bg-background">
@@ -34,7 +44,11 @@ export default async function BoxesPage() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
-        <BoxList boxes={boxes} boxItems={boxItems} />
+        <BoxManagement
+          initialBoxes={boxes}
+          initialBoxItems={boxItems}
+          initialAssessments={relevantAssessments}
+        />
       </main>
     </div>
   )
