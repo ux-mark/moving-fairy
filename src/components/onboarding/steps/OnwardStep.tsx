@@ -62,7 +62,7 @@ export function OnwardStep({
       </div>
 
       <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-        <legend className="sr-only">Onward move plans</legend>
+        <legend className="srOnly">Onward move plans</legend>
         <div className={styles.optionGrid}>
           {intentOptions.map((option) => (
             <button
@@ -103,7 +103,7 @@ export function OnwardStep({
               Where are you thinking of moving next?
             </p>
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-              <legend className="sr-only">Onward country</legend>
+              <legend className="srOnly">Onward country</legend>
               <div className={styles.optionGrid}>
                 {availableCountries.map((country) => (
                   <button
@@ -130,7 +130,7 @@ export function OnwardStep({
               When are you thinking about that move?
             </p>
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-              <legend className="sr-only">Onward timeline</legend>
+              <legend className="srOnly">Onward timeline</legend>
               <div className={styles.optionGrid}>
                 {TIMELINE_OPTIONS.map((option) => (
                   <button

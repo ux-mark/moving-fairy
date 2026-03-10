@@ -2,8 +2,8 @@
 
 .root {
   display: flex;
-  height: 100svh;
   flex-direction: column;
+  height: 100svh;
   background: var(--color-bg-page);
 }
 
@@ -30,94 +30,118 @@
   outline: none;
 }
 
-/* Mobile: compact cost strip */
-.mobileStrip {
-  flex-shrink: 0;
-}
-
-.mobileStripInner {
-  display: flex;
-  align-items: center;
-}
-
-.mobileStripCost {
-  flex: 1;
-}
-
-.mobileStripActions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 8px;
-}
-
-/* Desktop: side-by-side */
-.desktopLayout {
+/* Mobile cost summary strip */
+.costStrip {
   display: none;
-  flex: 1;
 }
 
-@media (min-width: 768px) {
-  .mobileStrip {
-    display: none;
-  }
-
-  .desktopLayout {
+@media (max-width: 767px) {
+  .costStrip {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
   }
 }
 
-.inventoryAside {
+/* Body — chat + optional inventory panel */
+.body {
   display: flex;
-  width: 40%;
-  min-width: 320px;
-  max-width: 480px;
-  flex-direction: column;
-  border-right: 1px solid var(--color-border-default);
+  flex: 1;
+  overflow: hidden;
+  position: relative;
 }
 
-.inventoryHeader {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  border-bottom: 1px solid var(--color-border-default);
-  padding: 6px 12px;
-}
-
-.editMoveButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
+/* Chat — primary content */
 .chatMain {
   display: flex;
   flex: 1;
   flex-direction: column;
-}
-
-/* Mobile: tabbed content */
-.mobileTabs {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
+  min-width: 0;
   overflow: hidden;
 }
 
-@media (min-width: 768px) {
-  .mobileTabs {
+/* Inventory side panel */
+.inventoryPanel {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  border-left: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+}
+
+/* Mobile: full-screen overlay from right */
+@media (max-width: 767px) {
+  .inventoryPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    z-index: var(--z-panel, 200);
+    border-left: none;
+    box-shadow: var(--shadow-edit-panel);
+  }
+}
+
+/* Resize handle — left edge of inventory panel */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  .resizeHandle {
     display: none;
   }
 }
 
-.tabPanel {
-  flex: 1;
-  overflow: hidden;
+.resizeLine {
+  width: 2px;
+  height: 100%;
+  background: var(--color-border-default);
+  transition: background var(--transition-fast);
 }
 
-.tabPanelHidden {
+.resizeHandle:hover .resizeLine {
+  background: var(--color-border-input);
+}
+
+/* Inventory content area */
+.inventoryContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Mobile backdrop behind inventory overlay */
+.mobileBackdrop {
   display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgb(0 0 0 / 0.4);
+    z-index: calc(var(--z-panel, 200) - 1);
+  }
 }

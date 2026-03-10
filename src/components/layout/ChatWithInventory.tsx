@@ -1,18 +1,36 @@
 "use client";
 
+import { useState } from "react";
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { InventoryPanel } from "@/components/inventory/InventoryPanel";
+import { InventorySidePanel } from "@/components/inventory/InventorySidePanel";
+import type { LogicEvent } from "@/components/chat/AILogicPanel";
 
 /**
- * Composes AppLayout with ChatInterface and InventoryPanel.
- * This is the main entry point for the chat experience.
+ * Composes AppLayout with ChatInterface and InventorySidePanel.
+ * Lifts AI Logic state so it can be displayed in the inventory panel's tab bar.
  */
 export function ChatWithInventory() {
+  const [logicEvents, setLogicEvents] = useState<LogicEvent[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+
   return (
     <AppLayout
-      chatPanel={<ChatInterface embedded />}
-      inventoryPanel={<InventoryPanel />}
+      chatPanel={
+        <ChatInterface
+          onLogicEvent={(event) =>
+            setLogicEvents((prev) => [...prev, event])
+          }
+          onStreamingChange={setIsStreaming}
+        />
+      }
+      inventoryPanel={
+        <InventorySidePanel
+          logicEvents={logicEvents}
+          isStreaming={isStreaming}
+        />
+      }
     />
   );
 }

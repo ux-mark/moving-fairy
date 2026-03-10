@@ -9,10 +9,10 @@
 
 .bubble {
   border-radius: var(--radius-lg, 12px);
-  background: var(--color-bg-card, hsl(var(--card)));
+  background: var(--color-bg-card);
   padding: 12px 16px;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  border: 1px solid var(--color-border-default, hsl(var(--border)));
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border-default);
 }
 
 .row {
@@ -32,7 +32,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-circle, 9999px);
-  background: var(--color-primary, hsl(var(--primary)));
+  background: var(--color-primary);
   animation: dotPulse 1.4s ease-in-out infinite;
 }
 
@@ -49,7 +49,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-circle, 9999px);
-  background: var(--color-primary, hsl(var(--primary)));
+  background: var(--color-primary);
   opacity: 0.6;
 }
 
@@ -68,5 +68,5 @@
 
 .label {
   font-size: 12px;
-  color: var(--color-text-secondary, hsl(var(--muted-foreground)));
+  color: var(--color-text-secondary);
 }

@@ -54,8 +54,7 @@ export function MagicLinkForm() {
       <div className={styles.sentWrapper}>
         <div className={styles.sentIcon}>
           <Check
-            className="size-7"
-            style={{ color: "var(--color-primary)" }}
+            style={{ width: 28, height: 28, color: "var(--color-primary)" }}
             strokeWidth={2.5}
             aria-hidden="true"
           />

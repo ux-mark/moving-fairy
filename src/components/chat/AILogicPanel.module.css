@@ -1,8 +1,8 @@
 /* AILogicPanel — developer tool panel showing Aisling's tool calls */
 
 .panel {
-  border-top: 1px solid var(--color-border-default, hsl(var(--border)));
-  background: var(--color-bg-subtle, hsl(var(--muted) / 0.5));
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-bg-subtle);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12px;
 }
@@ -12,11 +12,11 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--color-border-subtle, hsl(var(--border) / 0.6));
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .title {
-  color: var(--color-text-secondary, hsl(var(--muted-foreground)));
+  color: var(--color-text-secondary);
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -43,7 +43,7 @@
 }
 
 .empty {
-  color: var(--color-text-disabled, hsl(var(--muted-foreground) / 0.6));
+  color: var(--color-text-disabled);
   font-size: 12px;
 }
 
@@ -82,11 +82,11 @@
 .toolName {
   flex-shrink: 0;
   font-weight: 600;
-  color: var(--color-text-primary, hsl(var(--foreground) / 0.8));
+  color: var(--color-text-primary);
 }
 
 .dataPreview {
-  color: var(--color-text-secondary, hsl(var(--muted-foreground) / 0.7));
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

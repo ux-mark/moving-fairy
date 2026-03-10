@@ -39,7 +39,7 @@ export function TransformerStep({
       </div>
 
       <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-        <legend className="sr-only">Do you own a voltage transformer?</legend>
+        <legend className="srOnly">Do you own a voltage transformer?</legend>
         <div className={styles.optionGrid}>
           {options.map((option) => (
             <button

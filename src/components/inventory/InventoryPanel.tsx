@@ -24,7 +24,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/shared/Collapsible";
 import type { Verdict } from "@/lib/constants";
 import { useInventory } from "@/lib/hooks/useInventory";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
@@ -356,7 +356,7 @@ function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => v
   );
 
   return (
-    <div className={styles.itemRow}>
+    <div className={styles.itemRow} data-verdict={item.verdict}>
       {item.image_url ? (
         <img
           src={`/api/img?url=${encodeURIComponent(item.image_url)}`}

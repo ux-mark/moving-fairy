@@ -49,6 +49,4 @@
   --verdict-decide-later-bg: #dbeafe;
   --verdict-decide-later-fg: #1e40af;
 
-  /* Font override — Source Sans 3 (successor to Source Sans Pro) */
-  --font-sans: 'Source Sans 3', 'Segoe UI', Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
 }

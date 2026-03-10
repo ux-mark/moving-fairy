@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { MagicLinkForm } from '@/components/auth/MagicLinkForm'
+import { AuthCard } from '@thefairies/design-system/components'
 import styles from './page.module.css'
 
 export default async function Home() {
@@ -42,8 +43,13 @@ export default async function Home() {
           </p>
         </blockquote>
 
-        {/* Email form — handles both new and returning users */}
-        <MagicLinkForm />
+        {/* Email form wrapped in DS AuthCard */}
+        <AuthCard
+          title="Sign in to continue"
+          subtitle="We'll send you a magic link — no password needed."
+        >
+          <MagicLinkForm />
+        </AuthCard>
       </div>
     </main>
   )

@@ -23,7 +23,7 @@ export function DepartureStep({ value, onChange }: DepartureStepProps) {
       </div>
 
       <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-        <legend className="sr-only">Departure country</legend>
+        <legend className="srOnly">Departure country</legend>
         <div className={styles.optionGrid}>
           {countries.map((country) => (
             <button

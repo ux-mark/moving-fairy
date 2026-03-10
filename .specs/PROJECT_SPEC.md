@@ -18,8 +18,8 @@ The framework is route-configurable: users set their departure country, arrival 
 | Database | Supabase — Postgres (Frankfurt, `eu-central-1`) |
 | Auth | Supabase Auth |
 | Object storage | Supabase Storage (Frankfurt, RLS-integrated) |
-| CSS | Tailwind CSS |
-| Component library | shadcn/ui (Radix UI primitives) |
+| CSS | CSS Modules + CSS Custom Properties (Nós Design System tokens) |
+| Component library | @thefairies/design-system (Nós DS) — consumed via GitHub git reference |
 | Icons | Lucide Icons |
 | Animation | Framer Motion |
 | Font | Source Sans 3 (weights 400/500/600/700, via `next/font/google`) |
@@ -86,7 +86,8 @@ moving-fairy/
     shipping-economics.md
   src/
     app/                      # Next.js App Router
-    components/               # Shared UI components (shadcn/ui based)
+      moving-fairy-tokens.css # Moving Fairy brand overrides for Nós DS tokens
+    components/               # Shared UI components
     lib/                      # Utilities, helpers
     mcp/                      # MCP server (separate Fly app)
   e2e/                        # Playwright tests
@@ -115,24 +116,18 @@ moving-fairy/
 
 ## UI/UX Standards
 
-### Component library: shadcn/ui
+### Component library: Nós Design System (@thefairies/design-system)
 
-shadcn/ui (built on Radix UI) gives us unstyled, accessible primitives that we copy into the project and own. This matters for Moving Fairy because:
+The Nós Design System is the shared component library for thefairies.ie platform, consumed as a GitHub git reference dependency. It provides fully styled, accessible components built to the thefairies.ie design language.
 
-- We can shape every component to match Aisling's warm, grounded tone — no fighting an enterprise design system
-- The copy-and-own model means no component will block a custom behaviour (auto-growing textareas, photo thumbnails in the input bar, collapsible cost panels)
-- Radix UI handles focus management, keyboard navigation, ARIA, and screen reader announcements correctly out of the box
+**Components in use:**
+`Navigation`, `Button`, `Badge`, `AuthCard`, `ChatContainer`, `ChatMessage`, `ChatInput`, `ThinkingDots`, `TypingCursor`, `EditPanel`, `OnboardingWizard`, `EmptyState`, `Spinner`, `Skeleton`, `Toast`, `RecommendationCard`, `ConfirmDialog`, `CostStrip`, `SidePanel`
 
-**Initial primitive set:** `button`, `input`, `textarea`, `select`, `radio-group`, `dialog`, `collapsible`, `progress`, `tabs`, `tooltip`, `label`. Add others as features require.
+**Dependencies removed:** Tailwind CSS, tailwind-merge, class-variance-authority, tw-animate-css, and the shadcn CLI have all been removed from the project.
 
 ### Design tokens
 
-Two layers:
-
-1. **`tailwind.config.ts`** — single source of truth for colour palette, spacing, type scale, border radii, breakpoints, animation timing
-2. **CSS custom properties** — generated from Tailwind config for tokens needing runtime access (verdict colour-coding, theme values)
-
-shadcn/ui's CSS custom property token structure (HSL, mapped through Tailwind) is the base. Extend with Moving Fairy's brand palette.
+Design tokens come from `@thefairies/design-system/styles/tokens.css` and are CSS Custom Properties. Moving Fairy brand overrides are applied in `src/app/moving-fairy-tokens.css`.
 
 **Colour direction:**
 - Primary: warm, confident green (clover, not corporate teal)
@@ -142,14 +137,20 @@ shadcn/ui's CSS custom property token structure (HSL, mapped through Tailwind) i
 - Error: warm red
 - All colours must pass WCAG 2.2 AA contrast (4.5:1 body text, 3:1 UI components)
 
-### CSS: Tailwind CSS
+### CSS: CSS Modules + CSS Custom Properties
 
-Tailwind is the sole styling layer. No CSS Modules, no styled-components.
+CSS Modules are the styling layer for any component-level styles not covered by Nós DS components. No Tailwind, no styled-components.
 
-- Use `cn()` utility (shadcn/ui) for conditional class merging
-- Extract repeated patterns into component variants, not `@apply` rules
-- Responsive prefixes map to: mobile < 768px, tablet 768–1024px, desktop > 1024px
-- Use `motion-reduce:` variant for all animated components
+- Use `cn()` (wraps clsx) for conditional class joining
+- Tokens from `@thefairies/design-system/styles/tokens.css` are available as CSS Custom Properties everywhere
+- Responsive breakpoints: mobile < 768px, tablet 768–1024px, desktop > 1024px
+- Respect `prefers-reduced-motion` for all animated components
+
+### Layout
+
+- **Top navigation:** DS `Navigation` component
+- **Primary layout:** chat-first with a toggleable inventory side panel (`SidePanel` DS component)
+- **AI Logic:** surfaced as a tab inside the side panel — not a separate view
 
 ### Icons: Lucide Icons
 
@@ -258,7 +259,7 @@ tablet:           iPad viewport, WebKit
 - Prettier for formatting
 - No `any` types without a `// eslint-disable` comment explaining why
 - Server Components by default; opt into `"use client"` only when needed (event handlers, browser APIs, Framer Motion)
-- `cn()` for all conditional class strings
+- `cn()` (wraps clsx) for all conditional class strings
 
 ---
 

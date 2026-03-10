@@ -1,18 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Settings } from "lucide-react";
-import { Button } from "@thefairies/design-system/components";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MessageCircle, Package, Settings, Sparkles } from "lucide-react";
+import { Navigation } from "@thefairies/design-system/components";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import {
-  BottomTabBar,
-  type ActiveTab,
-} from "@/components/layout/BottomTabBar";
 import { CostSummary } from "@/components/inventory/CostSummary";
 import { ProfileEditPanel } from "@/components/profile/ProfileEditPanel";
 import { useInventory } from "@/lib/hooks/useInventory";
-import { cn } from "@/lib/utils";
 
 import styles from "./AppLayout.module.css";
 
@@ -21,20 +16,81 @@ interface AppLayoutProps {
   inventoryPanel: React.ReactNode;
 }
 
+const NAV_PRIMARY_ITEMS = [
+  { key: "chat", label: "Chat", icon: MessageCircle },
+  { key: "inventory", label: "Inventory", icon: Package },
+];
+
+const NAV_SECONDARY_ITEMS = [
+  { key: "settings", label: "Settings", icon: Settings },
+];
+
 /**
- * AppLayout provides the split-screen (desktop) / tabbed (mobile) layout
- * for the chat + inventory experience.
- *
- * Desktop (>= 768px): side-by-side with inventory on the left (~40%),
- *   chat on the right (~60%). Both scroll independently.
- *
- * Mobile (< 768px): bottom tab bar switches between chat and inventory.
- *   A compact cost strip is always visible at the top.
+ * AppLayout provides the app shell: Navigation at the top, chat as the main
+ * content, and a toggleable right-side panel for inventory (desktop) or
+ * full-screen overlay (mobile).
  */
 export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [inventoryWidth, setInventoryWidth] = useState(380);
+  const [activeSection, setActiveSection] = useState("chat");
   const [profileOpen, setProfileOpen] = useState(false);
   const { costSummary, refreshInventory } = useInventory();
+
+  // Resize state
+  const isResizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(inventoryWidth);
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizingRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthRef.current = inventoryWidth;
+    },
+    [inventoryWidth]
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = startXRef.current - e.clientX;
+      const maxWidth = window.innerWidth * 0.5;
+      const newWidth = Math.max(320, Math.min(maxWidth, startWidthRef.current + delta));
+      setInventoryWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      isResizingRef.current = false;
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const handleNavigate = useCallback(
+    (section: string) => {
+      if (section === "chat") {
+        setInventoryOpen(false);
+        setActiveSection("chat");
+      } else if (section === "inventory") {
+        setInventoryOpen(true);
+        setActiveSection("inventory");
+      } else if (section === "settings") {
+        setProfileOpen(true);
+      }
+    },
+    []
+  );
+
+  // Total items for mobile cost strip
+  const totalItems = costSummary
+    ? Object.values(costSummary.counts_by_verdict).reduce((sum, n) => sum + n, 0)
+    : 0;
+  const hasCostData = totalItems > 0;
 
   return (
     <div className={styles.root}>
@@ -50,74 +106,60 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
         onSaved={refreshInventory}
       />
 
-      {/* Mobile: compact cost strip with edit trigger */}
-      <div className={styles.mobileStrip}>
-        <div className={styles.mobileStripInner}>
-          <div className={styles.mobileStripCost}>
-            <CostSummary data={costSummary} variant="compact" />
-          </div>
-          <div className={styles.mobileStripActions}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setProfileOpen(true)}
-              aria-label="Edit move details"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              <Settings style={{ width: 16, height: 16 }} />
-            </Button>
-            <SignOutButton />
-          </div>
+      {/* DS Navigation */}
+      <Navigation
+        brandName="Moving Fairy"
+        brandIcon={<Sparkles size={20} strokeWidth={1.8} />}
+        activeSection={activeSection}
+        onNavigate={handleNavigate}
+        primaryItems={NAV_PRIMARY_ITEMS}
+        secondaryItems={NAV_SECONDARY_ITEMS}
+      />
+
+      {/* Mobile cost summary strip — only visible when there are assessed items */}
+      {hasCostData && (
+        <div className={styles.costStrip}>
+          <CostSummary data={costSummary!} variant="compact" />
+          <SignOutButton />
         </div>
-      </div>
+      )}
 
-      {/* Desktop: side-by-side layout */}
-      <div className={styles.desktopLayout}>
-        {/* Inventory panel — left side */}
-        <aside className={styles.inventoryAside} aria-label="Inventory">
-          <div className={styles.inventoryHeader}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setProfileOpen(true)}
-              className={styles.editMoveButton ?? ""}
-            >
-              <Settings style={{ width: 14, height: 14 }} />
-              Edit move details
-            </Button>
-            <SignOutButton />
-          </div>
-          {inventoryPanel}
-        </aside>
-
-        {/* Chat panel — right side */}
+      {/* Main body — chat + optional inventory panel */}
+      <div className={styles.body}>
+        {/* Chat — primary content */}
         <main id="main-content" className={styles.chatMain}>
           {chatPanel}
         </main>
-      </div>
 
-      {/* Mobile: tabbed content */}
-      <div className={styles.mobileTabs}>
-        <div
-          className={cn(styles.tabPanel, activeTab !== "chat" && styles.tabPanelHidden)}
-          id="mobile-tabpanel-chat"
-          role="tabpanel"
-          aria-labelledby="mobile-tab-chat"
-        >
-          {chatPanel}
-        </div>
-        <div
-          className={cn(styles.tabPanel, activeTab !== "inventory" && styles.tabPanelHidden)}
-          id="mobile-tabpanel-inventory"
-          role="tabpanel"
-          aria-labelledby="mobile-tab-inventory"
-        >
-          {inventoryPanel}
-        </div>
-      </div>
+        {/* Inventory side panel — desktop: right panel; mobile: full-screen overlay */}
+        {inventoryOpen && (
+          <aside
+            className={styles.inventoryPanel}
+            style={{ width: inventoryWidth }}
+            aria-label="Inventory"
+          >
+            <div
+              className={styles.resizeHandle}
+              onMouseDown={handleResizeStart}
+              aria-hidden="true"
+            >
+              <div className={styles.resizeLine} />
+            </div>
+            <div className={styles.inventoryContent}>
+              {inventoryPanel}
+            </div>
+          </aside>
+        )}
 
-      {/* Mobile bottom tab bar */}
-      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Mobile backdrop when inventory is open */}
+        {inventoryOpen && (
+          <div
+            className={styles.mobileBackdrop}
+            onClick={() => setInventoryOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+      </div>
     </div>
   );
 }

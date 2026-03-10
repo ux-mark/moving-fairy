@@ -209,7 +209,7 @@ export function ProfileEditPanel({
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Moving from</span>
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-              <legend className="sr-only">Departure country</legend>
+              <legend className="srOnly">Departure country</legend>
               <div className={styles.optionGrid}>
                 {countries.map((country) => (
                   <button
@@ -240,7 +240,7 @@ export function ProfileEditPanel({
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Moving to</span>
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-              <legend className="sr-only">Arrival country</legend>
+              <legend className="srOnly">Arrival country</legend>
               <div className={styles.optionGrid}>
                 {availableArrivalCountries.map((country) => (
                   <button
@@ -269,7 +269,7 @@ export function ProfileEditPanel({
           <div className={styles.fieldGroup}>
             <span className={styles.label}>Planning an onward move?</span>
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-              <legend className="sr-only">Onward move plans</legend>
+              <legend className="srOnly">Onward move plans</legend>
               <div className={styles.optionGrid}>
                 {(
                   [
@@ -311,7 +311,7 @@ export function ProfileEditPanel({
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Onward country</span>
                 <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-                  <legend className="sr-only">Onward country</legend>
+                  <legend className="srOnly">Onward country</legend>
                   <div className={styles.optionGrid}>
                     {availableOnwardCountries.map((country) => (
                       <button
@@ -335,7 +335,7 @@ export function ProfileEditPanel({
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Timeline</span>
                 <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-                  <legend className="sr-only">Onward timeline</legend>
+                  <legend className="srOnly">Onward timeline</legend>
                   <div className={styles.optionGrid}>
                     {TIMELINE_OPTIONS.map((option) => (
                       <button
@@ -363,7 +363,7 @@ export function ProfileEditPanel({
             <div className={styles.fieldGroup}>
               <span className={styles.label}>Voltage transformer</span>
               <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-                <legend className="sr-only">
+                <legend className="srOnly">
                   Do you own a voltage transformer?
                 </legend>
                 <div className={styles.optionGrid}>
