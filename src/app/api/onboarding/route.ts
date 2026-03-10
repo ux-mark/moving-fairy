@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { createUserProfile, createSession } from '@/mcp'
 import { Country, OnwardTimeline } from '@/lib/constants'
 import type { Equipment } from '@/types/database'
@@ -99,9 +99,9 @@ export async function POST(request: Request) {
 
     const session = await createSession(profile.id)
 
-    // Set session cookie — HttpOnly, SameSite=Lax, Path=/, 30-day max-age
-    const cookieStore = await cookies()
-    cookieStore.set('session_id', session.id, {
+    // Set session cookie via NextResponse so the Set-Cookie header is on the HTTP response
+    const response = NextResponse.json({ ok: true, session_id: session.id }, { status: 201 })
+    response.cookies.set('session_id', session.id, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
     })
 
-    return Response.json({ ok: true, session_id: session.id }, { status: 201 })
+    return response
   } catch (err) {
     console.error('[onboarding] failed to create profile/session:', err)
     return Response.json(
