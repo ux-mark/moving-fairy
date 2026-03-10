@@ -1,50 +1,27 @@
-import { cookies } from 'next/headers'
-import { getSession, getUserProfile, updateUserProfile } from '@/mcp'
+import { updateUserProfile } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { Country, OnwardTimeline } from '@/lib/constants'
 import type { Equipment } from '@/types/database'
 
 const VALID_COUNTRIES = Object.values(Country) as string[]
 const VALID_TIMELINES = Object.values(OnwardTimeline) as string[]
 
-type ProfileError = { error: string; status: number }
-type ProfileSuccess = { profile: import('@/types/database').UserProfile; session: import('@/types/database').Session }
-
-async function resolveProfile(): Promise<ProfileError | ProfileSuccess> {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) return { error: 'No session', status: 401 }
-
-  const session = await getSession(sessionId)
-  if (!session) return { error: 'Session not found', status: 401 }
-
-  const profile = await getUserProfile(sessionId)
-  if (!profile) return { error: 'Profile not found', status: 404 }
-
-  return { profile, session }
-}
-
-function isProfileError(result: ProfileError | ProfileSuccess): result is ProfileError {
-  return 'error' in result
-}
-
 export async function GET() {
-  const result = await resolveProfile()
-  if (isProfileError(result)) {
-    return Response.json({ ok: false, error: result.error }, { status: result.status })
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
 
   // Strip sensitive fields before returning
-  const { anthropic_api_key: _, ...safeProfile } = result.profile
+  const { anthropic_api_key: _, ...safeProfile } = profile
   return Response.json({ ok: true, profile: safeProfile })
 }
 
 export async function PATCH(request: Request) {
-  const result = await resolveProfile()
-  if (isProfileError(result)) {
-    return Response.json({ ok: false, error: result.error }, { status: result.status })
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
-
-  const { profile } = result
 
   let body: Record<string, unknown>
   try {

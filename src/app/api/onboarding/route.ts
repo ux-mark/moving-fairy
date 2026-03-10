@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createUserProfile, createSession } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { Country, OnwardTimeline } from '@/lib/constants'
 import type { Equipment } from '@/types/database'
 
@@ -7,6 +8,12 @@ const VALID_COUNTRIES = Object.values(Country) as string[]
 const VALID_TIMELINES = Object.values(OnwardTimeline) as string[]
 
 export async function POST(request: Request) {
+  // Require Supabase auth
+  const { user } = await getAuthenticatedProfile()
+  if (!user) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -62,8 +69,6 @@ export async function POST(request: Request) {
 
   // ── Optional: equipment ──────────────────────────────────────────────────
 
-  // Accept either a pre-built equipment object (from OnboardingWizard) or
-  // individual transformer fields (from the task spec fallback format)
   let equipment: Equipment = {}
 
   if (raw.equipment !== undefined && raw.equipment !== null) {
@@ -89,6 +94,7 @@ export async function POST(request: Request) {
 
   try {
     const profile = await createUserProfile({
+      auth_user_id: user.id,
       departure_country: departure_country as Country,
       arrival_country: arrival_country as Country,
       ...(onward_country !== null && { onward_country: onward_country as Country }),
@@ -99,17 +105,7 @@ export async function POST(request: Request) {
 
     const session = await createSession(profile.id)
 
-    // Set session cookie via NextResponse so the Set-Cookie header is on the HTTP response
-    const response = NextResponse.json({ ok: true, session_id: session.id }, { status: 201 })
-    response.cookies.set('session_id', session.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days in seconds
-      secure: process.env.NODE_ENV === 'production',
-    })
-
-    return response
+    return NextResponse.json({ ok: true, session_id: session.id }, { status: 201 })
   } catch (err) {
     console.error('[onboarding] failed to create profile/session:', err)
     return Response.json(

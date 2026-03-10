@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
-import { getSession, saveItemAssessment, getItemAssessments } from '@/mcp'
+import { saveItemAssessment, getItemAssessments, findOrCreateSession } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { Verdict } from '@/lib/constants'
 
 interface ConfirmBody {
@@ -18,32 +18,28 @@ interface ConfirmBody {
 }
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) return Response.json({ ok: false, error: 'No session' }, { status: 401 })
-  const session = await getSession(sessionId)
-  if (!session) return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const verdict = searchParams.get('verdict') as Verdict | null
   const assessments = await getItemAssessments(
-    session.user_profile_id,
+    profile.id,
     verdict ? { verdict } : undefined
   )
   return Response.json(assessments)
 }
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) return Response.json({ ok: false, error: 'No session' }, { status: 401 })
-  const session = await getSession(sessionId)
-  if (!session) return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
+
+  const session = await findOrCreateSession(profile.id)
 
   const body = await req.json() as ConfirmBody
   const record = await saveItemAssessment({
-    user_profile_id: session.user_profile_id,
-    session_id: sessionId,
+    user_profile_id: profile.id,
+    session_id: session.id,
     item_name: body.item_name,
     verdict: body.verdict as Verdict,
     advice_text: body.advice_text ?? null,

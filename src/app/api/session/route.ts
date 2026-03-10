@@ -1,23 +1,14 @@
-import { cookies } from 'next/headers'
-import { getSession, getUserProfile, getCostSummary } from '@/mcp'
+import { findOrCreateSession, getCostSummary } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 
 export async function GET() {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
+  const { user, profile } = await getAuthenticatedProfile()
 
-  if (!sessionId) {
-    return Response.json({ ok: false, error: 'No session' }, { status: 401 })
+  if (!user || !profile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
 
-  const session = await getSession(sessionId)
-  if (!session) {
-    return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
-  }
-
-  const profile = await getUserProfile(sessionId)
-  if (!profile) {
-    return Response.json({ ok: false, error: 'Profile not found' }, { status: 404 })
-  }
+  const session = await findOrCreateSession(profile.id)
 
   // Get assessment summary
   let summary = {

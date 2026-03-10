@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
-import { getSession, addItemToBox } from '@/mcp'
+import { addItemToBox } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 
 interface AddItemBody {
   item_assessment_id?: string
@@ -11,11 +11,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ boxId: string }> }
 ) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) return Response.json({ ok: false, error: 'No session' }, { status: 401 })
-  const session = await getSession(sessionId)
-  if (!session) return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
 
   const { boxId } = await params
   const body = (await req.json()) as AddItemBody

@@ -1,9 +1,8 @@
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getSession, saveItemAssessment, addItemToBox } from '@/mcp'
+import { saveItemAssessment, addItemToBox, findOrCreateSession } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { Verdict } from '@/lib/constants'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -37,16 +36,10 @@ function countryVoltage(country: string): string {
 // ─── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
+  const { user, profile } = await getAuthenticatedProfile()
 
-  if (!sessionId) {
-    return Response.json({ ok: false, error: 'No session' }, { status: 401 })
-  }
-
-  const session = await getSession(sessionId)
-  if (!session) {
-    return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
+  if (!user || !profile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
 
   let body: LightAssessmentBody
@@ -63,20 +56,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('*')
-      .eq('id', session.user_profile_id)
-      .single()
+    const session = await findOrCreateSession(profile.id)
 
     const apiKey =
       process.env.ANTHROPIC_API_KEY ||
-      (profile?.anthropic_api_key as string | null | undefined) ||
+      profile.anthropic_api_key ||
       ''
 
     if (!apiKey) {
@@ -89,13 +73,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const departureCountry = (profile?.departure_country as string | undefined) ?? 'US'
-    const arrivalCountry = (profile?.arrival_country as string | undefined) ?? 'IE'
-    const onwardCountry = profile?.onward_country as string | null | undefined
+    const departureCountry = profile.departure_country as string
+    const arrivalCountry = profile.arrival_country as string
+    const onwardCountry = profile.onward_country as string | null
 
     const departureVoltage = countryVoltage(departureCountry)
     const arrivalVoltage = countryVoltage(arrivalCountry)
-    const equipment = profile?.equipment as Record<string, unknown> | undefined
+    const equipment = profile.equipment as Record<string, unknown> | undefined
     const hasTransformer =
       equipment?.transformer &&
       typeof equipment.transformer === 'object' &&
@@ -190,8 +174,8 @@ Rules:
     if (!needs_confirmation || flags.length === 0) {
       // Clean result — save assessment and optionally add to box
       const saved = await saveItemAssessment({
-        user_profile_id: session.user_profile_id,
-        session_id: sessionId,
+        user_profile_id: profile.id,
+        session_id: session.id,
         item_name: item_name.trim(),
         verdict: verdict === 'CARRY' ? Verdict.CARRY : Verdict.SHIP,
         advice_text: flags.length > 0 ? Object.values(flag_details ?? {}).join(' ') : null,

@@ -1,11 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   appendMessage,
-  getSession,
+  findOrCreateSession,
   saveItemAssessment,
   updateItemAssessment,
   getItemAssessments,
@@ -17,6 +16,7 @@ import {
   getBoxes,
   removeItemFromBox,
 } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { BoxSize, BoxType, Country } from '@/lib/constants'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -525,17 +525,13 @@ interface ChatBody {
 }
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-
-  if (!sessionId) {
-    return Response.json({ ok: false, error: 'No session' }, { status: 401 })
+  const { user, profile: authProfile } = await getAuthenticatedProfile()
+  if (!user || !authProfile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
 
-  const session = await getSession(sessionId)
-  if (!session) {
-    return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
-  }
+  const session = await findOrCreateSession(authProfile.id)
+  const sessionId = session.id
 
   let body: ChatBody
   try {
@@ -558,21 +554,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
-    const adminClient = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const { data: profile } = await adminClient
-      .from('user_profile')
-      .select('*')
-      .eq('id', session.user_profile_id)
-      .single()
+    const profile = authProfile
 
     const apiKey =
       process.env.ANTHROPIC_API_KEY ||
-      (profile?.anthropic_api_key as string | null | undefined) ||
+      profile.anthropic_api_key ||
       ''
 
     if (!apiKey) {
@@ -588,9 +574,9 @@ export async function POST(req: NextRequest) {
 
     const aislingPersona = readAislingPersona()
 
-    const departureCountry = profile?.departure_country as string | undefined
-    const arrivalCountry = profile?.arrival_country as string | undefined
-    const onwardCountry = profile?.onward_country as string | null | undefined
+    const departureCountry = profile.departure_country as string
+    const arrivalCountry = profile.arrival_country as string
+    const onwardCountry = profile.onward_country as string | null
 
     const departureCode = departureCountry ? countryToModuleCode(departureCountry) : ''
     const arrivalCode = arrivalCountry ? countryToModuleCode(arrivalCountry) : ''

@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
-import { getSession, saveItemAssessment, addItemToBox } from '@/mcp'
+import { saveItemAssessment, addItemToBox, findOrCreateSession } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { Verdict } from '@/lib/constants'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -18,16 +18,10 @@ interface ConfirmBody {
 // ─── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
+  const { user, profile } = await getAuthenticatedProfile()
 
-  if (!sessionId) {
-    return Response.json({ ok: false, error: 'No session' }, { status: 401 })
-  }
-
-  const session = await getSession(sessionId)
-  if (!session) {
-    return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
+  if (!user || !profile) {
+    return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
   }
 
   let body: ConfirmBody
@@ -52,11 +46,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const session = await findOrCreateSession(profile.id)
     const mcpVerdict = verdict === 'CARRY' ? Verdict.CARRY : Verdict.SHIP
 
     const saved = await saveItemAssessment({
-      user_profile_id: session.user_profile_id,
-      session_id: sessionId,
+      user_profile_id: profile.id,
+      session_id: session.id,
       item_name: item_name.trim(),
       verdict: mcpVerdict,
       advice_text: advice_text ?? (flags.length > 0 ? `Flags: ${flags.join(', ')}` : null),

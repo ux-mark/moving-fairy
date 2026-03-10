@@ -14,6 +14,7 @@ export interface UserProfile {
   id: string
   created_at: string
   updated_at: string
+  auth_user_id: string
   departure_country: Country
   arrival_country: Country
   onward_country: Country | null

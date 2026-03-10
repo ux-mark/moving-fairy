@@ -59,6 +59,7 @@ export async function getUserProfile(sessionId: string): Promise<UserProfile | n
 }
 
 export async function createUserProfile(data: {
+  auth_user_id: string
   departure_country: UserProfile['departure_country']
   arrival_country: UserProfile['arrival_country']
   onward_country?: UserProfile['onward_country']
@@ -70,6 +71,7 @@ export async function createUserProfile(data: {
   const { data: profile, error } = await supabase
     .from('user_profile')
     .insert({
+      auth_user_id: data.auth_user_id,
       departure_country: data.departure_country,
       arrival_country: data.arrival_country,
       onward_country: data.onward_country ?? null,
@@ -82,6 +84,35 @@ export async function createUserProfile(data: {
 
   if (error || !profile) throw new Error(error?.message ?? 'Failed to create user profile')
   return profile as UserProfile
+}
+
+export async function getProfileByAuthUser(authUserId: string): Promise<UserProfile | null> {
+  const supabase = getAdminClient()
+  const { data: profile, error } = await supabase
+    .from('user_profile')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .single()
+
+  if (error || !profile) return null
+  return profile as UserProfile
+}
+
+export async function findOrCreateSession(userProfileId: string): Promise<Session> {
+  const supabase = getAdminClient()
+  // Find the latest session for this profile
+  const { data: existing, error: findErr } = await supabase
+    .from('session')
+    .select('*')
+    .eq('user_profile_id', userProfileId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!findErr && existing) return existing as Session
+
+  // No session found — create one
+  return createSession(userProfileId)
 }
 
 // ─── Session ───────────────────────────────────────────────────────────────
