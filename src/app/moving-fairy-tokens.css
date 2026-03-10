@@ -1,0 +1,40 @@
+/* Moving Fairy — Nós DS token overrides */
+:root {
+  /* Brand colours — warm clover green */
+  --color-primary: #16a34a;
+  --color-primary-hover: #15803d;
+  --gradient-cta: linear-gradient(135deg, #16a34a, #22c55e);
+  --gradient-nav-bar: linear-gradient(135deg, #16a34a, #15803d);
+
+  /* Section accents */
+  --accent-dashboard: #16a34a;
+  --accent-apply: #d97706;
+  --accent-prepare: #3b82f6;
+  --accent-analytics: #8b5cf6;
+  --accent-settings: #6b7280;
+
+  /* Verdict colours (domain-specific) */
+  --verdict-ship: #16a34a;
+  --verdict-carry: #16a34a;
+  --verdict-sell: #d97706;
+  --verdict-donate: #6b7280;
+  --verdict-discard: #6b7280;
+  --verdict-decide-later: #3b82f6;
+
+  /* Verdict bg/fg pairs for badges */
+  --verdict-ship-bg: #dcfce7;
+  --verdict-ship-fg: #166534;
+  --verdict-carry-bg: #dcfce7;
+  --verdict-carry-fg: #166534;
+  --verdict-sell-bg: #fef3c7;
+  --verdict-sell-fg: #92400e;
+  --verdict-donate-bg: #f3f4f6;
+  --verdict-donate-fg: #374151;
+  --verdict-discard-bg: #f3f4f6;
+  --verdict-discard-fg: #374151;
+  --verdict-decide-later-bg: #dbeafe;
+  --verdict-decide-later-fg: #1e40af;
+
+  /* Font override — Source Sans 3 (successor to Source Sans Pro) */
+  --font-sans: 'Source Sans 3', 'Segoe UI', Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
+}

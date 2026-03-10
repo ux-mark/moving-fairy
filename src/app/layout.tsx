@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Source_Sans_3 } from "next/font/google";
+import '@thefairies/design-system/styles/tokens.css';
+import '@thefairies/design-system/styles/animations.css';
+import './moving-fairy-tokens.css';
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
