@@ -30,12 +30,14 @@ interface ProfileEditPanelProps {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function ProfileEditPanel({
   open,
   onClose,
   onSaved,
+  triggerRef,
 }: ProfileEditPanelProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -195,6 +197,7 @@ export function ProfileEditPanel({
       onCancel={onClose}
       saveLabel={isSaving ? "Saving..." : success ? "Saved" : "Save changes"}
       footer={false}
+      triggerRef={triggerRef}
     >
       {isLoading ? (
         <div className={styles.loadingWrapper}>

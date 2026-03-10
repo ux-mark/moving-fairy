@@ -19,6 +19,7 @@ interface SlidePanelProps {
   title: string;
   children: React.ReactNode;
   className?: string | undefined;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function SlidePanel({
@@ -26,6 +27,7 @@ export function SlidePanel({
   onClose,
   title,
   children,
+  triggerRef,
 }: SlidePanelProps) {
   return (
     <EditPanel
@@ -35,6 +37,7 @@ export function SlidePanel({
       onSave={onClose}
       onCancel={onClose}
       footer={false}
+      triggerRef={triggerRef}
     >
       {children}
     </EditPanel>

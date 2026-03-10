@@ -196,6 +196,7 @@ export function InputBar({ onSend, disabled = false }: InputBarProps) {
         placeholder="Snap a photo or type an item name..."
         startAdornment={cameraButton}
         aboveInput={imagePreviewStrip}
+        ariaLabel="Message to Aisling"
       />
     </div>
   );
