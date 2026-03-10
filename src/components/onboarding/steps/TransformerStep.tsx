@@ -1,8 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import styles from "./step.module.css";
 
 interface TransformerStepProps {
   hasTransformer: boolean | null;
@@ -13,6 +12,11 @@ interface TransformerStepProps {
   onWattageChange: (wattage: string) => void;
 }
 
+const options = [
+  { value: true, label: "Yes, I have one" },
+  { value: false, label: "No" },
+] as const;
+
 export function TransformerStep({
   hasTransformer,
   model,
@@ -21,37 +25,30 @@ export function TransformerStep({
   onModelChange,
   onWattageChange,
 }: TransformerStepProps) {
-  const options = [
-    { value: true, label: "Yes, I have one" },
-    { value: false, label: "No" },
-  ] as const;
-
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-base leading-relaxed text-foreground">
+    <div className={styles.step}>
+      <div className={styles.prompt}>
+        <p className={styles.promptQuote}>
           &ldquo;One more thing — do you own a voltage transformer?&rdquo;
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className={styles.promptNote}>
           If you have one, it changes what electrical items are worth bringing.
           If you don&rsquo;t, no worries — I&rsquo;ll advise accordingly.
         </p>
-        <p className="mt-1 text-sm text-primary font-medium">— Aisling</p>
+        <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <fieldset>
+      <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
         <legend className="sr-only">Do you own a voltage transformer?</legend>
-        <div className="grid gap-3">
+        <div className={styles.optionGrid}>
           {options.map((option) => (
             <button
               key={String(option.value)}
               type="button"
               onClick={() => onHasTransformerChange(option.value)}
               className={cn(
-                "flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-left text-base font-medium transition-colors",
-                hasTransformer === option.value
-                  ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                  : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                styles.optionButton,
+                hasTransformer === option.value && styles.optionButtonSelected
               )}
               aria-pressed={hasTransformer === option.value}
             >
@@ -63,45 +60,47 @@ export function TransformerStep({
 
       {/* Conditional microcopy */}
       {hasTransformer === true && model && (
-        <p className="text-sm leading-relaxed text-muted-foreground italic">
+        <p className={styles.microcopy}>
           &ldquo;Nice — that&rsquo;ll open up your options for kitchen
           appliances.&rdquo;
         </p>
       )}
       {hasTransformer === false && (
-        <p className="text-sm leading-relaxed text-muted-foreground italic">
+        <p className={styles.microcopy}>
           &ldquo;That&rsquo;s grand. I&rsquo;ll only recommend bringing things
           that&rsquo;ll work on local power.&rdquo;
         </p>
       )}
 
       {hasTransformer === true && (
-        <div
-          className="flex flex-col gap-4"
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="transformer-model">Model (optional)</Label>
-            <Input
+        <div className={styles.subQuestions}>
+          <div className={styles.inputGroup}>
+            <label htmlFor="transformer-model" className={styles.inputLabel}>
+              Model (optional)
+            </label>
+            <input
               id="transformer-model"
               value={model}
               onChange={(e) => onModelChange(e.target.value)}
               placeholder="e.g. Dynastar DS-5500"
-              className="h-12"
+              className={styles.input}
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="transformer-wattage">Wattage (optional)</Label>
-            <div className="flex items-center gap-2">
-              <Input
+          <div className={styles.inputGroup}>
+            <label htmlFor="transformer-wattage" className={styles.inputLabel}>
+              Wattage (optional)
+            </label>
+            <div className={styles.wattageRow}>
+              <input
                 id="transformer-wattage"
                 type="number"
                 value={wattage}
                 onChange={(e) => onWattageChange(e.target.value)}
                 placeholder="e.g. 5500"
-                className="h-12"
+                className={cn(styles.input, styles.wattageInput)}
               />
-              <span className="text-sm text-muted-foreground">watts</span>
+              <span className={styles.wattageUnit}>watts</span>
             </div>
           </div>
         </div>

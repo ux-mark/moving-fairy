@@ -1,0 +1,161 @@
+/* Shared styles for onboarding step components — Nós DS tokens */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.promptQuote {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+.promptAuthor {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.promptNote {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.optionGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.optionButton {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.optionButton:hover {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.optionButtonSelected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.microcopy {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.subQuestions {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.subQuestion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subQuestionLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+/* Input fields */
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputLabel {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.input {
+  height: 48px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px rgba(0, 94, 255, 0.1);
+}
+
+.inputMono {
+  font-family: var(--font-mono);
+}
+
+.wattageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wattageInput {
+  flex: 1;
+}
+
+.wattageUnit {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.apiKeyLink {
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.apiKeyLink:hover {
+  opacity: 0.8;
+}
+
+.apiKeyNote {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
