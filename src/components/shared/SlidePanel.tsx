@@ -37,7 +37,7 @@ export function SlidePanel({
       onSave={onClose}
       onCancel={onClose}
       footer={false}
-      triggerRef={triggerRef}
+      {...(triggerRef ? { triggerRef } : {})}
     >
       {children}
     </EditPanel>

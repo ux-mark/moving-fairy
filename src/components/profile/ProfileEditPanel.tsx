@@ -197,7 +197,7 @@ export function ProfileEditPanel({
       onCancel={onClose}
       saveLabel={isSaving ? "Saving..." : success ? "Saved" : "Save changes"}
       footer={false}
-      triggerRef={triggerRef}
+      {...(triggerRef ? { triggerRef } : {})}
     >
       {isLoading ? (
         <div className={styles.loadingWrapper}>
