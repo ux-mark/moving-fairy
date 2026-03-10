@@ -12,11 +12,6 @@ export async function DELETE(
   if (!session) return Response.json({ ok: false, error: 'Session not found' }, { status: 401 })
 
   const { boxId, itemId } = await params
-  try {
-    await removeItemFromBox(boxId, itemId)
-    return Response.json({ ok: true })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unexpected error'
-    return Response.json({ ok: false, error: message }, { status: 500 })
-  }
+  await removeItemFromBox(boxId, itemId)
+  return Response.json({ ok: true })
 }

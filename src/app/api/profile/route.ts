@@ -33,9 +33,7 @@ export async function GET() {
     return Response.json({ ok: false, error: result.error }, { status: result.status })
   }
 
-  // Strip sensitive fields before returning
-  const { anthropic_api_key: _, ...safeProfile } = result.profile
-  return Response.json({ ok: true, profile: safeProfile })
+  return Response.json({ ok: true, profile: result.profile })
 }
 
 export async function PATCH(request: Request) {
@@ -125,14 +123,12 @@ export async function PATCH(request: Request) {
   }
 
   if (Object.keys(changes).length === 0) {
-    const { anthropic_api_key: _noChange, ...safeNoChange } = profile
-    return Response.json({ ok: true, profile: safeNoChange })
+    return Response.json({ ok: true, profile })
   }
 
   try {
     const updated = await updateUserProfile(profile.id, changes)
-    const { anthropic_api_key: _key, ...safeUpdated } = updated
-    return Response.json({ ok: true, profile: safeUpdated })
+    return Response.json({ ok: true, profile: updated })
   } catch (err) {
     return Response.json(
       { ok: false, error: err instanceof Error ? err.message : 'Failed to update profile' },
