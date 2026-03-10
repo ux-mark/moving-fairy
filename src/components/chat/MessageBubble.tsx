@@ -21,7 +21,9 @@ interface CardData {
   voltage_compatible?: boolean;
   needs_transformer?: boolean;
   estimated_ship_cost_usd?: number;
+  currency?: string;
   estimated_replace_cost_usd?: number;
+  replace_currency?: string;
 }
 
 interface ChatMessage {
@@ -155,7 +157,9 @@ function AssessmentCard({
           voltage_compatible: card.voltage_compatible,
           needs_transformer: card.needs_transformer,
           estimated_ship_cost: card.estimated_ship_cost_usd,
+          currency: card.currency,
           estimated_replace_cost: card.estimated_replace_cost_usd,
+          replace_currency: card.replace_currency,
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -212,6 +216,13 @@ function AssessmentCard({
         {card.action && (
           <p className="mt-3 pt-3 border-t border-border text-sm font-medium text-foreground">
             {"\u2192"} {card.action}
+          </p>
+        )}
+
+        {/* DECIDE_LATER notice */}
+        {verdictNormalised === "DECIDE_LATER" && (
+          <p className="mt-2 text-xs text-muted-foreground italic">
+            This verdict is tentative — you can revisit it later.
           </p>
         )}
 

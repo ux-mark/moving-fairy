@@ -12,7 +12,9 @@ interface ConfirmBody {
   voltage_compatible?: boolean
   needs_transformer?: boolean
   estimated_ship_cost?: number
+  currency?: string
   estimated_replace_cost?: number
+  replace_currency?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -34,7 +36,9 @@ export async function POST(req: NextRequest) {
     voltage_compatible: body.voltage_compatible ?? null,
     needs_transformer: body.needs_transformer ?? null,
     estimated_ship_cost: body.estimated_ship_cost ?? null,
+    currency: body.currency ?? null,
     estimated_replace_cost: body.estimated_replace_cost ?? null,
+    replace_currency: body.replace_currency ?? null,
   })
   return Response.json({ ok: true, assessment_id: record.id })
 }
