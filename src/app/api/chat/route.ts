@@ -17,7 +17,7 @@ import {
   getBoxes,
   removeItemFromBox,
 } from '@/mcp'
-import { BoxSize, BoxType } from '@/lib/constants'
+import { BoxSize, BoxType, Country } from '@/lib/constants'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -37,12 +37,20 @@ function readKnowledgeFile(relativePath: string): string {
 
 function readAislingPersona(): string {
   const fullPath = path.join(process.cwd(), '.claude', 'agents', 'aisling.md')
-  const raw = fs.readFileSync(fullPath, 'utf-8')
-  return stripYamlFrontmatter(raw)
+  try {
+    const raw = fs.readFileSync(fullPath, 'utf-8')
+    return stripYamlFrontmatter(raw)
+  } catch {
+    console.warn('[chat] Could not read aisling.md persona file')
+    return ''
+  }
 }
 
 function countryToModuleCode(country: string): string {
-  return country.toLowerCase()
+  const code = country.toLowerCase()
+  const validCodes = Object.values(Country).map((c) => c.toLowerCase())
+  if (!validCodes.includes(code)) return ''
+  return code
 }
 
 function countryToCurrency(country: string): string {
@@ -584,14 +592,18 @@ export async function POST(req: NextRequest) {
     const arrivalCountry = profile?.arrival_country as string | undefined
     const onwardCountry = profile?.onward_country as string | null | undefined
 
-    const departureModule = departureCountry
-      ? readKnowledgeFile(`countries/${countryToModuleCode(departureCountry)}-departure.md`)
+    const departureCode = departureCountry ? countryToModuleCode(departureCountry) : ''
+    const arrivalCode = arrivalCountry ? countryToModuleCode(arrivalCountry) : ''
+    const onwardCode = onwardCountry ? countryToModuleCode(onwardCountry) : ''
+
+    const departureModule = departureCode
+      ? readKnowledgeFile(`countries/${departureCode}-departure.md`)
       : ''
-    const arrivalModule = arrivalCountry
-      ? readKnowledgeFile(`countries/${countryToModuleCode(arrivalCountry)}-arrival.md`)
+    const arrivalModule = arrivalCode
+      ? readKnowledgeFile(`countries/${arrivalCode}-arrival.md`)
       : ''
-    const onwardModule = onwardCountry
-      ? readKnowledgeFile(`countries/${countryToModuleCode(onwardCountry)}-arrival.md`)
+    const onwardModule = onwardCode
+      ? readKnowledgeFile(`countries/${onwardCode}-arrival.md`)
       : ''
 
     const voltageModule = readKnowledgeFile('voltage.md')

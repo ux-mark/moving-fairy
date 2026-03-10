@@ -205,18 +205,39 @@ export async function saveItemAssessment(data: {
   return record as ItemAssessment
 }
 
+// Narrowed type for updatable fields — prevents accidental mutation of
+// system-managed fields like id, user_profile_id, session_id, created_at.
+type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
+  | 'verdict'
+  | 'advice_text'
+  | 'item_description'
+  | 'image_url'
+  | 'voltage_compatible'
+  | 'needs_transformer'
+  | 'estimated_ship_cost'
+  | 'currency'
+  | 'estimated_replace_cost'
+  | 'replace_currency'
+  | 'user_confirmed'
+>>
+
 export async function updateItemAssessment(
   assessmentId: string,
-  changes: Partial<ItemAssessment>
+  changes: ItemAssessmentUpdatable,
+  userProfileId?: string
 ): Promise<ItemAssessment> {
   const supabase = getAdminClient()
 
-  const { data: record, error } = await supabase
+  let query = supabase
     .from('item_assessment')
     .update({ ...changes, updated_at: new Date().toISOString() })
     .eq('id', assessmentId)
-    .select()
-    .single()
+
+  if (userProfileId) {
+    query = query.eq('user_profile_id', userProfileId)
+  }
+
+  const { data: record, error } = await query.select().single()
 
   if (error || !record) throw new Error(error?.message ?? 'Failed to update item assessment')
   return record as ItemAssessment
@@ -359,7 +380,7 @@ export async function addItemToBox(
 
     if (aErr || !assessment) throw new Error('Item assessment not found')
 
-    const blocked: string[] = [Verdict.SELL, Verdict.DONATE, Verdict.DISCARD]
+    const blocked: string[] = [Verdict.SELL, Verdict.DONATE, Verdict.DISCARD, Verdict.DECIDE_LATER]
     if (blocked.includes(assessment.verdict)) {
       throw new Error(
         `Cannot add item with verdict ${assessment.verdict} to a box. Only SHIP or CARRY items are allowed.`

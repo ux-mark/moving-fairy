@@ -21,15 +21,20 @@ export async function PATCH(
   const { boxId } = await params
   const body = (await req.json()) as PatchBoxBody
 
-  if (body.status !== undefined) {
-    const box = await updateBoxStatus(boxId, body.status as BoxStatus)
-    return Response.json(box)
-  }
+  try {
+    if (body.status !== undefined) {
+      const box = await updateBoxStatus(boxId, body.status as BoxStatus)
+      return Response.json(box)
+    }
 
-  if (body.cbm !== undefined) {
-    const box = await updateBoxCbm(boxId, body.cbm)
-    return Response.json(box)
-  }
+    if (body.cbm !== undefined) {
+      const box = await updateBoxCbm(boxId, body.cbm)
+      return Response.json(box)
+    }
 
-  return Response.json({ ok: false, error: 'Nothing to update' }, { status: 400 })
+    return Response.json({ ok: false, error: 'Nothing to update' }, { status: 400 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return Response.json({ ok: false, error: message }, { status: 500 })
+  }
 }
