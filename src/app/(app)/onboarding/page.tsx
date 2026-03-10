@@ -7,7 +7,7 @@ export default async function OnboardingPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/login')
+    redirect('/')
   }
 
   // TODO: If user already has a profile, redirect to /chat

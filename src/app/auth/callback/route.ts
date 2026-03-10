@@ -33,6 +33,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Auth error — redirect to login with error
-  return NextResponse.redirect(new URL(`/auth/login?error=auth&next=${encodeURIComponent(next)}`, request.url))
+  // Auth error — redirect to home with error
+  return NextResponse.redirect(new URL(`/?error=auth`, request.url))
 }
