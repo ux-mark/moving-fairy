@@ -617,6 +617,21 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 `
       : ''
 
+    // ── Load previously assessed items for context ─────────────────────────────
+    const profileId = session.user_profile_id
+    let assessmentContext = ''
+    try {
+      const assessments = await getItemAssessments(profileId)
+      if (assessments.length > 0) {
+        const lines = assessments.map(
+          (a) => `- ${a.item_name}: ${a.verdict}${a.advice_text ? ` (${a.advice_text.slice(0, 80)})` : ''}`
+        )
+        assessmentContext = `## Previously Assessed Items (${assessments.length} total)\n\n${lines.join('\n')}\n\nDo not re-assess these items unless the user explicitly asks. You may reference previous decisions.`
+      }
+    } catch {
+      // Non-fatal
+    }
+
     const systemParts = [
       aislingPersona,
       profileBlock,
@@ -625,6 +640,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
       onwardModule ? `## Onward Country Module\n\n${onwardModule}` : '',
       voltageModule ? `## Voltage Skill\n\n${voltageModule}` : '',
       shippingEconModule ? `## Shipping Economics Skill\n\n${shippingEconModule}` : '',
+      assessmentContext,
     ]
       .filter(Boolean)
       .join('\n\n---\n\n')
@@ -640,11 +656,30 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
         content: m.content,
       }))
 
-    // ── Detect opening trigger ─────────────────────────────────────────────────
+    // ── Detect opening / welcome-back trigger ────────────────────────────────
     const isOpeningTrigger = message === '__opening__'
-    const effectiveMessage = isOpeningTrigger
-      ? '[SYSTEM: This is the start of a new session. Greet the user warmly. Confirm their move details (departure, arrival, and onward country if set). Invite them to start going through their things.]'
-      : message
+    const isWelcomeBack = message === '__welcome_back__'
+
+    let effectiveMessage: string
+    if (isOpeningTrigger) {
+      effectiveMessage = '[SYSTEM: This is the start of a new session. Greet the user warmly. Confirm their move details (departure, arrival, and onward country if set). Invite them to start going through their things.]'
+    } else if (isWelcomeBack) {
+      let summaryText = ''
+      try {
+        const costData = await getCostSummary(profileId)
+        const counts = costData.counts_by_verdict
+        const total = Object.values(counts).reduce((s, n) => s + n, 0)
+        const ship = counts['SHIP'] ?? 0
+        const sell = counts['SELL'] ?? 0
+        const decideLater = counts['DECIDE_LATER'] ?? 0
+        summaryText = `They have ${total} items assessed — ${ship} to ship, ${sell} to sell, ${decideLater} still to decide on. Estimated shipping cost: ${costData.currency} ${costData.total_estimated_ship_cost.toLocaleString()}.`
+      } catch {
+        summaryText = 'They have previously assessed items.'
+      }
+      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
+    } else {
+      effectiveMessage = message
+    }
 
     // Build current user message with optional images
     const userContent: Anthropic.Messages.ContentBlockParam[] = []
@@ -696,8 +731,8 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
           controller.close()
 
-          // Don't persist the internal opening trigger as a user message
-          if (!isOpeningTrigger) {
+          // Don't persist internal triggers as user messages
+          if (!isOpeningTrigger && !isWelcomeBack) {
             const persistedUserContent =
               message || `[${allImageUrls.length} image${allImageUrls.length > 1 ? 's' : ''}]`
             await appendMessage(sessionId, {
