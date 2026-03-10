@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ─── Hoisted mocks (these run before imports) ──────────────────────────────
 
-const { mockSet, mockCreateUserProfile, mockCreateSession } = vi.hoisted(() => ({
-  mockSet: vi.fn(),
+const { mockGetAuthenticatedProfile, mockCreateUserProfile, mockCreateSession } = vi.hoisted(() => ({
+  mockGetAuthenticatedProfile: vi.fn(),
   mockCreateUserProfile: vi.fn(),
   mockCreateSession: vi.fn(),
 }))
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({ set: mockSet }),
+vi.mock('@/lib/auth', () => ({
+  getAuthenticatedProfile: (...args: unknown[]) => mockGetAuthenticatedProfile(...args),
 }))
 
 vi.mock('@/mcp', () => ({
@@ -22,6 +22,8 @@ import { POST } from './route'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const MOCK_USER = { id: 'auth-user-1', email: 'test@example.com' }
+
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost/api/onboarding', {
     method: 'POST',
@@ -30,9 +32,23 @@ function makeRequest(body: unknown): Request {
   })
 }
 
+// ─── Auth guard ──────────────────────────────────────────────────────────────
+
+describe('POST /api/onboarding — auth guard', () => {
+  it('returns 401 when not authenticated', async () => {
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: null, profile: null })
+    const res = await POST(makeRequest({ departure_country: 'US', arrival_country: 'IE' }))
+    expect(res.status).toBe(401)
+  })
+})
+
 // ─── Required field validation ───────────────────────────────────────────────
 
 describe('POST /api/onboarding — required field validation', () => {
+  beforeEach(() => {
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
+  })
+
   it('rejects missing departure_country', async () => {
     const res = await POST(makeRequest({ arrival_country: 'IE' }))
     expect(res.status).toBe(400)
@@ -85,6 +101,7 @@ describe('POST /api/onboarding — required field validation', () => {
 
 describe('POST /api/onboarding — onward move validation', () => {
   beforeEach(() => {
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
     mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
@@ -148,6 +165,7 @@ describe('POST /api/onboarding — onward move validation', () => {
 describe('POST /api/onboarding — equipment fields', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
     mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
@@ -210,6 +228,7 @@ describe('POST /api/onboarding — equipment fields', () => {
 describe('POST /api/onboarding — success', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
     mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
@@ -222,12 +241,9 @@ describe('POST /api/onboarding — success', () => {
     expect(json.session_id).toBe('session-1')
   })
 
-  it('sets session_id cookie on success', async () => {
+  it('passes auth_user_id to createUserProfile', async () => {
     await POST(makeRequest({ departure_country: 'US', arrival_country: 'IE' }))
-    expect(mockSet).toHaveBeenCalledWith(
-      'session_id',
-      'session-1',
-      expect.objectContaining({ httpOnly: true })
-    )
+    const callArg = mockCreateUserProfile.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(callArg.auth_user_id).toBe('auth-user-1')
   })
 })

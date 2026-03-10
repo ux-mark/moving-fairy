@@ -2,25 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ─── Hoisted mocks ───────────────────────────────────────────────────────────
 
-const { mockGetSession, mockSaveItemAssessment, mockAddItemToBox, mockMessagesCreate } = vi.hoisted(
+const { mockGetAuthenticatedProfile, mockSaveItemAssessment, mockAddItemToBox, mockFindOrCreateSession, mockMessagesCreate } = vi.hoisted(
   () => ({
-    mockGetSession: vi.fn(),
+    mockGetAuthenticatedProfile: vi.fn(),
     mockSaveItemAssessment: vi.fn(),
     mockAddItemToBox: vi.fn(),
+    mockFindOrCreateSession: vi.fn(),
     mockMessagesCreate: vi.fn(),
   })
 )
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn().mockReturnValue({ value: 'sess-1' }),
-  }),
+vi.mock('@/lib/auth', () => ({
+  getAuthenticatedProfile: (...args: unknown[]) => mockGetAuthenticatedProfile(...args),
 }))
 
 vi.mock('@/mcp', () => ({
-  getSession: (...a: unknown[]) => mockGetSession(...a),
   saveItemAssessment: (...a: unknown[]) => mockSaveItemAssessment(...a),
   addItemToBox: (...a: unknown[]) => mockAddItemToBox(...a),
+  findOrCreateSession: (...a: unknown[]) => mockFindOrCreateSession(...a),
 }))
 
 vi.mock('@anthropic-ai/sdk', () => {
@@ -32,32 +31,21 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: MockAnthropic }
 })
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: 'profile-1',
-              departure_country: 'US',
-              arrival_country: 'IE',
-              onward_country: null,
-              equipment: {},
-              anthropic_api_key: 'sk-ant-test-key',
-            },
-            error: null,
-          }),
-        })),
-      })),
-    })),
-  })),
-}))
-
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const MOCK_USER = { id: 'auth-user-1', email: 'test@example.com' }
+const MOCK_PROFILE = {
+  id: 'profile-1',
+  auth_user_id: 'auth-user-1',
+  departure_country: 'US',
+  arrival_country: 'IE',
+  onward_country: null,
+  equipment: {},
+  anthropic_api_key: 'sk-ant-test-key',
+}
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/light-assessment', {
@@ -73,14 +61,21 @@ function makeHaikuResponse(jsonContent: string) {
   }
 }
 
+// ─── Auth guard ──────────────────────────────────────────────────────────────
+
+describe('POST /api/light-assessment — auth guard', () => {
+  it('returns 401 when not authenticated', async () => {
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: null, profile: null })
+    const res = await POST(makeRequest({ item_name: 'Books' }))
+    expect(res.status).toBe(401)
+  })
+})
+
 // ─── Request validation ───────────────────────────────────────────────────────
 
 describe('POST /api/light-assessment — request validation', () => {
   beforeEach(() => {
-    mockGetSession.mockResolvedValue({
-      id: 'sess-1',
-      user_profile_id: 'profile-1',
-    })
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: MOCK_PROFILE })
   })
 
   it('returns 400 when item_name is missing', async () => {
@@ -103,11 +98,9 @@ describe('POST /api/light-assessment — request validation', () => {
 describe('POST /api/light-assessment — Haiku response parsing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetSession.mockResolvedValue({
-      id: 'sess-1',
-      user_profile_id: 'profile-1',
-    })
+    mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: MOCK_PROFILE })
     mockSaveItemAssessment.mockResolvedValue({ id: 'assess-1' })
+    mockFindOrCreateSession.mockResolvedValue({ id: 'sess-1' })
   })
 
   it('handles a clean SHIP verdict with no flags — saves assessment', async () => {
