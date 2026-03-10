@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system,
     sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-verdict-ship: oklch(0.5 0.15 142);
