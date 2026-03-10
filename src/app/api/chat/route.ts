@@ -17,6 +17,7 @@ import {
   removeItemFromBox,
 } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
+import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { BoxSize, BoxType, Country } from '@/lib/constants'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -557,7 +558,7 @@ export async function POST(req: NextRequest) {
     const profile = authProfile
 
     const apiKey =
-      process.env.ANTHROPIC_API_KEY ||
+      getAnthropicApiKey() ||
       profile.anthropic_api_key ||
       ''
 
@@ -748,8 +749,21 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           })
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Streaming error'
+          const isAuthError =
+            errMsg.includes('authentication_error') ||
+            errMsg.includes('401') ||
+            errMsg.includes('invalid x-api-key') ||
+            errMsg.includes('invalid api key')
+          if (isAuthError) {
+            refreshAnthropicApiKey()
+          }
+          const retryHint = isAuthError
+            ? ' (API key refreshed from keychain — please retry your message)'
+            : ''
           controller.enqueue(
-            new TextEncoder().encode(`data: {"error":"${errMsg}"}\n\n`)
+            new TextEncoder().encode(
+              `data: {"error":"${errMsg.replace(/"/g, '\\"')}${retryHint}"}\n\n`
+            )
           )
           controller.close()
         }
