@@ -23,7 +23,7 @@ export function UnboxedItems({
     return (
       <div className="rounded-lg border border-border bg-card px-4 py-6 text-center">
         <p className="text-sm font-medium text-foreground">
-          Everything's boxed up. Nice work.
+          {"Everything's boxed up. Nice work."}
         </p>
       </div>
     );
@@ -31,7 +31,7 @@ export function UnboxedItems({
 
   return (
     <div className="space-y-1">
-      <h3 className="text-sm font-semibold text-foreground px-1">
+      <h3 className="px-1 text-sm font-semibold text-foreground">
         Not yet boxed{" "}
         <span className="font-normal text-muted-foreground">
           ({items.length} {items.length === 1 ? "item" : "items"})
@@ -82,13 +82,13 @@ function UnboxedItemRow({
         !isLast && "border-b border-border"
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm text-foreground truncate">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-sm text-foreground">
           {item.item_name}
         </span>
         <VerdictBadge
           verdict={item.verdict}
-          className="text-[10px] px-1.5 py-0.5"
+          className="px-1.5 py-0.5 text-[10px]"
         />
       </div>
 
@@ -97,7 +97,7 @@ function UnboxedItemRow({
           <button
             type="button"
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-expanded={dropdownOpen}
             aria-haspopup="listbox"
           >
@@ -107,7 +107,6 @@ function UnboxedItemRow({
 
           {dropdownOpen && (
             <>
-              {/* Click-outside overlay */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
@@ -122,7 +121,7 @@ function UnboxedItemRow({
                     <button
                       type="button"
                       onClick={() => handleSelect(box.id)}
-                      className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors"
+                      className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
                     >
                       {box.label}
                     </button>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface SlidePanelProps {
@@ -11,7 +12,7 @@ interface SlidePanelProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 export function SlidePanel({
@@ -24,60 +25,43 @@ export function SlidePanel({
   const prefersReducedMotion = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const titleId = `slide-panel-title-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
-  // Capture focus origin and manage focus on open/close
+  // Store the element that had focus before the panel opened
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement as HTMLElement;
-      // Small delay to let animation begin before focusing
-      const timer = setTimeout(() => {
-        panelRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    } else if (previousFocusRef.current) {
-      previousFocusRef.current.focus();
-      previousFocusRef.current = null;
     }
   }, [open]);
-
-  // Lock body scroll when panel is open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [open]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
 
   // Focus trap
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+  useEffect(() => {
+    if (!open) return;
+
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const focusableSelector =
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    requestAnimationFrame(() => {
+      const firstFocusable = panel.querySelector<HTMLElement>(focusableSelector);
+      firstFocusable?.focus();
+    });
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
       if (e.key !== "Tab") return;
-      const panel = panelRef.current;
-      if (!panel) return;
 
-      const focusable = panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
+      const focusables = panel!.querySelectorAll<HTMLElement>(focusableSelector);
+      if (focusables.length === 0) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (!first || !last) return;
 
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
@@ -86,22 +70,41 @@ export function SlidePanel({
         e.preventDefault();
         first.focus();
       }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  // Return focus on close
+  useEffect(() => {
+    if (!open && previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [open]);
+
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) onClose();
     },
-    []
+    [onClose]
   );
 
   return (
     <AnimatePresence>
       {open && (
-        <>
-          {/* Backdrop overlay */}
-          <motion.div
-            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0 }}
-            transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
-            className="fixed inset-0 z-[400] bg-black/30"
-            onClick={onClose}
+        <motion.div
+          className="fixed inset-0 z-50 flex justify-end"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/10 supports-[backdrop-filter]:backdrop-blur-xs"
+            onClick={handleBackdropClick}
             aria-hidden="true"
           />
 
@@ -109,52 +112,52 @@ export function SlidePanel({
           <motion.div
             ref={panelRef}
             role="dialog"
+            aria-label={title}
             aria-modal="true"
-            aria-labelledby={titleId}
-            tabIndex={-1}
-            onKeyDown={handleKeyDown}
+            className={cn(
+              "relative z-10 flex h-full w-full max-w-sm flex-col bg-background shadow-lg sm:max-w-xs",
+              className
+            )}
             initial={
-              prefersReducedMotion ? { opacity: 1 } : { x: "100%" }
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : { x: "100%" }
             }
-            animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+            animate={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { x: 0 }
+            }
             exit={
-              prefersReducedMotion ? { opacity: 0 } : { x: "100%" }
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : { x: "100%" }
             }
             transition={
               prefersReducedMotion
                 ? { duration: 0 }
                 : { duration: 0.3, ease: [0.32, 0.72, 0, 1] }
             }
-            className={cn(
-              "fixed inset-y-0 right-0 z-[500] flex w-[min(480px,100vw)] flex-col bg-card shadow-[-4px_0_24px_rgba(0,0,0,0.12)] outline-none md:w-[440px]",
-              "max-md:w-full",
-              className
-            )}
           >
             {/* Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-              <h2
-                id={titleId}
-                className="text-base font-semibold text-foreground"
-              >
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h2 className="text-base font-semibold text-foreground">
                 {title}
               </h2>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={onClose}
-                className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Close panel"
               >
-                <X className="size-4" />
-              </button>
+                <X />
+              </Button>
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto">
-              {children}
-            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

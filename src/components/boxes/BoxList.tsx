@@ -14,18 +14,18 @@ import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
 interface BoxListProps {
   boxes: Box[];
   boxItems: Record<string, BoxItem[]>;
-  assessments?: ItemAssessment[];
-  onCreateBox?: (data: {
+  assessments?: ItemAssessment[] | undefined;
+  onCreateBox?: ((data: {
     roomName: string;
     size: BoxSize;
     boxType: (typeof BoxType)[keyof typeof BoxType];
-  }) => void;
-  onAddItem?: (boxId: string, itemName: string) => void;
-  onRemoveItem?: (boxId: string, boxItemId: string) => void;
-  onMarkPacked?: (boxId: string) => void;
-  onAddToBox?: (itemAssessmentId: string, boxId: string) => void;
-  onShipAll?: () => void;
-  isCreating?: boolean;
+  }) => void) | undefined;
+  onAddItem?: ((boxId: string, itemName: string) => void) | undefined;
+  onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
+  onMarkPacked?: ((boxId: string) => void) | undefined;
+  onAddToBox?: ((itemAssessmentId: string, boxId: string) => void) | undefined;
+  onShipAll?: (() => void) | undefined;
+  isCreating?: boolean | undefined;
 }
 
 const STATUS_ORDER: Record<string, number> = {
@@ -150,8 +150,7 @@ export function BoxList({
               No boxes yet.
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Start packing by telling Aisling which room you&apos;re tackling,
-              or tap &lsquo;New box&rsquo; below.
+              {"Start packing by telling Aisling which room you\u2019re tackling, or tap \u2018New box\u2019 below."}
             </p>
           </div>
           {onCreateBox && (
@@ -192,7 +191,7 @@ export function BoxList({
         {/* Travelling with me section */}
         {travellingBoxes.length > 0 && (
           <section aria-label="Travelling with me">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+            <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Travelling with me
             </h3>
             <div className="space-y-3">

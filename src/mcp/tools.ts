@@ -453,6 +453,19 @@ export async function setAllBoxesShipped(userProfileId: string): Promise<number>
   return (data ?? []).length
 }
 
+export async function updateBoxStatus(boxId: string, status: BoxStatus): Promise<Box> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box status')
+  return box as Box
+}
+
 export async function updateBoxCbm(boxId: string, cbm: number): Promise<Box> {
   const supabase = getAdminClient()
   const { data: box, error } = await supabase
