@@ -16,17 +16,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      // The DS barrel index.ts references many components not yet shipped in the
-      // installed package version. These aliases point vitest at a thin stub that
-      // only re-exports what actually exists, avoiding resolution errors.
-      // Next.js (with transpilePackages) resolves the real DS package at build time.
       '@thefairies/design-system/components': resolve(
         __dirname,
-        './src/test/__mocks__/@thefairies/design-system/components.ts'
+        './node_modules/@thefairies/design-system/src/components/index.ts'
       ),
-      '__DS_COMPONENTS__': resolve(
+      '@thefairies/design-system/styles/tokens.css': resolve(
         __dirname,
-        './node_modules/@thefairies/design-system/src/components'
+        './node_modules/@thefairies/design-system/src/styles/tokens.css'
+      ),
+      '@thefairies/design-system/styles/animations.css': resolve(
+        __dirname,
+        './node_modules/@thefairies/design-system/src/styles/animations.css'
       ),
     },
   },
