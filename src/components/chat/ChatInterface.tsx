@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Package } from "lucide-react";
 
@@ -41,7 +40,6 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
-  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingLabel, setStreamingLabel] = useState("Aisling is thinking...");
@@ -54,13 +52,8 @@ export function ChatInterface({ embedded = false }: ChatInterfaceProps) {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const openingTriggeredRef = useRef(false);
 
-  // Check for session on mount and trigger Aisling's opening or welcome-back message
+  // Trigger Aisling's opening or welcome-back message on mount
   useEffect(() => {
-    const hasSession = document.cookie.includes("session_id=");
-    if (!hasSession) {
-      router.push("/onboarding");
-      return;
-    }
     if (openingTriggeredRef.current) return;
     openingTriggeredRef.current = true;
 
