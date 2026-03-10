@@ -218,7 +218,7 @@ export function BoxCard({
                                 onRemoveItem(box.id, item.id);
                               }}
                               aria-label={`Remove ${item.item_name} from ${box.label}`}
-                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              className="shrink-0 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-destructive"
                             >
                               <XIcon />
                             </Button>

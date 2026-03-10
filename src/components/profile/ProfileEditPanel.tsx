@@ -189,7 +189,7 @@ export function ProfileEditPanel({
     <SlidePanel open={open} onClose={onClose} title="Edit move details">
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <Loader2 className="size-5 animate-spin motion-reduce:animate-none text-muted-foreground" />
         </div>
       ) : (
         <div className="flex flex-col gap-6 pb-6">
@@ -457,7 +457,7 @@ export function ProfileEditPanel({
           >
             {isSaving ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
                 Saving...
               </>
             ) : success ? (

@@ -52,7 +52,7 @@ export function LightAssessmentWarning({
         className
       )}
       role="alert"
-      aria-live="polite"
+      aria-live="assertive"
     >
       <div className="flex items-start gap-3">
         <AlertTriangle

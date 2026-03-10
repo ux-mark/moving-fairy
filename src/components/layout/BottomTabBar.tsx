@@ -21,7 +21,9 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
       <button
         type="button"
         role="tab"
+        id="mobile-tab-chat"
         aria-selected={activeTab === "chat"}
+        aria-controls="mobile-tabpanel-chat"
         onClick={() => onTabChange("chat")}
         className={cn(
           "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors",
@@ -37,7 +39,9 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
       <button
         type="button"
         role="tab"
+        id="mobile-tab-inventory"
         aria-selected={activeTab === "inventory"}
+        aria-controls="mobile-tabpanel-inventory"
         onClick={() => onTabChange("inventory")}
         className={cn(
           "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors",

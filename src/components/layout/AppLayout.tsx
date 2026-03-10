@@ -35,6 +35,14 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
 
   return (
     <div className="flex h-svh flex-col bg-background">
+      {/* Skip navigation link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline-none"
+      >
+        Skip to main content
+      </a>
+
       {/* Profile edit panel */}
       <ProfileEditPanel
         open={profileOpen}
@@ -63,7 +71,7 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
       {/* Desktop: side-by-side layout */}
       <div className="hidden flex-1 md:flex">
         {/* Inventory panel — left side */}
-        <div className="flex w-[40%] min-w-[320px] max-w-[480px] flex-col border-r border-border">
+        <aside className="flex w-[40%] min-w-[320px] max-w-[480px] flex-col border-r border-border" aria-label="Inventory">
           <div className="flex items-center justify-end border-b border-border px-3 py-1.5">
             <Button
               variant="ghost"
@@ -76,12 +84,12 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
             </Button>
           </div>
           {inventoryPanel}
-        </div>
+        </aside>
 
         {/* Chat panel — right side */}
-        <div className="flex flex-1 flex-col">
+        <main id="main-content" className="flex flex-1 flex-col">
           {chatPanel}
-        </div>
+        </main>
       </div>
 
       {/* Mobile: tabbed content */}
@@ -91,8 +99,9 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
             "flex-1 overflow-hidden",
             activeTab === "chat" ? "block" : "hidden"
           )}
+          id="mobile-tabpanel-chat"
           role="tabpanel"
-          aria-label="Chat"
+          aria-labelledby="mobile-tab-chat"
         >
           {chatPanel}
         </div>
@@ -101,8 +110,9 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
             "flex-1 overflow-hidden",
             activeTab === "inventory" ? "block" : "hidden"
           )}
+          id="mobile-tabpanel-inventory"
           role="tabpanel"
-          aria-label="Inventory"
+          aria-labelledby="mobile-tab-inventory"
         >
           {inventoryPanel}
         </div>

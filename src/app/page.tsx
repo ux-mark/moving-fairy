@@ -21,9 +21,9 @@ export default async function Home() {
             strokeWidth={1.8}
             aria-hidden="true"
           />
-          <span className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Moving Fairy
-          </span>
+          </h1>
         </div>
 
         {/* Tagline */}

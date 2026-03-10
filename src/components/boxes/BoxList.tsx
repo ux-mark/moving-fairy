@@ -215,6 +215,9 @@ export function BoxList({
         {/* Freight boxes */}
         {freightBoxes.length > 0 && (
           <section aria-label="Shipping boxes">
+            <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Shipping boxes
+            </h3>
             <div className="space-y-3">
               {freightBoxes.map((box) => (
                 <BoxCard
