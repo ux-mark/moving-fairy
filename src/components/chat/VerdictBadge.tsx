@@ -1,5 +1,6 @@
 import type { Verdict } from "@/lib/constants";
 import { Badge } from "@thefairies/design-system/components";
+import styles from "./VerdictBadge.module.css";
 
 const VERDICT_BG: Record<Verdict, string> = {
   SHIP: "var(--verdict-ship-bg)",
@@ -34,13 +35,14 @@ interface VerdictBadgeProps {
 }
 
 export function VerdictBadge({ verdict, className }: VerdictBadgeProps) {
+  const combined = [styles.badge, className].filter(Boolean).join(" ");
   return (
     <Badge
       label={VERDICT_LABELS[verdict]}
       bgColor={VERDICT_BG[verdict]}
       fgColor={VERDICT_FG[verdict]}
       size="sm"
-      {...(className ? { className } : {})}
+      className={combined}
     />
   );
 }

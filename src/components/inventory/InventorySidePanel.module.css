@@ -7,13 +7,14 @@
   height: 100%;
   overflow: hidden;
   background: var(--color-bg-panel);
+  padding-top: 8px;
 }
 
 /* Toggle bar */
 .tabBar {
   display: flex;
   gap: 4px;
-  padding: 8px 8px;
+  padding: 4px 8px;
   flex-shrink: 0;
   background: var(--color-bg-card);
   border-bottom: 1px solid var(--color-border-default);
@@ -24,7 +25,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -47,7 +48,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
