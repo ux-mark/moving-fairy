@@ -123,4 +123,10 @@
     height: 18px;
     font-size: 11px;
   }
+
+  /* Hide Decisions tab on mobile — the DecisionNotificationTab on the
+     chat view provides access to decisions instead */
+  .decisionsTab {
+    display: none;
+  }
 }

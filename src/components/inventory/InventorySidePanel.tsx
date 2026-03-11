@@ -70,7 +70,7 @@ export function InventorySidePanel({
         </button>
         <button
           type="button"
-          className={activeTab === "decisions" ? styles.tabActive : styles.tab}
+          className={`${activeTab === "decisions" ? styles.tabActive : styles.tab} ${styles.decisionsTab}`}
           onClick={() => setActiveTab("decisions")}
         >
           <Scale size={13} />

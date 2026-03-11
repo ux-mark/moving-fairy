@@ -206,7 +206,8 @@
     z-index: calc(var(--z-panel, 200) - 1);
     /* Slide down: starts above its position, slides into place */
     transform: translateY(-100%);
-    transition: transform 0.2s ease;
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s 0.2s;
     will-change: transform;
     pointer-events: none;
   }
@@ -219,6 +220,8 @@
 
   .mobileOverlayOpen {
     transform: translateY(0);
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s 0s;
     pointer-events: auto;
   }
 }
