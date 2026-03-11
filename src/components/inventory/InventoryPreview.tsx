@@ -36,10 +36,11 @@ export function InventoryPreview({
     estimatedCost != null ? `~${formatCost(estimatedCost, currency)}` : null;
 
   return (
-    <div
+    <button
+      type="button"
       className={styles.strip}
-      role="region"
-      aria-label={`Inventory summary: ${itemCount} ${itemCount === 1 ? "item" : "items"}${costLabel ? `, estimated cost ${costLabel}` : ""}`}
+      onClick={onExpand}
+      aria-label={`View inventory: ${itemCount} ${itemCount === 1 ? "item" : "items"}${costLabel ? `, estimated cost ${costLabel}` : ""}`}
     >
       <span className={styles.summary}>
         {itemCount} {itemCount === 1 ? "item" : "items"}
@@ -53,15 +54,10 @@ export function InventoryPreview({
         )}
       </span>
 
-      <button
-        type="button"
-        className={styles.expandButton}
-        onClick={onExpand}
-        aria-label="View inventory"
-      >
+      <span className={styles.expandLabel}>
         <Package size={16} />
         View
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }

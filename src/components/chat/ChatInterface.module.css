@@ -19,6 +19,17 @@
   position: relative;
 }
 
+/*
+ * On mobile the DecisionNotificationTab renders as a 44px circular badge
+ * in the bottom-right corner (right: 12px). Adding right padding here
+ * ensures message text never sits behind the badge at any scroll position.
+ */
+@media (max-width: 767px) {
+  .messagesScroll {
+    padding-right: 64px;
+  }
+}
+
 .messagesInner {
   /* No max-width constraint — chat bubbles manage their own max-width */
 }

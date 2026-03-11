@@ -1,20 +1,40 @@
-/* InventoryPreview — compact mobile strip */
+/* InventoryPreview — compact mobile strip (entire strip is tappable) */
 
 .strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  width: 100%;
+  min-height: 48px;
   padding: 0 16px;
   background: var(--color-bg-card);
+  border: none;
   border-bottom: 1px solid var(--color-border-default);
   flex-shrink: 0;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast);
   animation: slideDown 0.25s ease-out;
+}
+
+.strip:hover {
+  background: var(--color-bg-subtle);
+}
+
+.strip:active {
+  background: var(--color-bg-page);
+}
+
+.strip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .strip {
     animation: none;
+    transition: none;
   }
 }
 
@@ -49,31 +69,15 @@
   font-weight: 400;
 }
 
-.expandButton {
+/* "View" label on the right — decorative, the whole strip is the button */
+.expandLabel {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  min-height: 44px;
-  font-family: inherit;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-primary);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background var(--transition-fast);
   white-space: nowrap;
-}
-
-.expandButton:hover {
-  background: var(--color-bg-subtle);
-}
-
-.expandButton:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 /* Only show on mobile */

@@ -152,13 +152,15 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
             <SignOutButton />
           </div>
 
-          {/* Mobile preview strip — hidden on desktop via its own CSS */}
-          <InventoryPreview
-            itemCount={totalItems}
-            estimatedCost={costSummary!.total_estimated_ship_cost}
-            currency={costSummary!.currency}
-            onExpand={openMobileInventory}
-          />
+          {/* Mobile preview strip — hidden on desktop via its own CSS, and hidden when the mobile overlay is open */}
+          {!mobileInventoryOpen && (
+            <InventoryPreview
+              itemCount={totalItems}
+              estimatedCost={costSummary!.total_estimated_ship_cost}
+              currency={costSummary!.currency}
+              onExpand={openMobileInventory}
+            />
+          )}
         </>
       )}
 
@@ -218,19 +220,21 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
         </div>
       </div>
 
-      {/* Decision notification tab — right edge, visible when pending decisions exist */}
-      <DecisionNotificationTab
-        count={decisionCount}
-        onClick={() => {
-          setInventoryOpen(true);
-          setActiveSection("inventory");
-          // On mobile, open the overlay instead
-          if (typeof window !== "undefined" && window.innerWidth < 768) {
-            setMobileInventoryOpen(true);
-          }
-          onOpenDecisions?.();
-        }}
-      />
+      {/* Decision notification tab — right edge, only on chat view (hidden when inventory overlay is open) */}
+      {!mobileInventoryOpen && (
+        <DecisionNotificationTab
+          count={decisionCount}
+          onClick={() => {
+            setInventoryOpen(true);
+            setActiveSection("inventory");
+            // On mobile, open the overlay and switch to Decisions tab
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setMobileInventoryOpen(true);
+            }
+            onOpenDecisions?.();
+          }}
+        />
+      )}
     </div>
   );
 }
