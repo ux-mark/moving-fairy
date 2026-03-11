@@ -2,18 +2,19 @@
 
 import { useState } from "react";
 import {
-  RecommendationCard,
   EmptyState,
   SkeletonGroup,
   SkeletonRect,
   SkeletonText,
   SkeletonPill,
 } from "@thefairies/design-system/components";
+import { Pencil } from "lucide-react";
 import { SplitButton } from "@/components/shared/SplitButton";
 import { EditablePill } from "@/components/shared/EditablePill";
 import type { EditablePillOption } from "@/components/shared/EditablePill";
+import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
 import { Verdict } from "@/lib/constants";
-import type { ItemAssessment } from "@/types";
+import type { Box, ItemAssessment } from "@/types";
 import styles from "./DecisionsPanel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,7 @@ import styles from "./DecisionsPanel.module.css";
 
 export interface DecisionsPanelProps {
   decisions: ItemAssessment[];
+  boxes?: Box[];
   isLoading: boolean;
   error: string | null;
   onConfirm: (assessmentId: string) => Promise<void>;
@@ -31,27 +33,8 @@ export interface DecisionsPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Verdict → DS accent and badge colours (matching MessageBubble pattern)
+// Verdict display helpers
 // ---------------------------------------------------------------------------
-
-const VERDICT_ACCENT: Record<string, string> = {
-  SHIP: "var(--verdict-ship)",
-  CARRY: "var(--verdict-carry)",
-  SELL: "var(--verdict-sell)",
-  DONATE: "var(--verdict-donate)",
-  DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
-};
-
-
-const VERDICT_LABELS: Record<string, string> = {
-  SHIP: "Ship",
-  CARRY: "Carry",
-  SELL: "Sell",
-  DONATE: "Donate",
-  DISCARD: "Discard",
-  DECIDE_LATER: "Decide later",
-};
 
 /** Options for the EditablePill verdict selector — bg/fg from token pairs */
 const VERDICT_PILL_OPTIONS: EditablePillOption[] = [
@@ -91,51 +74,55 @@ function DecisionCardSkeleton() {
 
 interface DecisionCardProps {
   assessment: ItemAssessment;
+  boxes: Box[];
   onConfirm: (id: string) => Promise<void>;
   onConfirmAndSend: (id: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
+  onRefresh: () => Promise<void>;
 }
 
 type ActionState = "idle" | "confirming" | "confirmed" | "error";
 
 function DecisionCard({
   assessment,
+  boxes,
   onConfirm,
   onConfirmAndSend,
   onChatAbout,
+  onRefresh,
 }: DecisionCardProps) {
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const verdict = localVerdict;
-  const accentColor = VERDICT_ACCENT[verdict] ?? "var(--color-primary)";
-  const badgeColor = VERDICT_ACCENT[verdict] ?? "var(--color-primary)";
-
-  // Build metadata array for cost info
-  const metadata: { label: string; value: string }[] = [];
+  // Build cost metadata lines
+  const costLines: string[] = [];
   if (assessment.estimated_ship_cost != null) {
     const sym = assessment.currency ?? "USD";
-    metadata.push({
-      label: "Ship cost",
-      value: `${sym} ${assessment.estimated_ship_cost.toFixed(2)}`,
-    });
+    costLines.push(`Ship cost: ${sym} ${assessment.estimated_ship_cost.toFixed(2)}`);
   }
   if (assessment.estimated_replace_cost != null) {
     const sym = assessment.replace_currency ?? "USD";
-    metadata.push({
-      label: "Replace cost",
-      value: `${sym} ${assessment.estimated_replace_cost.toFixed(2)}`,
-    });
+    costLines.push(`Replace cost: ${sym} ${assessment.estimated_replace_cost.toFixed(2)}`);
   }
 
-  const optionalProps = {
-    badge: {
-      label: VERDICT_LABELS[verdict] ?? verdict.replace("_", " "),
-      color: badgeColor,
-    },
-    accentColor,
-    ...(metadata.length > 0 ? { metadata } : {}),
-  };
+  // Immediately PATCH when the verdict pill changes
+  async function handleVerdictChange(newVerdict: string) {
+    const previous = localVerdict;
+    setLocalVerdict(newVerdict);
+    try {
+      const res = await fetch(`/api/assessments/${assessment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict: newVerdict }),
+      });
+      if (!res.ok) {
+        setLocalVerdict(previous);
+      }
+    } catch {
+      setLocalVerdict(previous);
+    }
+  }
 
   async function handleConfirm() {
     setActionState("confirming");
@@ -157,74 +144,115 @@ function DecisionCard({
     }
   }
 
+  async function handleItemSave(updates: Partial<ItemAssessment>) {
+    if (Object.keys(updates).length === 0) return;
+    const res = await fetch(`/api/assessments/${assessment.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      throw new Error("Failed to save item");
+    }
+    await onRefresh();
+  }
+
   // If confirmed, render nothing (card will be removed from list on refresh)
   if (actionState === "confirmed") {
     return null;
   }
 
-  const dsStatus =
-    actionState === "confirming"
-      ? "confirming"
-      : actionState === "error"
-      ? "error"
-      : "idle";
+  const isConfirming = actionState === "confirming";
 
   return (
-    <article className={styles.card} aria-label={`Decision for ${assessment.item_name}`}>
-      <RecommendationCard
-        title={assessment.item_name}
-        rationale={assessment.advice_text ?? "No advice available."}
-        status={dsStatus}
-        onConfirm={() => { /* handled by custom action row below */ }}
-        onSkip={() => { /* handled by custom action row below */ }}
-        errorMessage="Failed to save — please try again"
-        ariaLabel={`Assessment for ${assessment.item_name}`}
-        {...optionalProps}
-      />
+    <>
+      <article
+        className={styles.card}
+        aria-label={`Decision for ${assessment.item_name}`}
+      >
+        {/* Card header: item name + verdict pill */}
+        <div className={styles.cardHeader}>
+          <h3 className={styles.cardTitle}>{assessment.item_name}</h3>
+          <EditablePill
+            value={localVerdict}
+            options={VERDICT_PILL_OPTIONS}
+            onChange={handleVerdictChange}
+            disabled={isConfirming}
+            size="sm"
+          />
+        </div>
 
-      {/* Action row: verdict pill + confirm + chat */}
-      <div className={styles.actionRow}>
-        <EditablePill
-          value={localVerdict}
-          options={VERDICT_PILL_OPTIONS}
-          onChange={setLocalVerdict}
-          disabled={actionState === "confirming"}
-          size="sm"
-        />
+        {/* Rationale */}
+        {assessment.advice_text && (
+          <p className={styles.rationale}>{assessment.advice_text}</p>
+        )}
 
-        <SplitButton
-          label="Confirm"
-          onClick={handleConfirm}
-          items={[
-            {
-              label: "and Send",
-              onClick: handleConfirmAndSend,
-            },
-          ]}
-          variant="success"
-          size="sm"
-          loading={actionState === "confirming"}
-          disabled={actionState === "confirming"}
-        />
+        {/* Cost metadata */}
+        {costLines.length > 0 && (
+          <ul className={styles.costList} aria-label="Cost estimates">
+            {costLines.map((line) => (
+              <li key={line} className={styles.costItem}>
+                {line}
+              </li>
+            ))}
+          </ul>
+        )}
 
-        {onChatAbout && (
+        {/* Action row: Confirm (split) + Edit + Chat */}
+        <div className={styles.actionRow}>
+          <SplitButton
+            label="Confirm"
+            onClick={handleConfirm}
+            items={[
+              {
+                label: "Confirm and send",
+                onClick: handleConfirmAndSend,
+              },
+            ]}
+            variant="success"
+            size="sm"
+            loading={isConfirming}
+            disabled={isConfirming}
+          />
+
           <button
             type="button"
-            className={styles.chatButton}
-            onClick={() => onChatAbout(assessment)}
-            disabled={actionState === "confirming"}
+            className={styles.editButton}
+            onClick={() => setIsEditOpen(true)}
+            disabled={isConfirming}
+            aria-label={`Edit ${assessment.item_name}`}
           >
-            Chat about this
+            <Pencil size={13} aria-hidden="true" />
+            Edit
           </button>
-        )}
-      </div>
 
-      {actionState === "error" && (
-        <p className={styles.errorText} role="alert">
-          Something went wrong. Please try again.
-        </p>
-      )}
-    </article>
+          {onChatAbout && (
+            <button
+              type="button"
+              className={styles.chatButton}
+              onClick={() => onChatAbout(assessment)}
+              disabled={isConfirming}
+            >
+              Chat about this
+            </button>
+          )}
+        </div>
+
+        {actionState === "error" && (
+          <p className={styles.errorText} role="alert">
+            Something went wrong. Please try again.
+          </p>
+        )}
+      </article>
+
+      <ItemEditPanel
+        item={{ ...assessment, verdict: localVerdict as ItemAssessment["verdict"] }}
+        boxes={boxes}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onSave={handleItemSave}
+      />
+    </>
   );
 }
 
@@ -234,6 +262,7 @@ function DecisionCard({
 
 export function DecisionsPanel({
   decisions,
+  boxes = [],
   isLoading,
   error,
   onConfirm,
@@ -280,8 +309,10 @@ export function DecisionsPanel({
         <div key={assessment.id} role="listitem">
           <DecisionCard
             assessment={assessment}
+            boxes={boxes}
             onConfirm={onConfirm}
             onConfirmAndSend={onConfirmAndSend}
+            onRefresh={onRefresh}
             {...(onChatAbout ? { onChatAbout } : {})}
           />
         </div>

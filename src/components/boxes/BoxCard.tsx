@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -8,12 +8,14 @@ import {
   Briefcase,
   Luggage,
   Plus,
+  ListPlus,
   X as XIcon,
 } from "lucide-react";
 import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { BoxSizeBadge } from "@/components/boxes/BoxSizeBadge";
+import { ItemPicker } from "@/components/boxes/ItemPicker";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType } from "@/lib/constants";
@@ -26,7 +28,10 @@ interface BoxCardProps {
   items: BoxItem[];
   /** Map of item_assessment_id to ItemAssessment, for showing verdicts */
   assessments?: Record<string, ItemAssessment> | undefined;
+  /** Unboxed SHIP/CARRY items available to assign to this box */
+  unboxedItems?: ItemAssessment[] | undefined;
   onAddItem?: ((boxId: string, itemName: string) => void) | undefined;
+  onAddExistingItem?: ((boxId: string, assessmentId: string) => void) | undefined;
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
 }
@@ -46,16 +51,28 @@ export function BoxCard({
   box,
   items,
   assessments,
+  unboxedItems,
   onAddItem,
+  onAddExistingItem,
   onRemoveItem,
   onMarkPacked,
 }: BoxCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [addItemValue, setAddItemValue] = useState("");
+  const [isPickingExisting, setIsPickingExisting] = useState(false);
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // On mobile, use simple CSS transitions instead of spring physics
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const isShipped = box.status === "shipped" || box.status === "arrived";
   const isPacking = box.status === "packing";
@@ -99,6 +116,15 @@ export function BoxCard({
       }
     },
     [handleAddItem]
+  );
+
+  const handleSelectExistingItem = useCallback(
+    (item: ItemAssessment) => {
+      if (!onAddExistingItem) return;
+      onAddExistingItem(box.id, item.id);
+      setIsPickingExisting(false);
+    },
+    [box.id, onAddExistingItem]
   );
 
   const handleConfirmPacked = useCallback(() => {
@@ -155,7 +181,9 @@ export function BoxCard({
               transition={
                 prefersReducedMotion
                   ? { duration: 0 }
-                  : { type: "spring", stiffness: 300, damping: 30 }
+                  : isMobile
+                    ? { duration: 0.15, ease: "easeOut" }
+                    : { type: "spring", stiffness: 300, damping: 30 }
               }
               className={styles.expandedContent}
             >
@@ -204,33 +232,64 @@ export function BoxCard({
                   </ul>
                 )}
 
-                {/* Add to this box — inline input */}
+                {/* Add to this box — inline input + existing item picker */}
                 {showAddInput && (
-                  <div className={styles.addItemRow}>
-                    <div className={styles.addItemInputWrap}>
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={addItemValue}
-                        onChange={(e) => setAddItemValue(e.target.value)}
-                        onKeyDown={handleAddItemKeyDown}
-                        placeholder="Type an item name to add..."
-                        className={styles.addItemInput}
-                        aria-label={`Add item to ${box.label}`}
-                      />
+                  <div className={styles.addSection}>
+                    <div className={styles.addItemRow}>
+                      <div className={styles.addItemInputWrap}>
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={addItemValue}
+                          onChange={(e) => setAddItemValue(e.target.value)}
+                          onKeyDown={handleAddItemKeyDown}
+                          placeholder="Type an item name to add..."
+                          className={styles.addItemInput}
+                          aria-label={`Add item to ${box.label}`}
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddItem();
+                        }}
+                        disabled={!addItemValue.trim()}
+                        aria-label="Add item"
+                      >
+                        <Plus style={{ width: 16, height: 16 }} />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddItem();
-                      }}
-                      disabled={!addItemValue.trim()}
-                      aria-label="Add item"
-                    >
-                      <Plus style={{ width: 16, height: 16 }} />
-                    </Button>
+
+                    {onAddExistingItem && unboxedItems && unboxedItems.length > 0 && (
+                      <div className={styles.addExistingWrap}>
+                        <button
+                          type="button"
+                          className={styles.addExistingButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPickingExisting((prev) => !prev);
+                          }}
+                          aria-expanded={isPickingExisting}
+                          aria-label="Add existing inventory item to this box"
+                        >
+                          <ListPlus style={{ width: 14, height: 14 }} />
+                          Add existing item
+                        </button>
+
+                        {isPickingExisting && (
+                          <div className={styles.itemPickerWrap}>
+                            <ItemPicker
+                              items={unboxedItems}
+                              onSelect={handleSelectExistingItem}
+                              onDismiss={() => setIsPickingExisting(false)}
+                              label={`Search unboxed items to add to ${box.label}`}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

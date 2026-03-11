@@ -8,6 +8,7 @@ import {
   Luggage,
   Package,
   PackagePlus,
+  Pencil,
   Plane,
   ShoppingBag,
 } from "lucide-react";
@@ -17,9 +18,11 @@ import {
   SkeletonGroup,
 } from "@thefairies/design-system/components";
 import { BoxCard } from "@/components/boxes/BoxCard";
+import { BoxPicker } from "@/components/boxes/BoxPicker";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { CostSummary } from "@/components/inventory/CostSummary";
+import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -42,15 +45,6 @@ const VERDICT_ORDER: Verdict[] = [
   "DISCARD",
   "DECIDE_LATER",
 ];
-
-const VERDICT_LABELS: Record<Verdict, string> = {
-  SHIP: "Ship",
-  CARRY: "Carry",
-  SELL: "Sell",
-  DONATE: "Donate",
-  DISCARD: "Discard",
-  DECIDE_LATER: "Decide later",
-};
 
 interface InventoryPanelProps {
   className?: string;
@@ -114,7 +108,11 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
                   onRefresh={refreshInventory}
                 />
               ) : (
-                <VerdictView assessments={assessments} onRefresh={refreshInventory} />
+                <VerdictView
+                  assessments={assessments}
+                  boxes={boxes}
+                  onRefresh={refreshInventory}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -154,6 +152,30 @@ function ContainerView({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ item_name: itemName }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleAddExistingItem = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleAssignToBox = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
       });
       onRefresh();
     },
@@ -210,6 +232,17 @@ function ContainerView({
     (a) => (a.verdict === "SHIP" || a.verdict === "CARRY") && !boxedItemIds.has(a.id)
   );
 
+  const packingBoxes = boxes.filter((b) => b.status === "packing");
+
+  // Item count per box, for display in BoxPicker
+  const boxItemCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(boxItems).map(([bid, bItems]) => [bid, bItems.length])
+      ),
+    [boxItems]
+  );
+
   const notShipping = assessments.filter(
     (a) => a.verdict === "SELL" || a.verdict === "DONATE" || a.verdict === "DISCARD"
   );
@@ -225,7 +258,9 @@ function ContainerView({
                 box={box}
                 items={boxItems[box.id] ?? []}
                 assessments={assessmentMap}
+                unboxedItems={unboxedItems}
                 onAddItem={handleAddItem}
+                onAddExistingItem={handleAddExistingItem}
                 onRemoveItem={handleRemoveItem}
                 onMarkPacked={handleMarkPacked}
               />
@@ -243,7 +278,9 @@ function ContainerView({
                 box={box}
                 items={boxItems[box.id] ?? []}
                 assessments={assessmentMap}
+                unboxedItems={unboxedItems}
                 onAddItem={handleAddItem}
+                onAddExistingItem={handleAddExistingItem}
                 onRemoveItem={handleRemoveItem}
                 onMarkPacked={handleMarkPacked}
               />
@@ -274,7 +311,15 @@ function ContainerView({
         <Section icon={PackagePlus} title="Not yet boxed">
           <div className={styles.collapsibleItems}>
             {unboxedItems.map((item) => (
-              <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
+              <ItemRow
+                key={item.id}
+                item={item}
+                boxes={boxes}
+                packingBoxes={packingBoxes}
+                boxItemCounts={boxItemCounts}
+                onAssignToBox={handleAssignToBox}
+                onRefresh={onRefresh}
+              />
             ))}
           </div>
         </Section>
@@ -291,9 +336,11 @@ function ContainerView({
 
 function VerdictView({
   assessments,
+  boxes,
   onRefresh,
 }: {
   assessments: ItemAssessment[];
+  boxes: Box[];
   onRefresh: () => void;
 }) {
   const grouped = VERDICT_ORDER.reduce(
@@ -308,7 +355,13 @@ function VerdictView({
   return (
     <div className={styles.viewStack}>
       {grouped.map(({ verdict, items }) => (
-        <VerdictGroup key={verdict} verdict={verdict} items={items} onRefresh={onRefresh} />
+        <VerdictGroup
+          key={verdict}
+          verdict={verdict}
+          items={items}
+          boxes={boxes}
+          onRefresh={onRefresh}
+        />
       ))}
     </div>
   );
@@ -317,10 +370,12 @@ function VerdictView({
 function VerdictGroup({
   verdict,
   items,
+  boxes,
   onRefresh,
 }: {
   verdict: Verdict;
   items: ItemAssessment[];
+  boxes: Box[];
   onRefresh: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -340,7 +395,7 @@ function VerdictGroup({
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
+            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} />
           ))}
         </div>
       </CollapsibleContent>
@@ -372,105 +427,120 @@ function Section({
   );
 }
 
-function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => void }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(item.item_name);
-  const [selectedVerdict, setSelectedVerdict] = useState(item.verdict);
+interface ItemRowProps {
+  item: ItemAssessment;
+  boxes: Box[];
+  onRefresh: () => void;
+  /** Packing boxes for quick-assign box picker (only for SHIP/CARRY items) */
+  packingBoxes?: Box[];
+  /** Item count per box, for display in BoxPicker */
+  boxItemCounts?: Record<string, number>;
+  /** Called when the user selects a box via the quick-assign picker */
+  onAssignToBox?: (boxId: string, assessmentId: string) => void;
+}
 
-  const handleNameSave = useCallback(async () => {
-    if (editName.trim() === "" || editName === item.item_name) {
-      setEditName(item.item_name);
-      setIsEditing(false);
-      return;
-    }
-    try {
-      await fetch(`/api/assessments/${item.id}`, {
+function ItemRow({
+  item,
+  boxes,
+  onRefresh,
+  packingBoxes,
+  boxItemCounts,
+  onAssignToBox,
+}: ItemRowProps) {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPickingBox, setIsPickingBox] = useState(false);
+
+  const canQuickAssign =
+    (item.verdict === "SHIP" || item.verdict === "CARRY") &&
+    onAssignToBox !== undefined &&
+    packingBoxes !== undefined &&
+    packingBoxes.length > 0;
+
+  const handleItemSave = useCallback(
+    async (updates: Partial<ItemAssessment>) => {
+      if (Object.keys(updates).length === 0) return;
+      const res = await fetch(`/api/assessments/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_name: editName.trim() }),
+        body: JSON.stringify(updates),
       });
-      setIsEditing(false);
-      onRefresh();
-    } catch {
-      setEditName(item.item_name);
-      setIsEditing(false);
-    }
-  }, [editName, item.id, item.item_name, onRefresh]);
-
-  const handleVerdictChange = useCallback(
-    async (newVerdict: string) => {
-      setSelectedVerdict(newVerdict as Verdict);
-      try {
-        await fetch(`/api/assessments/${item.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ verdict: newVerdict }),
-        });
-        onRefresh();
-      } catch {
-        setSelectedVerdict(item.verdict);
+      if (!res.ok) {
+        throw new Error("Failed to save item");
       }
+      onRefresh();
     },
-    [item.id, item.verdict, onRefresh]
+    [item.id, onRefresh]
+  );
+
+  const handleSelectBox = useCallback(
+    (box: Box) => {
+      onAssignToBox?.(box.id, item.id);
+      setIsPickingBox(false);
+    },
+    [item.id, onAssignToBox]
   );
 
   return (
-    <div className={styles.itemRow} data-verdict={item.verdict}>
-      {item.image_url ? (
-        <img
-          src={`/api/img?url=${encodeURIComponent(item.image_url)}`}
-          alt=""
-          className={styles.itemThumb}
-        />
-      ) : (
-        <div className={styles.itemThumbPlaceholder}>
-          <ShoppingBag style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
-        </div>
-      )}
+    <>
+      <div className={styles.itemRowOuter}>
+        <div className={styles.itemRow} data-verdict={item.verdict}>
+          {item.image_url ? (
+            <img
+              src={`/api/img?url=${encodeURIComponent(item.image_url)}`}
+              alt=""
+              className={styles.itemThumb}
+            />
+          ) : (
+            <div className={styles.itemThumbPlaceholder} aria-hidden="true">
+              <ShoppingBag style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
+            </div>
+          )}
 
-      <div className={styles.itemName}>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleNameSave();
-              if (e.key === "Escape") {
-                setEditName(item.item_name);
-                setIsEditing(false);
-              }
-            }}
-            className={styles.itemNameInput}
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- inline edit mode requires immediate focus
-            autoFocus
-          />
-        ) : (
+          <span className={styles.itemName}>{item.item_name}</span>
+
+          {canQuickAssign && (
+            <button
+              type="button"
+              className={styles.assignBoxButton}
+              onClick={() => setIsPickingBox((prev) => !prev)}
+              aria-expanded={isPickingBox}
+              aria-label={`Assign ${item.item_name} to a box`}
+            >
+              Assign to box
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => setIsEditing(true)}
-            className={styles.itemNameButton}
-            title="Click to edit name"
+            onClick={() => setIsEditOpen(true)}
+            className={styles.itemEditButton}
+            aria-label={`Edit ${item.item_name}`}
           >
-            {item.item_name}
+            <Pencil size={13} aria-hidden="true" />
+            Edit
           </button>
+        </div>
+
+        {isPickingBox && packingBoxes && (
+          <div className={styles.boxPickerWrap}>
+            <BoxPicker
+              boxes={packingBoxes}
+              itemCounts={boxItemCounts ?? {}}
+              onSelect={handleSelectBox}
+              onDismiss={() => setIsPickingBox(false)}
+            />
+          </div>
         )}
       </div>
 
-      <select
-        value={selectedVerdict}
-        onChange={(e) => handleVerdictChange(e.target.value)}
-        className={styles.verdictSelect}
-        aria-label={`Verdict for ${item.item_name}`}
-      >
-        {VERDICT_ORDER.map((v) => (
-          <option key={v} value={v}>
-            {VERDICT_LABELS[v]}
-          </option>
-        ))}
-      </select>
-    </div>
+      <ItemEditPanel
+        item={item}
+        boxes={boxes}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onSave={handleItemSave}
+      />
+    </>
   );
 }
 

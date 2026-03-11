@@ -3,6 +3,7 @@
 import { type MutableRefObject, useEffect, useState } from "react";
 import { Package, Scale, Brain } from "lucide-react";
 import type { ItemAssessment } from "@/types";
+import { useInventory } from "@/lib/hooks/useInventory";
 import { InventoryPanel } from "@/components/inventory/InventoryPanel";
 import { AILogicPanel, type LogicEvent } from "@/components/chat/AILogicPanel";
 import { DecisionsPanel } from "@/components/inventory/DecisionsPanel";
@@ -40,6 +41,8 @@ export function InventorySidePanel({
   onSwitchToDecisionsRef,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
+  // Fetch boxes so DecisionsPanel can offer box assignment in the edit panel
+  const { boxes } = useInventory();
 
   // Allow parent to programmatically switch to the Decisions tab
   useEffect(() => {
@@ -95,6 +98,7 @@ export function InventorySidePanel({
         ) : activeTab === "decisions" ? (
           <DecisionsPanel
             decisions={decisions}
+            boxes={boxes}
             isLoading={decisionsLoading}
             error={decisionsError}
             onConfirm={onConfirm ?? (async () => {})}

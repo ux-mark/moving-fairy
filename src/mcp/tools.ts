@@ -239,6 +239,7 @@ export async function saveItemAssessment(data: {
 // Narrowed type for updatable fields — prevents accidental mutation of
 // system-managed fields like id, user_profile_id, session_id, created_at.
 type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
+  | 'item_name'
   | 'verdict'
   | 'advice_text'
   | 'item_description'

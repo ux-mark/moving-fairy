@@ -1,9 +1,23 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# ---------------------------------------------------------------------------
+# dev-lan.sh — Start the dev environment with dynamic LAN IP detection
+#
+# Detects your machine's LAN IP so mobile devices on the same network can
+# access the Next.js app and Supabase services. Updates supabase/config.toml
+# with the detected IP, sets the NEXT_PUBLIC_SUPABASE_URL env var, and starts
+# Next.js on all interfaces (0.0.0.0).
+#
+# Usage:
+#   pnpm dev:lan          # normal usage via package.json
+#   bash scripts/dev-lan.sh   # direct invocation
+# ---------------------------------------------------------------------------
 set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+TOML="$PROJECT_DIR/supabase/config.toml"
 
-# --- Detect LAN IP ------------------------------------------------------------
+# --- Detect LAN IP -----------------------------------------------------------
 # Method 1: ipconfig (works on standard DHCP Wi-Fi/Ethernet)
 LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "")
 
@@ -26,33 +40,22 @@ else
   echo ""
 fi
 
-# --- Patch supabase/config.toml with detected IP -----------------------------
-TOML="supabase/config.toml"
+# --- Patch supabase/config.toml ----------------------------------------------
+# These sed replacements are idempotent — they match any previous IP or localhost.
 sed -i '' "s|api_url = \"http://[^\"]*\"|api_url = \"http://$LAN_IP\"|" "$TOML"
 sed -i '' "s|site_url = \"http://[^\"]*\"|site_url = \"http://$LAN_IP:3333\"|" "$TOML"
 sed -i '' "s|additional_redirect_urls = \[.*\]|additional_redirect_urls = [\"http://$LAN_IP:3333/auth/callback\", \"http://127.0.0.1:3333/auth/callback\", \"http://localhost:3333/auth/callback\"]|" "$TOML"
+
 echo "Updated supabase/config.toml with LAN IP."
-
-# --- Start Supabase -----------------------------------------------------------
-echo "→ Stopping Supabase (data is preserved)..."
-supabase stop || true
-
-echo "→ Starting Supabase..."
-supabase start
-
-# --- Kill stale Next.js -------------------------------------------------------
-echo "→ Killing any process on port 3333..."
-lsof -ti :3333 | xargs kill 2>/dev/null || true
-
-# --- Refresh Claude Code OAuth token -----------------------------------------
-echo "→ Refreshing Claude Code OAuth token..."
-TOKEN=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null \
-  | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d['claudeAiOauth']['accessToken'])" 2>/dev/null) \
-  && sed -i '' "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=${TOKEN}|" .env.local \
-  && echo "  Token updated in .env.local" \
-  || echo "  Could not refresh token (will use existing key)"
+echo ""
+echo "If Supabase is already running, restart it to pick up the new config:"
+echo "  cd $PROJECT_DIR && supabase stop && supabase start"
+echo ""
 
 # --- Start Next.js on all interfaces -----------------------------------------
-echo "→ Starting Next.js on 0.0.0.0:3333 ..."
 export NEXT_PUBLIC_SUPABASE_URL="http://$LAN_IP:54341"
+
+echo "Starting Next.js dev server on 0.0.0.0:3333 ..."
+echo ""
+cd "$PROJECT_DIR"
 exec npx next dev --hostname 0.0.0.0 --port 3333

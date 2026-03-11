@@ -30,22 +30,22 @@
   outline: none;
 }
 
-/* Mobile cost summary strip — replaced by InventoryPreview on mobile */
+/* Desktop cost summary strip — hidden on mobile where InventoryPreview replaces it */
 .costStrip {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
 }
 
 @media (max-width: 767px) {
   .costStrip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 16px;
-    font-size: 12px;
-    color: var(--color-text-muted);
-    background: var(--color-bg-card);
-    border-bottom: 1px solid var(--color-border-default);
-    flex-shrink: 0;
+    display: none;
   }
 }
 
@@ -186,113 +186,48 @@
   min-width: 0;
 }
 
-/* ---- Mobile bottom sheet ---- */
+/* ---- Mobile full-screen inventory overlay ---- */
 
-.bottomSheetBackdrop {
-  display: none;
-}
-
-.bottomSheet {
+.mobileOverlay {
   display: none;
 }
 
 @media (max-width: 767px) {
-  .bottomSheetBackdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgb(0 0 0 / 0.4);
-    z-index: calc(var(--z-panel, 200) - 1);
-  }
-
-  .bottomSheet {
+  .mobileOverlay {
     display: flex;
     flex-direction: column;
     position: fixed;
+    /* Sits below the Navigation bar — not covering it */
+    top: var(--nav-height, 56px);
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--color-bg-card);
-    border-top-left-radius: var(--radius-lg, 12px);
-    border-top-right-radius: var(--radius-lg, 12px);
-    box-shadow: 0 -4px 24px rgb(0 0 0 / 0.15);
-    z-index: var(--z-panel, 200);
-    overflow: hidden;
-    /* Height is set inline via style prop; transition handles animation */
-    transition: transform 0.3s ease;
+    background: var(--color-bg-page);
+    z-index: calc(var(--z-panel, 200) - 1);
+    /* Slide down: starts above its position, slides into place */
+    transform: translateY(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s 0.2s;
     will-change: transform;
+    pointer-events: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .bottomSheet {
+    .mobileOverlay {
       transition: none;
     }
   }
 
-  .bottomSheetHidden {
-    transform: translateY(100%);
-    pointer-events: none;
+  .mobileOverlayOpen {
+    transform: translateY(0);
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s 0s;
+    pointer-events: auto;
   }
 }
 
-/* Drag handle at top of bottom sheet */
-.dragHandle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 10px 0 6px;
-  cursor: grab;
-  touch-action: none;
-  min-height: 44px;
-}
-
-.dragHandle:active {
-  cursor: grabbing;
-}
-
-.dragBar {
-  width: 36px;
-  height: 4px;
-  border-radius: var(--radius-full, 9999px);
-  background: var(--color-border-default);
-}
-
-/* Bottom sheet header with close button */
-.bottomSheetHeader {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 12px 4px;
-  flex-shrink: 0;
-}
-
-.bottomSheetClose {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  color: var(--color-text-muted);
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.bottomSheetClose:hover {
-  background: var(--color-bg-subtle);
-  color: var(--color-text-primary);
-}
-
-.bottomSheetClose:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-/* Bottom sheet content fills remaining space */
-.bottomSheetContent {
+/* Overlay content fills available space above the footer */
+.mobileOverlayContent {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -300,7 +235,63 @@
   min-height: 0;
 }
 
-/* ---- Legacy mobile backdrop (no longer used — replaced by bottom sheet) ---- */
-.mobileBackdrop {
+/* Floating footer with "Back to Aisling" button */
+.mobileOverlayFooter {
   display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileOverlayFooter {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(
+      to top,
+      var(--color-bg-page) 60%,
+      transparent
+    );
+  }
+}
+
+/* "Back to Aisling" button — prominent pill at the bottom of the overlay */
+.backToChat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  min-height: 48px;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-inverse, #fff);
+  background: var(--color-primary, #16a34a);
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backToChat {
+    transition: none;
+  }
+}
+
+.backToChat:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 85%, black);
+}
+
+.backToChat:active {
+  transform: scale(0.98);
+}
+
+.backToChat:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 3px;
 }

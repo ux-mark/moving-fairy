@@ -1,0 +1,230 @@
+/* ItemEditPanel — DS tokens, matching ProfileEditPanel conventions */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.labelHint {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+/* Text input */
+.input {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Value / currency row */
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.valueRow:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.currencySymbol {
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.valueInput {
+  flex: 1;
+  height: 44px;
+  border: none;
+  background: transparent;
+  padding: 0 12px 0 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  /* Remove browser default number input arrows */
+  -moz-appearance: textfield;
+}
+
+.valueInput::-webkit-outer-spin-button,
+.valueInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.valueInput::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.valueInput:focus-visible {
+  outline: none;
+}
+
+.valueInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Textarea */
+.textarea {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  resize: vertical;
+  min-height: 96px;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Select */
+.select {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error banner */
+.errorBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  padding: 8px 12px;
+}
+
+.errorText {
+  font-size: 14px;
+  color: var(--color-error);
+  margin: 0;
+}
+
+/* Success banner */
+.successBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-success-bg);
+  padding: 8px 12px;
+}
+
+.successText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-success-dark);
+  margin: 0;
+}
+
+/* Save button */
+.saveButton {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.saveButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saveButtonInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

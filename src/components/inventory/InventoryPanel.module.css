@@ -151,13 +151,49 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
 }
 
 .itemName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
   flex: 1;
+  font-size: 14px;
+  color: var(--color-text-primary);
 }
 
+/* Edit button on ItemRow — compact secondary style */
+.itemEditButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.itemEditButton:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+}
+
+.itemEditButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Keep old classes for any remaining references */
 .itemNameButton {
   max-width: 100%;
   overflow: hidden;
@@ -363,4 +399,125 @@
   flex-direction: column;
   gap: 4px;
   padding: 0 16px 12px;
+}
+
+/* ItemRow outer wrapper (includes BoxPicker below the row) */
+.itemRowOuter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Assign to box button on ItemRow */
+.assignBoxButton {
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #16a34a) 40%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.assignBoxButton:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 10%, transparent);
+  border-color: var(--color-primary, #16a34a);
+}
+
+.assignBoxButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+/* BoxPicker positioned below the ItemRow */
+.boxPickerWrap {
+  margin: 0 8px;
+}
+
+/* ---- Mobile touch target and sizing fixes ---- */
+@media (max-width: 767px) {
+  /* Tab buttons — minimum 44px touch target */
+  .tab {
+    min-height: 44px;
+    padding: 10px 0;
+    font-size: 15px;
+  }
+
+  /* Item rows — 44px min height, better spacing */
+  .itemRow {
+    min-height: 44px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .singleItemRow {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  /* Item name — 16px minimum on mobile for readability */
+  .itemNameButton {
+    font-size: 16px;
+  }
+
+  .singleItemLabel {
+    font-size: 16px;
+  }
+
+  /* Verdict select — 44px touch target */
+  .verdictSelect {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  /* Verdict group trigger — 44px touch target */
+  .verdictTrigger {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  /* Not-shipping trigger — 44px touch target */
+  .notShippingTrigger {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  /* Not-shipping items — 44px touch target */
+  .notShippingItem {
+    min-height: 44px;
+    padding: 8px;
+  }
+
+  .notShippingItemName {
+    font-size: 16px;
+  }
+
+  /* Section header spacing */
+  .sectionHeader {
+    padding: 14px 16px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  /* View stack spacing */
+  .viewStack {
+    padding-bottom: 80px; /* Extra space for the floating "Back to Aisling" button */
+    gap: 6px;
+  }
+
+  /* Item thumbnails — slightly larger on mobile for tap recognition */
+  .itemThumb,
+  .itemThumbPlaceholder {
+    width: 36px;
+    height: 36px;
+  }
 }
