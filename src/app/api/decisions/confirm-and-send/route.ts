@@ -27,16 +27,19 @@ export async function POST(req: NextRequest) {
   try {
     const updated = await updateItemAssessment(assessment_id, { user_confirmed: true }, profile.id)
 
-    // Append a system message to the session so Aisling knows about immediate processing
+    // The chat message the user will visibly send (triggers immediate AI response)
+    const chatMessage = `[ACTION] I've confirmed ${updated.item_name} as ${updated.verdict}. Please process this and let me know what's next.`
+
+    // Append to session history — the chat UI will also display it and stream a response
     const session = await findOrCreateSession(profile.id)
     await appendMessage(session.id, {
-      id: `sys-${Date.now()}`,
+      id: `action-${Date.now()}`,
       role: 'user',
-      content: `[SYSTEM] User confirmed assessment for ${updated.item_name} and requests immediate processing.`,
+      content: chatMessage,
       created_at: new Date().toISOString(),
     })
 
-    return Response.json({ ok: true })
+    return Response.json({ ok: true, chatMessage })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     console.error('[decisions/confirm-and-send] POST error:', err)

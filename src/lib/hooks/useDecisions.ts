@@ -16,7 +16,12 @@ const INITIAL_STATE: DecisionsState = {
   error: null,
 }
 
-export function useDecisions(): {
+interface UseDecisionsOptions {
+  /** Called after confirmAndSend succeeds, with the message to inject into chat */
+  onSendToChat?: (message: string) => void
+}
+
+export function useDecisions(options?: UseDecisionsOptions): {
   decisions: ItemAssessment[]
   isLoading: boolean
   error: string | null
@@ -25,6 +30,7 @@ export function useDecisions(): {
   refresh: () => Promise<void>
   count: number
 } {
+  const { onSendToChat } = options ?? {}
   const [state, setState] = useState<DecisionsState>(INITIAL_STATE)
   const isMountedRef = useRef(true)
 
@@ -85,8 +91,12 @@ export function useDecisions(): {
       const data = await res.json() as { error?: string }
       throw new Error(data.error ?? 'Failed to confirm and send decision')
     }
+    const data = await res.json() as { ok: boolean; chatMessage?: string }
     await refresh()
-  }, [refresh])
+    if (data.chatMessage && onSendToChat) {
+      onSendToChat(data.chatMessage)
+    }
+  }, [refresh, onSendToChat])
 
   return {
     decisions: state.decisions,

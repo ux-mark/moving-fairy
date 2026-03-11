@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { updateItemAssessment } from '@/mcp'
+import { updateItemAssessment, appendMessage, findOrCreateSession } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 
 interface ConfirmBody {
@@ -25,7 +25,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await updateItemAssessment(assessment_id, { user_confirmed: true }, profile.id)
+    const updated = await updateItemAssessment(assessment_id, { user_confirmed: true }, profile.id)
+
+    // Append a passive system note so Aisling has context on her next turn.
+    // This does NOT trigger an immediate AI response — it's background context only.
+    try {
+      const session = await findOrCreateSession(profile.id)
+      await appendMessage(session.id, {
+        id: `sys-confirm-${Date.now()}`,
+        role: 'user',
+        content: `[CONFIRMED] User confirmed assessment for ${updated.item_name}: ${updated.verdict}. No response needed.`,
+        created_at: new Date().toISOString(),
+      })
+    } catch (appendErr) {
+      // Non-fatal — confirmation is saved; session note is best-effort
+      console.warn('[decisions/confirm] Failed to append passive system note:', appendErr)
+    }
+
     return Response.json({ ok: true })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
