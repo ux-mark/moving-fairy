@@ -19,48 +19,48 @@
   border-bottom: 1px solid var(--color-border-default);
 }
 
-/* Base toggle button */
+/* Base toggle button — matches Job Fairy .btn-panel-toggle */
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--color-text-placeholder);
   background: transparent;
-  border: none;
-  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
 .tab:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-page);
   color: var(--color-text-secondary);
 }
 
-/* Active toggle button */
+/* Active toggle button — matches Job Fairy .panel-active */
 .tabActive {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
   color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  border: none;
-  border-radius: var(--radius-full);
+  background: var(--color-indigo-light);
+  border: 1px solid var(--color-indigo-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
-/* Decision count badge */
+/* Decision count badge — always visible; error colour when count > 0 */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -72,6 +72,11 @@
   font-weight: 700;
   line-height: 1;
   border-radius: var(--radius-full);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
+
+.badgePending {
   background: var(--color-error);
   color: var(--color-text-inverse);
 }
