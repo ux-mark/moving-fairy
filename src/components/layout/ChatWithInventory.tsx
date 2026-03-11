@@ -5,15 +5,18 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { InventorySidePanel } from "@/components/inventory/InventorySidePanel";
+import { useDecisions } from "@/lib/hooks/useDecisions";
 import type { LogicEvent } from "@/components/chat/AILogicPanel";
 
 /**
  * Composes AppLayout with ChatInterface and InventorySidePanel.
- * Lifts AI Logic state so it can be displayed in the inventory panel's tab bar.
+ * Lifts AI Logic state and decision state so both can be displayed in the inventory panel.
  */
 export function ChatWithInventory() {
   const [logicEvents, setLogicEvents] = useState<LogicEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  const { decisions, isLoading: decisionsLoading, error: decisionsError, confirm, confirmAndSend, refresh: refreshDecisions, count: decisionCount } = useDecisions();
 
   return (
     <AppLayout
@@ -29,6 +32,13 @@ export function ChatWithInventory() {
         <InventorySidePanel
           logicEvents={logicEvents}
           isStreaming={isStreaming}
+          decisions={decisions}
+          decisionsLoading={decisionsLoading}
+          decisionsError={decisionsError}
+          decisionCount={decisionCount}
+          onConfirm={confirm}
+          onConfirmAndSend={confirmAndSend}
+          onRefreshDecisions={refreshDecisions}
         />
       }
     />

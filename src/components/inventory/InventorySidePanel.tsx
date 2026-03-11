@@ -2,16 +2,23 @@
 
 import { useState } from "react";
 import { Package, Scale, Brain } from "lucide-react";
-
+import type { ItemAssessment } from "@/types";
 import { InventoryPanel } from "@/components/inventory/InventoryPanel";
 import { AILogicPanel, type LogicEvent } from "@/components/chat/AILogicPanel";
+import { DecisionsPanel } from "@/components/inventory/DecisionsPanel";
 
 import styles from "./InventorySidePanel.module.css";
 
 interface InventorySidePanelProps {
   logicEvents: LogicEvent[];
   isStreaming: boolean;
+  decisions?: ItemAssessment[];
+  decisionsLoading?: boolean;
+  decisionsError?: string | null;
   decisionCount?: number;
+  onConfirm?: (assessmentId: string) => Promise<void>;
+  onConfirmAndSend?: (assessmentId: string) => Promise<void>;
+  onRefreshDecisions?: () => Promise<void>;
 }
 
 type SidePanelTab = "inventory" | "decisions" | "logic";
@@ -22,7 +29,13 @@ type SidePanelTab = "inventory" | "decisions" | "logic";
 export function InventorySidePanel({
   logicEvents,
   isStreaming,
+  decisions = [],
+  decisionsLoading = false,
+  decisionsError = null,
   decisionCount = 0,
+  onConfirm,
+  onConfirmAndSend,
+  onRefreshDecisions,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
 
@@ -64,9 +77,14 @@ export function InventorySidePanel({
         {activeTab === "inventory" ? (
           <InventoryPanel />
         ) : activeTab === "decisions" ? (
-          <div className={styles.decisionsPlaceholder}>
-            Decisions panel coming soon
-          </div>
+          <DecisionsPanel
+            decisions={decisions}
+            isLoading={decisionsLoading}
+            error={decisionsError}
+            onConfirm={onConfirm ?? (async () => {})}
+            onConfirmAndSend={onConfirmAndSend ?? (async () => {})}
+            onRefresh={onRefreshDecisions ?? (async () => {})}
+          />
         ) : (
           <AILogicPanel events={logicEvents} isStreaming={isStreaming} />
         )}
@@ -74,3 +92,4 @@ export function InventorySidePanel({
     </div>
   );
 }
+

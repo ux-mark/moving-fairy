@@ -473,14 +473,39 @@ async function runAislingLoop(
     const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
     for (const toolUse of toolUseBlocks) {
       if (toolUse.name === 'render_assessment_card') {
+        const cardInput = toolUse.input as Record<string, unknown>
         // Send card data directly to the client as a structured SSE event
-        const cardPayload = JSON.stringify({ __type: 'card', ...(toolUse.input as Record<string, unknown>) })
+        const cardPayload = JSON.stringify({ __type: 'card', ...cardInput })
         controller.enqueue(encoder.encode(`data: ${cardPayload}\n\n`))
-        // No tool_result SSE for render_assessment_card — the card event serves as the result
+
+        // Auto-save assessment immediately with user_confirmed = false
+        let autoSaveResult: { assessment_id?: string } = {}
+        try {
+          const autoSaved = await saveItemAssessment({
+            user_profile_id: userProfileId,
+            session_id: sessionId,
+            item_name: cardInput.item as string,
+            verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+            advice_text: (cardInput.rationale as string) ?? null,
+            item_description: (cardInput.item_description as string) ?? null,
+            image_url: (cardInput.image_url as string) ?? null,
+            voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+            needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+            estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+            currency: (cardInput.currency as string) ?? null,
+            estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+            replace_currency: (cardInput.replace_currency as string) ?? null,
+            user_confirmed: false,
+          })
+          autoSaveResult = { assessment_id: autoSaved.id }
+        } catch (saveErr) {
+          console.error('[chat] auto-save assessment failed:', saveErr)
+        }
+
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolUse.id,
-          content: JSON.stringify({ success: true }),
+          content: JSON.stringify({ success: true, ...autoSaveResult }),
         })
       } else {
         const result = await executeTool(
