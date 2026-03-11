@@ -72,9 +72,11 @@ export function InventorySidePanel({
         >
           <Scale size={13} />
           Decisions
-          <span className={decisionCount > 0 ? `${styles.badge} ${styles.badgePending}` : styles.badge}>
-            {decisionCount}
-          </span>
+          {decisionCount > 0 && (
+            <span className={styles.badgePending}>
+              {decisionCount}
+            </span>
+          )}
         </button>
         <button
           type="button"

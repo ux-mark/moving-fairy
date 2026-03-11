@@ -5,9 +5,9 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
-  padding: 16px;
+  padding: 10px;
   min-height: 0;
 }
 
