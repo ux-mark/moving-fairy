@@ -1,24 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ChatInterface } from "@/components/chat/ChatInterface";
+import { ChatInterface, type ChatInterfaceHandle } from "@/components/chat/ChatInterface";
 import { InventorySidePanel } from "@/components/inventory/InventorySidePanel";
+import { useDecisions } from "@/lib/hooks/useDecisions";
 import type { LogicEvent } from "@/components/chat/AILogicPanel";
 
 /**
  * Composes AppLayout with ChatInterface and InventorySidePanel.
- * Lifts AI Logic state so it can be displayed in the inventory panel's tab bar.
+ * Lifts AI Logic state and decision state so both can be displayed in the inventory panel.
  */
 export function ChatWithInventory() {
   const [logicEvents, setLogicEvents] = useState<LogicEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
 
+  // Ref to the ChatInterface so we can programmatically send messages
+  const chatRef = useRef<ChatInterfaceHandle>(null);
+
+  const handleSendToChat = useCallback((message: string) => {
+    chatRef.current?.sendMessage(message);
+  }, []);
+
+  const {
+    decisions,
+    isLoading: decisionsLoading,
+    error: decisionsError,
+    confirm,
+    confirmAndSend,
+    refresh: refreshDecisions,
+    count: decisionCount,
+  } = useDecisions({ onSendToChat: handleSendToChat });
+
+  // Ref to allow AppLayout to switch the inventory panel to the Decisions tab
+  const switchToDecisionsRef = useRef<(() => void) | null>(null);
+
+  const handleOpenDecisions = useCallback(() => {
+    switchToDecisionsRef.current?.();
+  }, []);
+
   return (
     <AppLayout
       chatPanel={
         <ChatInterface
+          ref={chatRef}
           onLogicEvent={(event) =>
             setLogicEvents((prev) => [...prev, event])
           }
@@ -29,8 +55,18 @@ export function ChatWithInventory() {
         <InventorySidePanel
           logicEvents={logicEvents}
           isStreaming={isStreaming}
+          decisions={decisions}
+          decisionsLoading={decisionsLoading}
+          decisionsError={decisionsError}
+          decisionCount={decisionCount}
+          onConfirm={confirm}
+          onConfirmAndSend={confirmAndSend}
+          onRefreshDecisions={refreshDecisions}
+          onSwitchToDecisionsRef={switchToDecisionsRef}
         />
       }
+      decisionCount={decisionCount}
+      onOpenDecisions={handleOpenDecisions}
     />
   );
 }

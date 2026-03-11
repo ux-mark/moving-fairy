@@ -92,10 +92,10 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
           <ErrorState error={error} onRetry={refreshInventory} />
         ) : isEmpty ? (
           <EmptyState
-            heading="No items assessed yet"
-            description="Start a conversation with Aisling — snap a photo of something or type an item name."
-            ctaLabel="Chat with Aisling"
-            onCtaClick={() => router.push("/chat")}
+            heading="Your inventory is empty"
+            description="Start a conversation with Aisling to assess your belongings — she'll help you decide what to ship, sell, or leave behind."
+            ctaLabel="Start with Aisling"
+            onCtaClick={() => router.push("/inventory")}
           />
         ) : (
           <AnimatePresence mode="wait" initial={false}>

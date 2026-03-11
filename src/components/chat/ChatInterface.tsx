@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 import { EmptyState } from "@thefairies/design-system/components";
 import { InputBar } from "@/components/chat/InputBar";
@@ -33,6 +33,11 @@ interface ChatMessage {
   };
 }
 
+export interface ChatInterfaceHandle {
+  /** Programmatically send a text message as if the user typed it */
+  sendMessage: (text: string) => void;
+}
+
 interface ChatInterfaceProps {
   /** Called when a new logic event arrives */
   onLogicEvent?: (event: LogicEvent) => void;
@@ -40,7 +45,8 @@ interface ChatInterfaceProps {
   onStreamingChange?: (isStreaming: boolean) => void;
 }
 
-export function ChatInterface({ onLogicEvent, onStreamingChange }: ChatInterfaceProps) {
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
+  function ChatInterface({ onLogicEvent, onStreamingChange }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingLabel, setStreamingLabel] = useState("Aisling is thinking...");
@@ -273,6 +279,10 @@ export function ChatInterface({ onLogicEvent, onStreamingChange }: ChatInterface
     [sendMessage]
   );
 
+  useImperativeHandle(ref, () => ({
+    sendMessage: (text: string) => sendMessage(text, []),
+  }), [sendMessage]);
+
   return (
     <div className={styles.root}>
       <div
@@ -336,4 +346,5 @@ export function ChatInterface({ onLogicEvent, onStreamingChange }: ChatInterface
       </div>
     </div>
   );
-}
+});
+ChatInterface.displayName = "ChatInterface";

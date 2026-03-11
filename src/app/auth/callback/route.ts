@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (profile) {
-          return NextResponse.redirect(new URL('/chat', request.url))
+          return NextResponse.redirect(new URL('/inventory', request.url))
         } else {
           return NextResponse.redirect(new URL('/onboarding', request.url))
         }

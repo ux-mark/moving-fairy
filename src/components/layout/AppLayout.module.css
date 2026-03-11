@@ -30,7 +30,7 @@
   outline: none;
 }
 
-/* Mobile cost summary strip */
+/* Mobile cost summary strip — replaced by InventoryPreview on mobile */
 .costStrip {
   display: none;
 }
@@ -66,7 +66,7 @@
   overflow: hidden;
 }
 
-/* Inventory side panel */
+/* Inventory side panel — desktop */
 .inventoryPanel {
   display: flex;
   flex-shrink: 0;
@@ -77,17 +77,10 @@
   background: var(--color-bg-panel);
 }
 
-/* Mobile: full-screen overlay from right */
+/* Hide desktop inventory panel on mobile — bottom sheet replaces it */
 @media (max-width: 767px) {
   .inventoryPanel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 100% !important;
-    z-index: var(--z-panel, 200);
-    border-left: none;
-    box-shadow: var(--shadow-edit-panel);
+    display: none;
   }
 }
 
@@ -95,8 +88,9 @@
 .resizeHandle {
   position: absolute;
   top: 0;
-  left: -3px;
-  width: 6px;
+  /* Extend touch target to 44px wide; visually centred on the border */
+  left: -22px;
+  width: 44px;
   height: 100%;
   cursor: col-resize;
   z-index: 10;
@@ -105,21 +99,82 @@
   justify-content: center;
 }
 
+/* Hidden on mobile */
 @media (max-width: 767px) {
   .resizeHandle {
     display: none;
   }
 }
 
+/* Visible line running the full height — sits in the centre of the 44px hit area */
 .resizeLine {
   width: 2px;
   height: 100%;
   background: var(--color-border-default);
   transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .resizeHandle:hover .resizeLine {
   background: var(--color-border-input);
+}
+
+/* Groove / bulge affordance — centred vertically on the divider line */
+.resizeGrip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+
+  width: 12px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  pointer-events: none;
+}
+
+/* Individual grip lines inside the bulge */
+.resizeGrip::before,
+.resizeGrip::after,
+.resizeGripLine {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-border-default);
+  transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.resizeHandle:hover .resizeGrip {
+  background: var(--color-bg-card);
+  border-color: var(--color-border-input);
+}
+
+.resizeHandle:hover .resizeGrip::before,
+.resizeHandle:hover .resizeGrip::after,
+.resizeHandle:hover .resizeGripLine {
+  background: var(--color-text-secondary);
+}
+
+.resizeHandle:active .resizeGrip::before,
+.resizeHandle:active .resizeGrip::after,
+.resizeHandle:active .resizeGripLine {
+  background: var(--color-primary);
 }
 
 /* Inventory content area */
@@ -131,17 +186,121 @@
   min-width: 0;
 }
 
-/* Mobile backdrop behind inventory overlay */
-.mobileBackdrop {
+/* ---- Mobile bottom sheet ---- */
+
+.bottomSheetBackdrop {
+  display: none;
+}
+
+.bottomSheet {
   display: none;
 }
 
 @media (max-width: 767px) {
-  .mobileBackdrop {
+  .bottomSheetBackdrop {
     display: block;
     position: fixed;
     inset: 0;
     background: rgb(0 0 0 / 0.4);
     z-index: calc(var(--z-panel, 200) - 1);
   }
+
+  .bottomSheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--color-bg-card);
+    border-top-left-radius: var(--radius-lg, 12px);
+    border-top-right-radius: var(--radius-lg, 12px);
+    box-shadow: 0 -4px 24px rgb(0 0 0 / 0.15);
+    z-index: var(--z-panel, 200);
+    overflow: hidden;
+    /* Height is set inline via style prop; transition handles animation */
+    transition: transform 0.3s ease;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bottomSheet {
+      transition: none;
+    }
+  }
+
+  .bottomSheetHidden {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+}
+
+/* Drag handle at top of bottom sheet */
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+  min-height: 44px;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragBar {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-border-default);
+}
+
+/* Bottom sheet header with close button */
+.bottomSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px 4px;
+  flex-shrink: 0;
+}
+
+.bottomSheetClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.bottomSheetClose:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.bottomSheetClose:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Bottom sheet content fills remaining space */
+.bottomSheetContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ---- Legacy mobile backdrop (no longer used — replaced by bottom sheet) ---- */
+.mobileBackdrop {
+  display: none;
 }

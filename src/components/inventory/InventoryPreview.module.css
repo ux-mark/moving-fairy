@@ -1,0 +1,84 @@
+/* InventoryPreview — compact mobile strip */
+
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 16px;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+  animation: slideDown 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strip {
+    animation: none;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.separator {
+  color: var(--color-text-muted);
+  margin: 0 2px;
+}
+
+.cost {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  min-height: 44px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.expandButton:hover {
+  background: var(--color-bg-subtle);
+}
+
+.expandButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Only show on mobile */
+@media (min-width: 768px) {
+  .strip {
+    display: none;
+  }
+}
