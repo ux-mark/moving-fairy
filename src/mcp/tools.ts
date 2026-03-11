@@ -420,6 +420,26 @@ export async function addItemToBox(
 
     itemName = assessment.item_name as string
     fromAssessment = true
+
+    // Check if this assessed item is already in a box (partial unique index)
+    const { data: existing } = await supabase
+      .from('box_item')
+      .select('*')
+      .eq('item_assessment_id', opts.itemAssessmentId)
+      .limit(1)
+      .single()
+
+    if (existing) {
+      if (existing.box_id === boxId) {
+        // Already in this box — return existing record (idempotent)
+        return existing as BoxItem
+      }
+      // In a different box — move it: delete from old box, then insert into new
+      await supabase
+        .from('box_item')
+        .delete()
+        .eq('id', existing.id)
+    }
   }
 
   const payload = {
