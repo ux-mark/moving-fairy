@@ -212,6 +212,27 @@ export function BoxManagement({
     []
   );
 
+  const handleUpdateBox = useCallback(
+    async (boxId: string, updates: { label?: string; size?: string }) => {
+      try {
+        const res = await fetch(`/api/boxes/${boxId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+
+        if (!res.ok) throw new Error("Failed to update box");
+        const updatedBox: Box = await res.json();
+        setBoxes((prev) =>
+          prev.map((b) => (b.id === boxId ? updatedBox : b))
+        );
+      } catch (err) {
+        console.error("Failed to update box:", err);
+      }
+    },
+    []
+  );
+
   const handleShipAll = useCallback(async () => {
     try {
       const res = await fetch("/api/boxes/ship-all", { method: "POST" });
@@ -285,6 +306,7 @@ export function BoxManagement({
         onRemoveItem={handleRemoveItem}
         onMarkPacked={handleMarkPacked}
         onAddToBox={handleAddToBox}
+        onUpdateBox={handleUpdateBox}
         onShipAll={handleShipAll}
         isCreating={isCreating}
       />

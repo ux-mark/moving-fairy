@@ -36,10 +36,9 @@ export default async function Home() {
         {/* Aisling intro */}
         <blockquote className={styles.intro}>
           <p>
-            &ldquo;Hi, I&rsquo;m Aisling. I&rsquo;ve helped hundreds of people
-            figure out what to bring, what to sell, and what to leave behind when
-            they move overseas. Let&rsquo;s sort through it together&nbsp;&mdash;
-            I&rsquo;ll tell you exactly what I&rsquo;d do.&rdquo;
+            &ldquo;I&rsquo;m Aisling. Tell me what you own and
+            I&rsquo;ll tell you what to bring, sell, or leave
+            behind&nbsp;&mdash; item by item.&rdquo;
           </p>
         </blockquote>
 

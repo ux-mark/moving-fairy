@@ -56,3 +56,11 @@ export const BOX_SIZE_CBM: Record<BoxSize, number> = {
   M: 0.15,
   L: 0.25,
 }
+
+/** Standard box dimensions in centimetres (L x W x H) */
+export const BOX_SIZE_DIMENSIONS: Record<BoxSize, { length: number; width: number; height: number }> = {
+  XS: { length: 30, width: 25, height: 20 },
+  S: { length: 40, width: 30, height: 25 },
+  M: { length: 50, width: 40, height: 30 },
+  L: { length: 60, width: 50, height: 35 },
+}

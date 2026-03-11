@@ -128,52 +128,6 @@
   gap: 6px;
 }
 
-/* Add item row */
-.addItemRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Add existing item */
-.addExistingWrap {
-  position: relative;
-}
-
-.addExistingButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-primary, #16a34a);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.addExistingButton:hover {
-  background: color-mix(in srgb, var(--color-primary, #16a34a) 10%, transparent);
-}
-
-.addExistingButton:focus-visible {
-  outline: 2px solid var(--color-primary, #16a34a);
-  outline-offset: 2px;
-}
-
-.itemPickerWrap {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 4px);
-  z-index: 20;
-  width: 280px;
-  max-width: calc(100vw - 32px);
-}
-
 .addItemInput {
   flex: 1;
   height: 36px;
@@ -223,6 +177,263 @@
   width: 100%;
 }
 
+/* ============================================================
+   Unified Combobox
+   ============================================================ */
+
+.comboboxWrap {
+  position: relative;
+}
+
+.comboboxInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comboboxDropdown {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+  max-height: 240px;
+  overflow-y: auto;
+  /* position: fixed is set inline by JS */
+}
+
+.comboboxOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.comboboxOption:hover {
+  background: var(--color-bg-subtle);
+}
+
+.comboboxOptionActive {
+  background: var(--color-bg-subtle);
+}
+
+.comboboxOptionName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+/* "Add [text]" create-new option */
+.comboboxOptionCreate {
+  color: var(--color-primary, #16a34a);
+  font-weight: 500;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.comboboxCreateLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Editable Label
+   ============================================================ */
+
+.editableLabelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  max-width: 100%;
+}
+
+.editableLabelButton:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 8%, transparent);
+}
+
+.editableLabelButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.editIcon {
+  color: var(--color-text-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.editableLabelButton:hover .editIcon,
+.editableLabelButton:focus-visible .editIcon {
+  opacity: 1;
+}
+
+.editableLabelInput {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: 1px solid var(--color-primary, #16a34a);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  outline: none;
+  min-width: 80px;
+  max-width: 200px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
+}
+
+/* ============================================================
+   Size Editor
+   ============================================================ */
+
+.sizeEditorWrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sizeEditorRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sizeEditorTrigger {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--transition-fast);
+}
+
+.sizeEditorTrigger:hover {
+  opacity: 0.8;
+}
+
+.sizeEditorTrigger:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.dimensionToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.dimensionToggle:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.dimensionToggle:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+/* Size picker dropdown */
+.sizePickerDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 160px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+  padding: 4px 0;
+}
+
+.sizePickerOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 12px;
+  font-size: 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.sizePickerOption:hover {
+  background: var(--color-bg-subtle);
+}
+
+.sizePickerOption:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -2px;
+}
+
+.sizePickerOptionActive {
+  font-weight: 600;
+}
+
+.sizePickerLabel {
+  color: var(--color-text-primary);
+}
+
+.sizePickerCbm {
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+/* Dimension disclosure */
+.dimensionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0 0;
+}
+
+.dimensionText {
+  font-size: 12px;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dimensionNote {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
 /* ---- Mobile touch targets and sizing ---- */
 @media (max-width: 767px) {
   /* Box card header — 44px min touch target, comfortable tap area */
@@ -250,17 +461,23 @@
     padding: 0 12px;
   }
 
-  /* Add existing item button — 44px touch target */
-  .addExistingButton {
+  /* Combobox options — 44px touch target */
+  .comboboxOption {
     min-height: 44px;
-    padding: 8px 12px;
+    padding: 10px 12px;
     font-size: 15px;
   }
 
-  /* ItemPicker wrap — wider on mobile */
-  .itemPickerWrap {
-    width: 100%;
-    max-width: none;
+  /* Size picker options — 44px touch target */
+  .sizePickerOption {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+
+  /* Dimension toggle — 44px touch target on mobile */
+  .dimensionToggle {
+    width: 44px;
+    height: 44px;
   }
 
   /* Mark as packed button — 44px */

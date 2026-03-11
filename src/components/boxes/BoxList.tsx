@@ -31,6 +31,7 @@ interface BoxListProps {
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
   onAddToBox?: ((itemAssessmentId: string, boxId: string) => void) | undefined;
+  onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
   onShipAll?: (() => void) | undefined;
   isCreating?: boolean | undefined;
 }
@@ -51,6 +52,7 @@ export function BoxList({
   onRemoveItem,
   onMarkPacked,
   onAddToBox,
+  onUpdateBox,
   onShipAll,
   isCreating,
 }: BoxListProps) {
@@ -134,6 +136,14 @@ export function BoxList({
     [boxes]
   );
 
+  // Adapt onAddToBox(assessmentId, boxId) to BoxCard's onAddExistingItem(boxId, assessmentId)
+  const handleAddExistingItem = useCallback(
+    (boxId: string, assessmentId: string) => {
+      onAddToBox?.(assessmentId, boxId);
+    },
+    [onAddToBox]
+  );
+
   const handleCreateBox = useCallback(
     (data: {
       roomName: string;
@@ -192,9 +202,12 @@ export function BoxList({
                   box={box}
                   items={boxItems[box.id] ?? []}
                   assessments={assessmentMap}
+                  unboxedItems={unboxedItems}
                   {...(onAddItem ? { onAddItem } : {})}
+                  {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
+                  {...(onUpdateBox ? { onUpdateBox } : {})}
                 />
               ))}
             </div>
@@ -213,9 +226,12 @@ export function BoxList({
                   box={box}
                   items={boxItems[box.id] ?? []}
                   assessments={assessmentMap}
+                  unboxedItems={unboxedItems}
                   {...(onAddItem ? { onAddItem } : {})}
+                  {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
+                  {...(onUpdateBox ? { onUpdateBox } : {})}
                 />
               ))}
             </div>

@@ -20,6 +20,23 @@
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Subtle depth effect while the edit panel is open (desktop only) */
+@media (min-width: 768px) {
+  .cardEditing {
+    transform: scale(0.98);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+                0 0 12px color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
 }
 
 /* Card header: item name on left, verdict pill on right */
@@ -72,31 +89,34 @@
   padding-top: 2px;
 }
 
-/* Edit button — secondary outlined style */
+/* Edit button — icon-only pencil affordance (tertiary action) */
 .editButton {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 32px;
   height: 32px;
-  padding: 0 10px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-primary);
+  padding: 0;
+  color: var(--color-text-muted);
   background: transparent;
-  border: 1px solid var(--color-border-default);
+  border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .editButton:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.editButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .editButton:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 

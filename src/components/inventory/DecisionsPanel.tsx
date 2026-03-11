@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   EmptyState,
   SkeletonGroup,
@@ -14,6 +14,7 @@ import { EditablePill } from "@/components/shared/EditablePill";
 import type { EditablePillOption } from "@/components/shared/EditablePill";
 import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
 import { Verdict } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { Box, ItemAssessment } from "@/types";
 import styles from "./DecisionsPanel.module.css";
 
@@ -94,6 +95,7 @@ function DecisionCard({
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
 
   // Build cost metadata lines
   const costLines: string[] = [];
@@ -167,7 +169,8 @@ function DecisionCard({
   return (
     <>
       <article
-        className={styles.card}
+        ref={cardRef}
+        className={cn(styles.card, isEditOpen && styles.cardEditing)}
         aria-label={`Decision for ${assessment.item_name}`}
       >
         {/* Card header: item name + verdict pill */}
@@ -209,7 +212,7 @@ function DecisionCard({
                 onClick: handleConfirmAndSend,
               },
             ]}
-            variant="success"
+            variant="primary"
             size="sm"
             loading={isConfirming}
             disabled={isConfirming}
@@ -222,8 +225,7 @@ function DecisionCard({
             disabled={isConfirming}
             aria-label={`Edit ${assessment.item_name}`}
           >
-            <Pencil size={13} aria-hidden="true" />
-            Edit
+            <Pencil size={14} aria-hidden="true" />
           </button>
 
           {onChatAbout && (
@@ -251,6 +253,7 @@ function DecisionCard({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        sourceCardRef={cardRef}
       />
     </>
   );
