@@ -38,7 +38,7 @@
 
 .bubbleUser {
   max-width: 85%;
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) var(--radius-sm, 4px) var(--radius-xl, 16px);
   background: var(--color-primary);
   padding: 12px 16px;
   color: var(--color-text-inverse);
@@ -83,7 +83,7 @@
 
 .bubbleAssistant {
   max-width: 85%;
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) var(--radius-xl, 16px) var(--radius-sm, 4px);
   background: color-mix(in srgb, var(--color-bg-subtle) 40%, transparent);
   padding: 12px 16px;
 }

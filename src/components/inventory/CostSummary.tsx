@@ -22,12 +22,12 @@ interface CostSummaryProps {
 
 // DS token colours per verdict
 const VERDICT_COLORS: Record<string, { bgColor: string; fgColor: string }> = {
-  SHIP: { bgColor: "var(--color-verdict-ship-bg, #d1fae5)", fgColor: "var(--color-verdict-ship, #065f46)" },
-  CARRY: { bgColor: "var(--color-verdict-carry-bg, #d1fae5)", fgColor: "var(--color-verdict-carry, #065f46)" },
-  SELL: { bgColor: "var(--color-verdict-sell-bg, #fef3c7)", fgColor: "var(--color-verdict-sell, #92400e)" },
-  DONATE: { bgColor: "var(--color-verdict-donate-bg, #f3f4f6)", fgColor: "var(--color-verdict-donate, #374151)" },
-  DISCARD: { bgColor: "var(--color-verdict-discard-bg, #f3f4f6)", fgColor: "var(--color-verdict-discard, #374151)" },
-  DECIDE_LATER: { bgColor: "var(--color-verdict-decide-later-bg, #dbeafe)", fgColor: "var(--color-verdict-decide-later, #1e40af)" },
+  SHIP: { bgColor: "var(--verdict-ship-bg, #d1fae5)", fgColor: "var(--verdict-ship-fg, #065f46)" },
+  CARRY: { bgColor: "var(--verdict-carry-bg, #d1fae5)", fgColor: "var(--verdict-carry-fg, #065f46)" },
+  SELL: { bgColor: "var(--verdict-sell-bg, #fef3c7)", fgColor: "var(--verdict-sell-fg, #92400e)" },
+  DONATE: { bgColor: "var(--verdict-donate-bg, #f3f4f6)", fgColor: "var(--verdict-donate-fg, #374151)" },
+  DISCARD: { bgColor: "var(--verdict-discard-bg, #f3f4f6)", fgColor: "var(--verdict-discard-fg, #374151)" },
+  DECIDE_LATER: { bgColor: "var(--verdict-decide-later-bg, #dbeafe)", fgColor: "var(--verdict-decide-later-fg, #1e40af)" },
 };
 
 function AnimatedNumber({

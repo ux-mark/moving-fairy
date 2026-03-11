@@ -58,8 +58,10 @@
 }
 
 .sectionTitle {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-primary);
 }
 
@@ -105,10 +107,12 @@
   background: var(--color-bg-card);
   box-shadow: var(--shadow-card);
   padding: 8px 12px;
+  transition: box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
 .itemRow:hover {
   background: color-mix(in srgb, var(--color-bg-subtle) 60%, var(--color-bg-card));
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
 }
 
 /* Verdict-specific top border colours */
@@ -321,40 +325,6 @@
   max-width: 280px;
   font-size: 14px;
   color: var(--color-text-muted);
-}
-
-/* Loading skeleton */
-.skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px 16px;
-}
-
-.skeletonGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skeletonLabel {
-  height: 16px;
-  width: 96px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.skeletonCard {
-  height: 56px;
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-subtle);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 /* Error state */

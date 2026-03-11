@@ -14,6 +14,8 @@ import { ShipAllButton } from "@/components/boxes/ShipAllButton";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
 
+import { cn } from "@/lib/utils";
+
 import styles from "./BoxList.module.css";
 
 interface BoxListProps {
@@ -234,7 +236,7 @@ export function BoxList({
           <Button
             variant="primary"
             size="lg"
-            className={styles.newBoxButton ?? ""}
+            className={cn(styles.newBoxButton, "ctaLift")}
             onClick={() => setCreatePanelOpen(true)}
           >
             <Plus style={{ width: 16, height: 16 }} />
