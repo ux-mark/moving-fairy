@@ -95,8 +95,9 @@
 .resizeHandle {
   position: absolute;
   top: 0;
-  left: -3px;
-  width: 6px;
+  /* Extend touch target to 44px wide; visually centred on the border */
+  left: -22px;
+  width: 44px;
   height: 100%;
   cursor: col-resize;
   z-index: 10;
@@ -105,21 +106,82 @@
   justify-content: center;
 }
 
+/* Hidden on mobile */
 @media (max-width: 767px) {
   .resizeHandle {
     display: none;
   }
 }
 
+/* Visible line running the full height — sits in the centre of the 44px hit area */
 .resizeLine {
   width: 2px;
   height: 100%;
   background: var(--color-border-default);
   transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .resizeHandle:hover .resizeLine {
   background: var(--color-border-input);
+}
+
+/* Groove / bulge affordance — centred vertically on the divider line */
+.resizeGrip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+
+  width: 12px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  pointer-events: none;
+}
+
+/* Individual grip lines inside the bulge */
+.resizeGrip::before,
+.resizeGrip::after,
+.resizeGripLine {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-border-default);
+  transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.resizeHandle:hover .resizeGrip {
+  background: var(--color-bg-card);
+  border-color: var(--color-border-input);
+}
+
+.resizeHandle:hover .resizeGrip::before,
+.resizeHandle:hover .resizeGrip::after,
+.resizeHandle:hover .resizeGripLine {
+  background: var(--color-text-secondary);
+}
+
+.resizeHandle:active .resizeGrip::before,
+.resizeHandle:active .resizeGrip::after,
+.resizeHandle:active .resizeGripLine {
+  background: var(--color-primary);
 }
 
 /* Inventory content area */

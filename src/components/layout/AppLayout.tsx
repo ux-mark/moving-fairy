@@ -17,7 +17,7 @@ interface AppLayoutProps {
 }
 
 const NAV_PRIMARY_ITEMS = [
-  { key: "chat", label: "Chat", icon: MessageCircle },
+  { key: "chat", label: "Aisling", icon: MessageCircle },
   { key: "inventory", label: "Inventory", icon: Package },
 ];
 
@@ -31,7 +31,10 @@ const NAV_SECONDARY_ITEMS = [
  * full-screen overlay (mobile).
  */
 export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
-  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth > 768;
+  });
   const [inventoryWidth, setInventoryWidth] = useState(380);
   const [activeSection, setActiveSection] = useState("chat");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -144,6 +147,9 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
               aria-hidden="true"
             >
               <div className={styles.resizeLine} />
+              <div className={styles.resizeGrip}>
+                <span className={styles.resizeGripLine} />
+              </div>
             </div>
             <div className={styles.inventoryContent}>
               {inventoryPanel}

@@ -36,7 +36,7 @@ export default async function BoxesPage() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <h1 className={styles.pageTitle}>Your Boxes</h1>
-          <Link href="/chat">
+          <Link href="/inventory">
             <Button variant="ghost" size="sm">
               <MessageCircle style={{ width: 16, height: 16 }} />
               Chat
