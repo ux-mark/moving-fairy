@@ -1,0 +1,166 @@
+/* DecisionNotificationTab — fixed right-edge notification tab */
+
+/* Slide-in animation */
+@keyframes slideIn {
+  from {
+    transform: translateY(-50%) translateX(100%);
+  }
+  to {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Red flash — 3 flashes then settles to persistent red */
+@keyframes redFlash {
+  /* Flash 1 */
+  0%    { background: var(--color-bg-card); }
+  6%    { background: color-mix(in srgb, var(--color-error) 80%, transparent); }
+  16%   { background: var(--color-bg-card); }
+  /* Flash 2 */
+  22%   { background: color-mix(in srgb, var(--color-error) 80%, transparent); }
+  32%   { background: var(--color-bg-card); }
+  /* Flash 3 */
+  38%   { background: color-mix(in srgb, var(--color-error) 80%, transparent); }
+  48%   { background: var(--color-bg-card); }
+  /* Settle */
+  100%  { background: color-mix(in srgb, var(--color-error) 80%, transparent); }
+}
+
+/* Base tab */
+.tab {
+  /* Fixed to right viewport edge, ~40% from top */
+  position: fixed;
+  right: 0;
+  top: 40%;
+  transform: translateY(-50%);
+  z-index: calc(var(--z-panel) + 10);
+
+  /* Size — 44px wide touch target, 120px tall */
+  width: 44px;
+  height: 120px;
+
+  /* Rounded on left side only (hugs right edge) */
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+
+  /* Default appearance */
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-right: none;
+
+  /* Layout */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+
+  /* Shadow to float above chat content */
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.08);
+
+  /* Interaction */
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  position: fixed; /* re-declare to override any cascade */
+
+  /* Slide-in animation on mount */
+  animation: slideIn 0.25s ease both;
+
+  /* Colour transition for hover */
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+
+  /* Focus ring */
+  outline: none;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.tab:hover {
+  background: var(--color-bg-panel);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Flash animation plays after slide-in, then settles to red */
+.tabFlash {
+  animation:
+    slideIn 0.25s ease both,
+    redFlash 1.5s ease 0.25s both;
+}
+
+/*
+ * Alert state — persistent warm red background.
+ * tabFlash also gets this via the animation end-state (forwards fill).
+ * For reduced-motion users, tabAlert is applied directly with no animation.
+ */
+.tabAlert {
+  background: color-mix(in srgb, var(--color-error) 80%, transparent) !important;
+}
+
+.tabAlert:hover {
+  background: color-mix(in srgb, var(--color-error) 85%, transparent) !important;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+}
+
+/* prefers-reduced-motion: skip all animations */
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .tabFlash {
+    animation: none;
+  }
+}
+
+/* Bell icon */
+.icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.tabAlert .icon {
+  color: var(--color-text-inverse);
+}
+
+/* "Decisions" label — rotated to read bottom-to-top */
+.label {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tabAlert .label {
+  color: var(--color-text-inverse);
+}
+
+/* Count badge — absolute positioned top-right */
+.badge {
+  position: absolute;
+  top: 6px;
+  right: 5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
