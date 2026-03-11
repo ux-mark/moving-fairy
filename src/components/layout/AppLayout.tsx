@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageCircle, Package, Settings, Sparkles, X } from "lucide-react";
+import { MessageCircle, Package, Settings, Sparkles } from "lucide-react";
 import { Navigation } from "@thefairies/design-system/components";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
@@ -29,18 +29,10 @@ const NAV_SECONDARY_ITEMS = [
   { key: "settings", label: "Settings", icon: Settings },
 ];
 
-/** Snap points for the mobile bottom sheet (percentage of viewport height) */
-const SNAP_HALF = 50;
-const SNAP_FULL = 95;
-/** If dragged below this threshold, dismiss the sheet */
-const DISMISS_THRESHOLD = 30;
-/** Minimum touch travel (px) before we consider it a drag — prevents accidental triggers */
-const MIN_DRAG_DISTANCE = 40;
-
 /**
  * AppLayout provides the app shell: Navigation at the top, chat as the main
  * content, and a toggleable right-side panel for inventory (desktop) or
- * a half-sheet bottom panel (mobile).
+ * a full-screen top-down overlay (mobile).
  */
 export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions }: AppLayoutProps) {
   const [inventoryOpen, setInventoryOpen] = useState(() => {
@@ -52,16 +44,8 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
   const [profileOpen, setProfileOpen] = useState(false);
   const { costSummary, refreshInventory } = useInventory();
 
-  // Mobile bottom sheet state
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [sheetHeightVh, setSheetHeightVh] = useState(SNAP_HALF);
-
-  // Touch drag refs for bottom sheet
-  const dragStartYRef = useRef(0);
-  const dragStartHeightRef = useRef(SNAP_HALF);
-  const isDraggingRef = useRef(false);
-  const hasDraggedRef = useRef(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
+  // Mobile overlay state (replaces bottom sheet)
+  const [mobileInventoryOpen, setMobileInventoryOpen] = useState(false);
 
   // Resize state (desktop)
   const isResizingRef = useRef(false);
@@ -101,15 +85,14 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
     (section: string) => {
       if (section === "chat") {
         setInventoryOpen(false);
-        setMobileSheetOpen(false);
+        setMobileInventoryOpen(false);
         setActiveSection("chat");
       } else if (section === "inventory") {
         setInventoryOpen(true);
         setActiveSection("inventory");
-        // On mobile, open the bottom sheet
+        // On mobile, open the full-screen overlay
         if (typeof window !== "undefined" && window.innerWidth < 768) {
-          setMobileSheetOpen(true);
-          setSheetHeightVh(SNAP_HALF);
+          setMobileInventoryOpen(true);
         }
       } else if (section === "settings") {
         setProfileOpen(true);
@@ -124,85 +107,17 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
     : 0;
   const hasCostData = totalItems > 0;
 
-  // Mobile bottom sheet: open
-  const openMobileSheet = useCallback(() => {
-    setMobileSheetOpen(true);
-    setSheetHeightVh(SNAP_HALF);
+  // Mobile overlay: open
+  const openMobileInventory = useCallback(() => {
+    setMobileInventoryOpen(true);
     setActiveSection("inventory");
   }, []);
 
-  // Mobile bottom sheet: close
-  const closeMobileSheet = useCallback(() => {
-    setMobileSheetOpen(false);
-    setSheetHeightVh(SNAP_HALF);
+  // Mobile overlay: close
+  const closeMobileInventory = useCallback(() => {
+    setMobileInventoryOpen(false);
+    setActiveSection("chat");
   }, []);
-
-  // Touch handlers for the drag handle
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    dragStartYRef.current = touch.clientY;
-    dragStartHeightRef.current = sheetHeightVh;
-    isDraggingRef.current = true;
-    hasDraggedRef.current = false;
-  }, [sheetHeightVh]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDraggingRef.current) return;
-
-    const touch = e.touches[0];
-    if (!touch) return;
-    const deltaY = dragStartYRef.current - touch.clientY;
-    const totalTravel = Math.abs(deltaY);
-
-    // Don't start adjusting height until we've moved past the minimum drag distance
-    if (!hasDraggedRef.current && totalTravel < MIN_DRAG_DISTANCE) {
-      return;
-    }
-    hasDraggedRef.current = true;
-
-    // Convert pixel delta to vh
-    const deltaVh = (deltaY / window.innerHeight) * 100;
-    const newHeight = Math.max(10, Math.min(SNAP_FULL, dragStartHeightRef.current + deltaVh));
-
-    // Apply immediately for responsive feel (bypass React state for perf)
-    if (sheetRef.current) {
-      sheetRef.current.style.height = `${newHeight}vh`;
-    }
-    // Store for snap calculation on touch end
-    dragStartYRef.current = touch.clientY;
-    dragStartHeightRef.current = newHeight;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-
-    const currentHeight = dragStartHeightRef.current;
-
-    if (currentHeight < DISMISS_THRESHOLD) {
-      // Dismiss
-      closeMobileSheet();
-      return;
-    }
-
-    // Snap to nearest point
-    const distToHalf = Math.abs(currentHeight - SNAP_HALF);
-    const distToFull = Math.abs(currentHeight - SNAP_FULL);
-    const snapTo = distToHalf < distToFull ? SNAP_HALF : SNAP_FULL;
-
-    setSheetHeightVh(snapTo);
-    if (sheetRef.current) {
-      sheetRef.current.style.height = `${snapTo}vh`;
-    }
-  }, [closeMobileSheet]);
-
-  // Reset sheet height when opening
-  useEffect(() => {
-    if (mobileSheetOpen && sheetRef.current) {
-      sheetRef.current.style.height = `${sheetHeightVh}vh`;
-    }
-  }, [mobileSheetOpen, sheetHeightVh]);
 
   return (
     <div className={styles.root}>
@@ -242,7 +157,7 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
             itemCount={totalItems}
             estimatedCost={costSummary!.total_estimated_ship_cost}
             currency={costSummary!.currency}
-            onExpand={openMobileSheet}
+            onExpand={openMobileInventory}
           />
         </>
       )}
@@ -278,50 +193,28 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
         )}
       </div>
 
-      {/* Mobile: bottom sheet backdrop */}
-      {mobileSheetOpen && (
-        <div
-          className={styles.bottomSheetBackdrop}
-          onClick={closeMobileSheet}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Mobile: bottom sheet */}
+      {/* Mobile: full-screen inventory overlay (slides down from nav) */}
       <div
-        ref={sheetRef}
-        className={`${styles.bottomSheet} ${!mobileSheetOpen ? styles.bottomSheetHidden : ""}`}
-        style={{ height: `${sheetHeightVh}vh` }}
-        role="dialog"
+        className={`${styles.mobileOverlay} ${mobileInventoryOpen ? styles.mobileOverlayOpen : ""}`}
+        role="region"
         aria-label="Inventory panel"
-        aria-modal="true"
+        aria-hidden={!mobileInventoryOpen}
       >
-        {/* Drag handle */}
-        <div
-          className={styles.dragHandle}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          aria-hidden="true"
-        >
-          <div className={styles.dragBar} />
+        {/* Inventory content */}
+        <div className={styles.mobileOverlayContent}>
+          {mobileInventoryOpen && inventoryPanel}
         </div>
 
-        {/* Close button */}
-        <div className={styles.bottomSheetHeader}>
+        {/* Back to Aisling floating button */}
+        <div className={styles.mobileOverlayFooter}>
           <button
             type="button"
-            className={styles.bottomSheetClose}
-            onClick={closeMobileSheet}
-            aria-label="Close inventory"
+            className={styles.backToChat}
+            onClick={closeMobileInventory}
           >
-            <X size={20} />
+            <MessageCircle size={18} />
+            Back to Aisling
           </button>
-        </div>
-
-        {/* Sheet content — reuses the same inventory panel */}
-        <div className={styles.bottomSheetContent}>
-          {mobileSheetOpen && inventoryPanel}
         </div>
       </div>
 
@@ -331,10 +224,9 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
         onClick={() => {
           setInventoryOpen(true);
           setActiveSection("inventory");
-          // On mobile, open the bottom sheet instead
+          // On mobile, open the overlay instead
           if (typeof window !== "undefined" && window.innerWidth < 768) {
-            setMobileSheetOpen(true);
-            setSheetHeightVh(SNAP_HALF);
+            setMobileInventoryOpen(true);
           }
           onOpenDecisions?.();
         }}

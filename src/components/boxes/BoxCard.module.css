@@ -120,12 +120,58 @@
   color: var(--color-text-muted);
 }
 
+/* Add item section */
+.addSection {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* Add item row */
 .addItemRow {
-  margin-top: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Add existing item */
+.addExistingWrap {
+  position: relative;
+}
+
+.addExistingButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.addExistingButton:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 10%, transparent);
+}
+
+.addExistingButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.itemPickerWrap {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  width: 280px;
+  max-width: calc(100vw - 32px);
 }
 
 .addItemInput {
@@ -175,4 +221,50 @@
 
 .markPackedButton {
   width: 100%;
+}
+
+/* ---- Mobile touch targets and sizing ---- */
+@media (max-width: 767px) {
+  /* Box card header — 44px min touch target, comfortable tap area */
+  .header {
+    min-height: 56px;
+    padding: 14px 16px;
+    gap: 14px;
+  }
+
+  /* Item rows inside expanded box — enforce 44px */
+  .itemRow {
+    min-height: 44px;
+    gap: 10px;
+    font-size: 16px;
+  }
+
+  .itemName {
+    font-size: 16px;
+  }
+
+  /* Add item input — larger for mobile */
+  .addItemInput {
+    height: 44px;
+    font-size: 16px;
+    padding: 0 12px;
+  }
+
+  /* Add existing item button — 44px touch target */
+  .addExistingButton {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 15px;
+  }
+
+  /* ItemPicker wrap — wider on mobile */
+  .itemPickerWrap {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Mark as packed button — 44px */
+  .markPackedRow {
+    margin-top: 16px;
+  }
 }

@@ -1,0 +1,112 @@
+/* ItemPicker — DS tokens */
+
+.picker {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+  overflow: hidden;
+}
+
+/* Search row */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.searchIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.dismissButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.dismissButton:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+/* List */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.emptyMessage {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.listItem {
+  display: flex;
+}
+
+.listItemButton {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.listItemButton:hover {
+  background: var(--color-bg-subtle);
+}
+
+.listItemButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -2px;
+}
+
+.listItemName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}

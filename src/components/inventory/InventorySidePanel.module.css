@@ -97,3 +97,30 @@
   padding: 24px;
   text-align: center;
 }
+
+/* ---- Mobile tab bar sizing ---- */
+@media (max-width: 767px) {
+  .panel {
+    padding-top: 4px;
+  }
+
+  .tabBar {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  /* Shared base for both .tab and .tabActive on mobile */
+  .tab,
+  .tabActive {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+    gap: 6px;
+  }
+
+  .badgePending {
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+}

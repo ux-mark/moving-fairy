@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
+import { Package } from "lucide-react";
 
 import styles from "./InventoryPreview.module.css";
 
@@ -59,8 +59,8 @@ export function InventoryPreview({
         onClick={onExpand}
         aria-label="View inventory"
       >
+        <Package size={16} />
         View
-        <ChevronUp size={16} />
       </button>
     </div>
   );
