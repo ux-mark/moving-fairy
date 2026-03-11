@@ -2,11 +2,13 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
+import { Button } from '@thefairies/design-system/components'
 
 import { getSession, getBoxes, getBox, getItemAssessments } from '@/mcp'
 import { BoxManagement } from '@/components/boxes/BoxManagement'
-import { Button } from '@/components/ui/button'
 import { Verdict } from '@/lib/constants'
+
+import styles from './boxes.module.css'
 
 export default async function BoxesPage() {
   const cookieStore = await cookies()
@@ -30,20 +32,20 @@ export default async function BoxesPage() {
   )
 
   return (
-    <div className="min-h-svh bg-background">
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
-          <h1 className="text-base font-semibold text-primary">Your Boxes</h1>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <h1 className={styles.pageTitle}>Your Boxes</h1>
           <Link href="/chat">
-            <Button variant="ghost" size="sm" className="gap-1.5">
-              <MessageCircle className="size-4" />
+            <Button variant="ghost" size="sm">
+              <MessageCircle style={{ width: 16, height: 16 }} />
               Chat
             </Button>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-6">
+      <main className={styles.main}>
         <BoxManagement
           initialBoxes={boxes}
           initialBoxItems={boxItems}

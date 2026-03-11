@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Package, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import {
+  Button,
+  EmptyState,
+} from "@thefairies/design-system/components";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { ShipAllButton } from "@/components/boxes/ShipAllButton";
-import { Button } from "@/components/ui/button";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
+
+import { cn } from "@/lib/utils";
+
+import styles from "./BoxList.module.css";
 
 interface BoxListProps {
   boxes: Box[];
@@ -143,26 +150,12 @@ export function BoxList({
   if (boxes.length === 0 && unboxedItems.length === 0) {
     return (
       <>
-        <div className="flex flex-col items-center gap-4 py-16 text-center">
-          <Package className="size-12 text-muted-foreground/50" />
-          <div className="max-w-xs">
-            <p className="text-base font-medium text-foreground">
-              No boxes yet.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {"Start packing by telling Aisling which room you\u2019re tackling, or tap \u2018New box\u2019 below."}
-            </p>
-          </div>
-          {onCreateBox && (
-            <Button
-              className="h-12 w-full max-w-xs gap-1.5"
-              onClick={() => setCreatePanelOpen(true)}
-            >
-              <Plus className="size-4" />
-              New box
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          heading="No boxes yet"
+          description="Start packing by telling Aisling which room you're tackling, or create a new box below."
+          ctaLabel="New box"
+          onCtaClick={onCreateBox ? () => setCreatePanelOpen(true) : () => undefined}
+        />
 
         <CreateBoxPanel
           open={createPanelOpen}
@@ -176,10 +169,10 @@ export function BoxList({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className={styles.list}>
         {/* Ship all button */}
         {shippableBoxCount > 0 && onShipAll && (
-          <div className="flex justify-end">
+          <div className={styles.shipAllRow}>
             <ShipAllButton
               boxCount={shippableBoxCount}
               singleItemCount={0}
@@ -191,10 +184,8 @@ export function BoxList({
         {/* Travelling with me section */}
         {travellingBoxes.length > 0 && (
           <section aria-label="Travelling with me">
-            <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Travelling with me
-            </h3>
-            <div className="space-y-3">
+            <h3 className={styles.sectionLabel}>Travelling with me</h3>
+            <div className={styles.sectionCards}>
               {travellingBoxes.map((box) => (
                 <BoxCard
                   key={box.id}
@@ -207,18 +198,15 @@ export function BoxList({
                 />
               ))}
             </div>
-            {/* Visual separator */}
-            <div className="mt-4 border-b border-border" />
+            <div className={styles.divider} />
           </section>
         )}
 
         {/* Freight boxes */}
         {freightBoxes.length > 0 && (
           <section aria-label="Shipping boxes">
-            <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Shipping boxes
-            </h3>
-            <div className="space-y-3">
+            <h3 className={styles.sectionLabel}>Shipping boxes</h3>
+            <div className={styles.sectionCards}>
               {freightBoxes.map((box) => (
                 <BoxCard
                   key={box.id}
@@ -246,10 +234,12 @@ export function BoxList({
         {/* New box button — always visible at bottom */}
         {onCreateBox && (
           <Button
-            className="h-12 w-full gap-1.5"
+            variant="primary"
+            size="lg"
+            className={cn(styles.newBoxButton, "ctaLift")}
             onClick={() => setCreatePanelOpen(true)}
           >
-            <Plus className="size-4" />
+            <Plus style={{ width: 16, height: 16 }} />
             New box
           </Button>
         )}

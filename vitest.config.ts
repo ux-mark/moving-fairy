@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    exclude: ['e2e/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**'],
@@ -16,6 +17,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      '@thefairies/design-system/components': resolve(
+        __dirname,
+        './node_modules/@thefairies/design-system/src/components/index.ts'
+      ),
+      '@thefairies/design-system/styles/tokens.css': resolve(
+        __dirname,
+        './node_modules/@thefairies/design-system/src/styles/tokens.css'
+      ),
+      '@thefairies/design-system/styles/animations.css': resolve(
+        __dirname,
+        './node_modules/@thefairies/design-system/src/styles/animations.css'
+      ),
     },
   },
 })

@@ -1,0 +1,141 @@
+/* UnboxedItems — DS tokens */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heading {
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.headingCount {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.list {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.rowBordered {
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.rowLeft {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+/* Dropdown */
+.dropdownWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dropdownTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.dropdownTrigger:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.dropdownMenu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 50;
+  margin-top: 4px;
+  width: 192px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 4px;
+  box-shadow: var(--shadow-dropdown);
+  list-style: none;
+}
+
+.dropdownItem {
+  border-radius: var(--radius-md);
+  padding: 0;
+}
+
+.dropdownItemButton {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.dropdownItemButton:hover {
+  background: var(--color-bg-subtle);
+}
+
+/* All boxed state */
+.allBoxed {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.allBoxedText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}

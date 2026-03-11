@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { RecommendationCard, type RecommendationStatus } from "@thefairies/design-system/components";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { Verdict } from "@/lib/constants";
+import styles from "./MessageBubble.module.css";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,7 +76,7 @@ function renderInlineFormatting(text: string) {
       return boldParts.map((bp, j) => {
         if (bp.startsWith("**") && bp.endsWith("**")) {
           return (
-            <strong key={`${i}-${j}`} className="font-semibold">
+            <strong key={`${i}-${j}`} className={styles.inlineBold}>
               {bp.slice(2, -2)}
             </strong>
           );
@@ -86,7 +88,7 @@ function renderInlineFormatting(text: string) {
             return (
               <em
                 key={`${i}-${j}-${k}`}
-                className="italic text-muted-foreground"
+                className={styles.inlineItalic}
               >
                 {ip.slice(1, -1)}
               </em>
@@ -96,35 +98,36 @@ function renderInlineFormatting(text: string) {
         });
       });
     }
-    return <VerdictBadge key={i} verdict={part.value} className="mx-0.5" />;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return <VerdictBadge key={i} verdict={part.value} className={styles.verdictBadgeSpacing!} />;
   });
 }
 
 // ---------------------------------------------------------------------------
-// Verdict-to-border-colour mapping for assessment cards
+// Verdict → DS accent colour (for RecommendationCard left border)
 // ---------------------------------------------------------------------------
 
-const VERDICT_BORDER_COLOUR: Record<string, string> = {
-  SHIP: "border-l-verdict-ship",
-  CARRY: "border-l-verdict-carry",
-  SELL: "border-l-verdict-sell",
-  DONATE: "border-l-verdict-donate",
-  DISCARD: "border-l-verdict-discard",
-  DECIDE_LATER: "border-l-verdict-decide-later",
+const VERDICT_ACCENT: Record<string, string> = {
+  SHIP: "var(--verdict-ship)",
+  CARRY: "var(--verdict-carry)",
+  SELL: "var(--verdict-sell)",
+  DONATE: "var(--verdict-donate)",
+  DISCARD: "var(--verdict-discard)",
+  DECIDE_LATER: "var(--verdict-decide-later)",
+};
+
+// Verdict → DS badge colour (solid bg for RecommendationCard badge)
+const VERDICT_BADGE_COLOR: Record<string, string> = {
+  SHIP: "var(--verdict-ship)",
+  CARRY: "var(--verdict-carry)",
+  SELL: "var(--verdict-sell)",
+  DONATE: "var(--verdict-donate)",
+  DISCARD: "var(--verdict-discard)",
+  DECIDE_LATER: "var(--verdict-decide-later)",
 };
 
 // ---------------------------------------------------------------------------
-// Confidence indicator
-// ---------------------------------------------------------------------------
-
-function confidenceIndicator(confidence: number): string {
-  if (confidence >= 85) return "\u{1F7E2}"; // green circle
-  if (confidence >= 60) return "\u{1F7E1}"; // yellow circle
-  return "\u{1F534}"; // red circle
-}
-
-// ---------------------------------------------------------------------------
-// Assessment Card (standalone, full-width)
+// Assessment Card — uses DS RecommendationCard
 // ---------------------------------------------------------------------------
 
 function AssessmentCard({
@@ -135,12 +138,21 @@ function AssessmentCard({
   onSendMessage?: (text: string) => void;
 }) {
   const verdictNormalised = card.verdict.replace(/\s+/g, "_").toUpperCase();
-  const borderClass =
-    VERDICT_BORDER_COLOUR[verdictNormalised] ?? "border-l-border";
   const isValidVerdict = verdictNormalised in Verdict;
+
+  // Map local confirm state to DS RecommendationStatus
   const [confirmState, setConfirmState] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+
+  const dsStatus: RecommendationStatus = (() => {
+    switch (confirmState) {
+      case "saving": return "confirming";
+      case "saved": return "confirmed";
+      case "error": return "error";
+      default: return "idle";
+    }
+  })();
 
   async function handleConfirm() {
     setConfirmState("saving");
@@ -169,105 +181,61 @@ function AssessmentCard({
     }
   }
 
-  function handleEdit() {
+  function handleSkip() {
+    // "Skip" in this context means "Edit" — ask Aisling to revise
     onSendMessage?.(`Please revise your assessment for ${card.item}`);
   }
 
+  // Build metadata array for shipping / replace cost
+  const metadata: { label: string; value: string }[] = [];
+  if (card.estimated_ship_cost_usd != null) {
+    const sym = card.currency ?? "USD";
+    metadata.push({
+      label: "Ship cost",
+      value: `${sym} ${card.estimated_ship_cost_usd.toFixed(2)}`,
+    });
+  }
+  if (card.estimated_replace_cost_usd != null) {
+    const sym = card.replace_currency ?? "USD";
+    metadata.push({
+      label: "Replace cost",
+      value: `${sym} ${card.estimated_replace_cost_usd.toFixed(2)}`,
+    });
+  }
+
+  // Build optional prop groups to satisfy exactOptionalPropertyTypes
+  const optionalProps = {
+    ...(isValidVerdict
+      ? {
+          badge: {
+            label: verdictNormalised.replace("_", " "),
+            color: VERDICT_BADGE_COLOR[verdictNormalised] ?? "var(--color-primary)",
+          },
+        }
+      : {}),
+    ...(card.import_note !== undefined ? { warning: card.import_note } : {}),
+    ...(metadata.length > 0 ? { metadata } : {}),
+    ...(VERDICT_ACCENT[verdictNormalised] !== undefined
+      ? { accentColor: VERDICT_ACCENT[verdictNormalised] }
+      : {}),
+  };
+
   return (
-    <div
-      className={`mx-4 my-2 rounded-2xl border border-border bg-card shadow-sm border-l-4 ${borderClass}`}
-      role="region"
-      aria-label={`Assessment for ${card.item}`}
-    >
-      <div className="p-4 sm:p-5">
-        {/* Top row: item name + verdict badge */}
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h3 className="text-base font-semibold text-foreground leading-snug">
-            {card.item}
-          </h3>
-          {isValidVerdict && (
-            <VerdictBadge
-              verdict={verdictNormalised as Verdict}
-              className="px-3 py-1.5 text-sm"
-            />
-          )}
-        </div>
-
-        {/* Confidence */}
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {confidenceIndicator(card.confidence)} {card.confidence}% confidence
-        </p>
-
-        {/* Rationale */}
-        {card.rationale && (
-          <p className="mt-2 text-sm leading-relaxed text-foreground/80">
-            {card.rationale}
-          </p>
-        )}
-
-        {/* Import note (amber warning, only when present) */}
-        {card.import_note && (
-          <p className="mt-2 rounded px-2 py-1 text-xs leading-relaxed text-amber-700 bg-amber-50 dark:text-amber-200 dark:bg-amber-950/30">
-            {"\u26A0\uFE0F"} {card.import_note}
-          </p>
-        )}
-
-        {/* Action */}
-        {card.action && (
-          <p className="mt-3 pt-3 border-t border-border text-sm font-medium text-foreground">
-            {"\u2192"} {card.action}
-          </p>
-        )}
-
-        {/* DECIDE_LATER notice */}
-        {verdictNormalised === "DECIDE_LATER" && (
-          <p className="mt-2 text-xs text-muted-foreground italic">
-            This verdict is tentative — you can revisit it later.
-          </p>
-        )}
-
-        {/* Confirm / Edit actions */}
-        <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
-          {confirmState === "saved" ? (
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
-              Saved &#10003;
-            </span>
-          ) : confirmState === "saving" ? (
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <span
-                className="inline-block size-3 rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground animate-spin"
-                aria-hidden="true"
-              />
-              Saving...
-            </span>
-          ) : confirmState === "error" ? (
-            <button
-              type="button"
-              onClick={handleConfirm}
-              className="text-sm font-medium text-destructive underline underline-offset-2"
-            >
-              Failed to save — try again
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                onClick={handleEdit}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Edit
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+    <div className={styles.assessmentCardWrapper}>
+      <RecommendationCard
+        title={card.item}
+        rationale={card.rationale}
+        confidence={card.confidence}
+        action={card.action}
+        status={dsStatus}
+        onConfirm={handleConfirm}
+        onSkip={handleSkip}
+        confirmLabel="Confirm"
+        skipLabel="Edit"
+        errorMessage="Failed to save — try again"
+        ariaLabel={`Assessment for ${card.item}`}
+        {...optionalProps}
+      />
     </div>
   );
 }
@@ -293,24 +261,24 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
   if (isUser) {
     return (
       <div
-        className="flex w-full justify-end px-4 py-1.5"
+        className={`${styles.messageRow} ${styles.messageRowUser}`}
         aria-label="You said:"
       >
-        <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-3 text-primary-foreground sm:max-w-[75%]">
+        <div className={styles.bubbleUser}>
           {message.imageUrls && message.imageUrls.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
+            <div className={styles.imageStrip}>
               {message.imageUrls.map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
                   src={`/api/img?url=${encodeURIComponent(url)}`}
                   alt={`Submitted item ${i + 1}`}
-                  className="max-w-[280px] rounded-lg object-contain sm:max-w-[400px]"
+                  className={styles.submittedImage}
                 />
               ))}
             </div>
           )}
-          <div className="whitespace-pre-wrap text-base leading-relaxed">
+          <div className={styles.userText}>
             {message.content}
           </div>
         </div>
@@ -321,11 +289,11 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
   // ---- Case B: Assistant prose message — soft bubble, left-aligned ----
   return (
     <div
-      className="flex w-full justify-start px-4 py-1.5"
+      className={`${styles.messageRow} ${styles.messageRowAssistant}`}
       aria-label="Aisling said:"
     >
-      <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-muted/40 sm:max-w-[75%]">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+      <div className={styles.bubbleAssistant}>
+        <div className={styles.assistantText}>
           {renderInlineFormatting(message.content)}
         </div>
       </div>

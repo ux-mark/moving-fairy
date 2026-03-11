@@ -1,0 +1,366 @@
+/* InventoryPanel — DS tokens */
+
+.panel {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  background: var(--color-bg-page);
+}
+
+.tabBar {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  color: var(--color-text-muted);
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+.tabActive {
+  border-bottom: 2px solid var(--color-primary, #16a34a);
+  color: var(--color-primary, #16a34a);
+}
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Content views */
+.viewStack {
+  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Section header */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-primary);
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+/* Single item row in a section */
+.singleItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  border-top: 3px solid var(--color-primary);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-card-padding);
+}
+
+.singleItemLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.singleItemSubLabel {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Item rows */
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  border-top: 3px solid var(--color-primary);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+  padding: 8px 12px;
+  transition: box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.itemRow:hover {
+  background: color-mix(in srgb, var(--color-bg-subtle) 60%, var(--color-bg-card));
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+/* Verdict-specific top border colours */
+.itemRow[data-verdict="SHIP"],
+.itemRow[data-verdict="CARRY"] {
+  border-top-color: var(--verdict-ship);
+}
+
+.itemRow[data-verdict="SELL"] {
+  border-top-color: var(--verdict-sell);
+}
+
+.itemRow[data-verdict="DONATE"],
+.itemRow[data-verdict="DISCARD"] {
+  border-top-color: var(--verdict-donate);
+}
+
+.itemRow[data-verdict="DECIDE_LATER"] {
+  border-top-color: var(--verdict-decide-later);
+}
+
+.itemThumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.itemThumbPlaceholder {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+}
+
+.itemName {
+  min-width: 0;
+  flex: 1;
+}
+
+.itemNameButton {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.itemNameButton:hover {
+  text-decoration: underline;
+}
+
+.itemNameInput {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 2px 6px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.itemNameInput:focus {
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
+}
+
+.verdictSelect {
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.verdictSelect:focus {
+  border-color: var(--color-primary, #16a34a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
+}
+
+/* Verdict group collapsible */
+.verdictTrigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.verdictTrigger:hover {
+  background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
+}
+
+.verdictTriggerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verdictCount {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.chevron {
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Not-shipping collapsible */
+.notShippingTrigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.notShippingTrigger:hover {
+  background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
+}
+
+.notShippingLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.notShippingCount {
+  border-radius: 9999px;
+  background: var(--color-bg-subtle);
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.notShippingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+}
+
+.notShippingItemName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* Empty state */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--color-bg-subtle);
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.emptyBody {
+  margin-top: 6px;
+  max-width: 280px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* Error state */
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.errorText {
+  font-size: 14px;
+  color: var(--color-destructive, #dc2626);
+}
+
+.retryButton {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  color: color-mix(in srgb, var(--color-primary, #16a34a) 80%, black);
+}
+
+/* Collapsible content inner spacing */
+.collapsibleItems {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 12px;
+}

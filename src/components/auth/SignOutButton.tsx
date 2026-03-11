@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
+import { Button } from "@thefairies/design-system/components"
 import { createClient } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
+import styles from "./SignOutButton.module.css"
 
 export function SignOutButton() {
   const router = useRouter()
@@ -16,19 +17,15 @@ export function SignOutButton() {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={handleSignOut}
       title="Sign out"
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-1.5",
-        "text-xs text-muted-foreground",
-        "transition-colors hover:bg-muted hover:text-foreground",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      )}
     >
-      <LogOut className="size-3.5" aria-hidden="true" />
-      <span className="sr-only sm:not-sr-only">Sign out</span>
-    </button>
+      <LogOut className={styles.icon} aria-hidden="true" />
+      <span className={styles.label}>Sign out</span>
+    </Button>
   )
 }

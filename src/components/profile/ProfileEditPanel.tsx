@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import {
+  EditPanel,
+  Button,
+  Spinner,
+} from "@thefairies/design-system/components";
 
-import { SlidePanel } from "@/components/shared/SlidePanel";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { Country, OnwardTimeline } from "@/lib/constants";
 import {
@@ -15,6 +15,7 @@ import {
   hasVoltageChange,
 } from "@/lib/countries";
 import type { UserProfile, Equipment } from "@/types/database";
+import styles from "./ProfileEditPanel.module.css";
 
 type OnwardIntent = "yes" | "maybe" | "no";
 
@@ -29,12 +30,14 @@ interface ProfileEditPanelProps {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function ProfileEditPanel({
   open,
   onClose,
   onSaved,
+  triggerRef,
 }: ProfileEditPanelProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -186,36 +189,43 @@ export function ProfileEditPanel({
   ]);
 
   return (
-    <SlidePanel open={open} onClose={onClose} title="Edit move details">
+    <EditPanel
+      isOpen={open}
+      onClose={onClose}
+      title="Edit move details"
+      onSave={handleSave}
+      onCancel={onClose}
+      saveLabel={isSaving ? "Saving..." : success ? "Saved" : "Save changes"}
+      footer={false}
+      {...(triggerRef ? { triggerRef } : {})}
+    >
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-5 animate-spin motion-reduce:animate-none text-muted-foreground" />
+        <div className={styles.loadingWrapper}>
+          <Spinner size="md" />
         </div>
       ) : (
-        <div className="flex flex-col gap-6 pb-6">
+        <div className={styles.form}>
           {/* Departure country */}
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Moving from</Label>
-            <fieldset>
-              <legend className="sr-only">Departure country</legend>
-              <div className="grid gap-2">
+          <div className={styles.fieldGroup}>
+            <span className={styles.label}>Moving from</span>
+            <fieldset className="fieldsetReset">
+              <legend className="srOnly">Departure country</legend>
+              <div className={styles.optionGrid}>
                 {countries.map((country) => (
                   <button
                     key={country.code}
                     type="button"
                     onClick={() => {
                       setDepartureCountry(country.code);
-                      // Reset arrival if it conflicts
                       if (arrivalCountry === country.code)
                         setArrivalCountry(null);
                       if (onwardCountry === country.code)
                         setOnwardCountry(null);
                     }}
                     className={cn(
-                      "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                      departureCountry === country.code
-                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                      styles.optionButton,
+                      departureCountry === country.code &&
+                        styles.optionButtonSelected
                     )}
                     aria-pressed={departureCountry === country.code}
                   >
@@ -227,11 +237,11 @@ export function ProfileEditPanel({
           </div>
 
           {/* Arrival country */}
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Moving to</Label>
-            <fieldset>
-              <legend className="sr-only">Arrival country</legend>
-              <div className="grid gap-2">
+          <div className={styles.fieldGroup}>
+            <span className={styles.label}>Moving to</span>
+            <fieldset className="fieldsetReset">
+              <legend className="srOnly">Arrival country</legend>
+              <div className={styles.optionGrid}>
                 {availableArrivalCountries.map((country) => (
                   <button
                     key={country.code}
@@ -242,10 +252,9 @@ export function ProfileEditPanel({
                         setOnwardCountry(null);
                     }}
                     className={cn(
-                      "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                      arrivalCountry === country.code
-                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                      styles.optionButton,
+                      arrivalCountry === country.code &&
+                        styles.optionButtonSelected
                     )}
                     aria-pressed={arrivalCountry === country.code}
                   >
@@ -257,11 +266,11 @@ export function ProfileEditPanel({
           </div>
 
           {/* Onward move */}
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Planning an onward move?</Label>
-            <fieldset>
-              <legend className="sr-only">Onward move plans</legend>
-              <div className="grid gap-2">
+          <div className={styles.fieldGroup}>
+            <span className={styles.label}>Planning an onward move?</span>
+            <fieldset className="fieldsetReset">
+              <legend className="srOnly">Onward move plans</legend>
+              <div className={styles.optionGrid}>
                 {(
                   [
                     { value: "yes", label: "Yes" },
@@ -283,10 +292,9 @@ export function ProfileEditPanel({
                       }
                     }}
                     className={cn(
-                      "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                      onwardIntent === option.value
-                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                      styles.optionButton,
+                      onwardIntent === option.value &&
+                        styles.optionButtonSelected
                     )}
                     aria-pressed={onwardIntent === option.value}
                   >
@@ -299,22 +307,21 @@ export function ProfileEditPanel({
 
           {/* Onward details */}
           {showOnwardDetails && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Onward country</Label>
-                <fieldset>
-                  <legend className="sr-only">Onward country</legend>
-                  <div className="grid gap-2">
+            <div className={styles.onwardDetails}>
+              <div className={styles.fieldGroup}>
+                <span className={styles.label}>Onward country</span>
+                <fieldset className="fieldsetReset">
+                  <legend className="srOnly">Onward country</legend>
+                  <div className={styles.optionGrid}>
                     {availableOnwardCountries.map((country) => (
                       <button
                         key={country.code}
                         type="button"
                         onClick={() => setOnwardCountry(country.code)}
                         className={cn(
-                          "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                          onwardCountry === country.code
-                            ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                            : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                          styles.optionButton,
+                          onwardCountry === country.code &&
+                            styles.optionButtonSelected
                         )}
                         aria-pressed={onwardCountry === country.code}
                       >
@@ -325,21 +332,20 @@ export function ProfileEditPanel({
                 </fieldset>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Timeline</Label>
-                <fieldset>
-                  <legend className="sr-only">Onward timeline</legend>
-                  <div className="grid gap-2">
+              <div className={styles.fieldGroup}>
+                <span className={styles.label}>Timeline</span>
+                <fieldset className="fieldsetReset">
+                  <legend className="srOnly">Onward timeline</legend>
+                  <div className={styles.optionGrid}>
                     {TIMELINE_OPTIONS.map((option) => (
                       <button
                         key={option.value}
                         type="button"
                         onClick={() => setOnwardTimeline(option.value)}
                         className={cn(
-                          "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                          onwardTimeline === option.value
-                            ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                            : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                          styles.optionButton,
+                          onwardTimeline === option.value &&
+                            styles.optionButtonSelected
                         )}
                         aria-pressed={onwardTimeline === option.value}
                       >
@@ -354,15 +360,13 @@ export function ProfileEditPanel({
 
           {/* Transformer */}
           {showTransformer && (
-            <div className="flex flex-col gap-3">
-              <Label className="text-sm font-medium">
-                Voltage transformer
-              </Label>
-              <fieldset>
-                <legend className="sr-only">
+            <div className={styles.fieldGroup}>
+              <span className={styles.label}>Voltage transformer</span>
+              <fieldset className="fieldsetReset">
+                <legend className="srOnly">
                   Do you own a voltage transformer?
                 </legend>
-                <div className="grid gap-2">
+                <div className={styles.optionGrid}>
                   {(
                     [
                       { value: true, label: "Yes, I have one" },
@@ -380,10 +384,9 @@ export function ProfileEditPanel({
                         }
                       }}
                       className={cn(
-                        "flex min-h-[44px] items-center rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors",
-                        hasTransformer === option.value
-                          ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                          : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                        styles.optionButton,
+                        hasTransformer === option.value &&
+                          styles.optionButtonSelected
                       )}
                       aria-pressed={hasTransformer === option.value}
                     >
@@ -394,38 +397,41 @@ export function ProfileEditPanel({
               </fieldset>
 
               {hasTransformer && (
-                <div className="flex flex-col gap-3 pt-1">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="edit-transformer-model" className="text-sm">
+                <div className={styles.transformerFields}>
+                  <div className={styles.inputGroup}>
+                    <label
+                      htmlFor="edit-transformer-model"
+                      className={styles.inputLabel}
+                    >
                       Model (optional)
-                    </Label>
-                    <Input
+                    </label>
+                    <input
                       id="edit-transformer-model"
                       value={transformerModel}
                       onChange={(e) => setTransformerModel(e.target.value)}
                       placeholder="e.g. Dynastar DS-5500"
-                      className="h-11"
+                      className={styles.input}
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label
+                  <div className={styles.inputGroup}>
+                    <label
                       htmlFor="edit-transformer-wattage"
-                      className="text-sm"
+                      className={styles.inputLabel}
                     >
                       Wattage (optional)
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
+                    </label>
+                    <div className={styles.wattageRow}>
+                      <input
                         id="edit-transformer-wattage"
                         type="number"
                         value={transformerWattage}
-                        onChange={(e) => setTransformerWattage(e.target.value)}
+                        onChange={(e) =>
+                          setTransformerWattage(e.target.value)
+                        }
                         placeholder="e.g. 5500"
-                        className="h-11"
+                        className={cn(styles.input, styles.wattageInput)}
                       />
-                      <span className="text-sm text-muted-foreground">
-                        watts
-                      </span>
+                      <span className={styles.wattageUnit}>watts</span>
                     </div>
                   </div>
                 </div>
@@ -435,29 +441,31 @@ export function ProfileEditPanel({
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg bg-destructive/10 px-3 py-2" role="alert">
-              <p className="text-sm text-destructive">{error}</p>
+            <div className={styles.errorBanner} role="alert">
+              <p className={styles.errorText}>{error}</p>
             </div>
           )}
 
           {/* Success */}
           {success && (
-            <div className="rounded-lg bg-primary/10 px-3 py-2" role="status">
-              <p className="text-sm font-medium text-primary">
-                Move details saved
-              </p>
+            <div className={styles.successBanner} role="status">
+              <p className={styles.successText}>Move details saved</p>
             </div>
           )}
 
           {/* Save button */}
           <Button
+            variant="primary"
+            size="lg"
             onClick={handleSave}
-            disabled={isSaving || !departureCountry || !arrivalCountry || success}
-            className="h-11 w-full text-sm font-semibold"
+            disabled={
+              isSaving || !departureCountry || !arrivalCountry || success
+            }
+            className={styles.saveButton ?? ""}
           >
             {isSaving ? (
               <>
-                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+                <Spinner size="sm" />
                 Saving...
               </>
             ) : success ? (
@@ -468,6 +476,6 @@ export function ProfileEditPanel({
           </Button>
         </div>
       )}
-    </SlidePanel>
+    </EditPanel>
   );
 }

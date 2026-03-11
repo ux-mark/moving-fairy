@@ -3,18 +3,17 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { OnboardingWizard as DSOnboardingWizard } from "@thefairies/design-system/components";
 
-import { Button } from "@/components/ui/button";
 import type { Country, OnwardTimeline } from "@/lib/constants";
 import { hasVoltageChange } from "@/lib/countries";
-import { cn } from "@/lib/utils";
 
 import { DepartureStep } from "./steps/DepartureStep";
 import { ArrivalStep } from "./steps/ArrivalStep";
 import { OnwardStep } from "./steps/OnwardStep";
 import { TransformerStep } from "./steps/TransformerStep";
 import { ApiKeyStep } from "./steps/ApiKeyStep";
+import stepStyles from "./steps/step.module.css";
 
 type OnwardIntent = "yes" | "maybe" | "no";
 
@@ -75,7 +74,6 @@ export function OnboardingWizard() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const currentStep = steps[currentStepIndex];
   const totalSteps = steps.length;
-  const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
 
   const canAdvance = useCallback((): boolean => {
@@ -96,17 +94,6 @@ export function OnboardingWizard() {
         return false;
     }
   }, [currentStep, form, hasLocalKey]);
-
-  const goNext = useCallback(() => {
-    if (!canAdvance()) return;
-    setDirection(1);
-    setCurrentStepIndex((i) => Math.min(i + 1, totalSteps - 1));
-  }, [canAdvance, totalSteps]);
-
-  const goBack = useCallback(() => {
-    setDirection(-1);
-    setCurrentStepIndex((i) => Math.max(i - 1, 0));
-  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!canAdvance() || isSubmitting) return;
@@ -159,6 +146,21 @@ export function OnboardingWizard() {
     }
   }, [canAdvance, form, isSubmitting, router]);
 
+  const goNext = useCallback(() => {
+    if (!canAdvance()) return;
+    if (isLastStep) {
+      void handleSubmit();
+      return;
+    }
+    setDirection(1);
+    setCurrentStepIndex((i) => Math.min(i + 1, totalSteps - 1));
+  }, [canAdvance, isLastStep, handleSubmit, totalSteps]);
+
+  const goBack = useCallback(() => {
+    setDirection(-1);
+    setCurrentStepIndex((i) => Math.max(i - 1, 0));
+  }, []);
+
   const variants = prefersReducedMotion
     ? { enter: {}, center: {}, exit: {} }
     : {
@@ -167,156 +169,118 @@ export function OnboardingWizard() {
         exit: (d: number) => ({ x: d > 0 ? -200 : 200, opacity: 0 }),
       };
 
+  // DS OnboardingWizard uses 1-based currentStep
+  const dsCurrentStep = currentStepIndex + 1;
+
+  // Final step label: show submitting state via nextLabel + nextDisabled
+  // Only pass nextLabel when we have a value — DS uses exactOptionalPropertyTypes
+  const nextLabelProps = isLastStep
+    ? {
+        nextLabel: isSubmitting
+          ? "Setting up..."
+          : "Start chatting with Aisling",
+      }
+    : {}; // DS defaults to "Continue" when not provided
+
   return (
-    <div className="flex min-h-svh flex-col items-center justify-start bg-background px-6 py-8 sm:justify-center sm:px-8">
-      <div className="w-full max-w-md">
-        {/* Progress bar */}
-        <div className="mb-2 flex gap-1.5" role="progressbar" aria-label="Onboarding progress" aria-valuenow={currentStepIndex + 1} aria-valuemin={1} aria-valuemax={totalSteps}>
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-1.5 flex-1 rounded-full transition-colors",
-                i <= currentStepIndex ? "bg-accent" : "bg-muted"
-              )}
-            />
-          ))}
-        </div>
-        <p className="mb-8 text-xs text-muted-foreground" aria-live="polite">
-          Step {currentStepIndex + 1} of {totalSteps}
-        </p>
-
-        {/* Step content */}
-        <div className="relative min-h-[320px]">
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={currentStep}
-              custom={direction}
-              variants={variants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={
-                prefersReducedMotion
-                  ? { duration: 0 }
-                  : { duration: 0.2, ease: "easeOut" }
-              }
-            >
-              {currentStep === "departure" && (
-                <DepartureStep
-                  value={form.departure}
-                  onChange={(c) => setForm((f) => ({ ...f, departure: c, arrival: f.arrival === c ? null : f.arrival }))}
-                />
-              )}
-              {currentStep === "arrival" && (
-                <ArrivalStep
-                  value={form.arrival}
-                  departure={form.departure}
-                  onChange={(c) => setForm((f) => ({ ...f, arrival: c }))}
-                />
-              )}
-              {currentStep === "onward" && (
-                <OnwardStep
-                  arrivalCountry={form.arrival}
-                  departureCountry={form.departure}
-                  intent={form.onwardIntent}
-                  onwardCountry={form.onwardCountry}
-                  onwardTimeline={form.onwardTimeline}
-                  onIntentChange={(i) =>
-                    setForm((f) => ({
-                      ...f,
-                      onwardIntent: i,
-                      onwardCountry: i === "no" ? null : f.onwardCountry,
-                      onwardTimeline: i === "no" ? null : f.onwardTimeline,
-                    }))
-                  }
-                  onCountryChange={(c) =>
-                    setForm((f) => ({ ...f, onwardCountry: c }))
-                  }
-                  onTimelineChange={(t) =>
-                    setForm((f) => ({ ...f, onwardTimeline: t }))
-                  }
-                />
-              )}
-              {currentStep === "transformer" && (
-                <TransformerStep
-                  hasTransformer={form.hasTransformer}
-                  model={form.transformerModel}
-                  wattage={form.transformerWattage}
-                  onHasTransformerChange={(h) =>
-                    setForm((f) => ({ ...f, hasTransformer: h }))
-                  }
-                  onModelChange={(m) =>
-                    setForm((f) => ({ ...f, transformerModel: m }))
-                  }
-                  onWattageChange={(w) =>
-                    setForm((f) => ({ ...f, transformerWattage: w }))
-                  }
-                />
-              )}
-              {currentStep === "api-key" && (
-                <ApiKeyStep
-                  value={form.apiKey}
-                  onChange={(k) => setForm((f) => ({ ...f, apiKey: k }))}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Error message */}
-        {error && (
-          <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-
-        {/* Navigation */}
-        <div className="mt-8 flex items-center gap-3">
-          {!isFirstStep && (
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={goBack}
-              disabled={isSubmitting}
-              className="gap-1.5"
-            >
-              <ArrowLeft className="size-4" data-icon="inline-start" />
-              Back
-            </Button>
-          )}
-
-          <div className="flex-1" />
-
-          {isLastStep ? (
-            <Button
-              size="lg"
-              onClick={handleSubmit}
-              disabled={!canAdvance() || isSubmitting}
-              className="h-12 gap-1.5 px-6 text-base"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" data-icon="inline-start" />
-                  Setting up...
-                </>
-              ) : (
-                "Start chatting with Aisling"
-              )}
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              onClick={goNext}
-              disabled={!canAdvance()}
-              className="h-12 gap-1.5 px-6 text-base"
-            >
-              Next
-              <ArrowRight className="size-4" data-icon="inline-end" />
-            </Button>
-          )}
-        </div>
+    <DSOnboardingWizard
+      currentStep={dsCurrentStep}
+      totalSteps={totalSteps}
+      onBack={goBack}
+      onNext={goNext}
+      {...nextLabelProps}
+      nextDisabled={!canAdvance() || isSubmitting}
+    >
+      {/* Step content with Framer Motion transitions */}
+      <div className={stepStyles.stepContainer}>
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={
+              prefersReducedMotion
+                ? { duration: 0 }
+                : { duration: 0.2, ease: "easeOut" }
+            }
+          >
+            {currentStep === "departure" && (
+              <DepartureStep
+                value={form.departure}
+                onChange={(c) =>
+                  setForm((f) => ({
+                    ...f,
+                    departure: c,
+                    arrival: f.arrival === c ? null : f.arrival,
+                  }))
+                }
+              />
+            )}
+            {currentStep === "arrival" && (
+              <ArrivalStep
+                value={form.arrival}
+                departure={form.departure}
+                onChange={(c) => setForm((f) => ({ ...f, arrival: c }))}
+              />
+            )}
+            {currentStep === "onward" && (
+              <OnwardStep
+                arrivalCountry={form.arrival}
+                departureCountry={form.departure}
+                intent={form.onwardIntent}
+                onwardCountry={form.onwardCountry}
+                onwardTimeline={form.onwardTimeline}
+                onIntentChange={(i) =>
+                  setForm((f) => ({
+                    ...f,
+                    onwardIntent: i,
+                    onwardCountry: i === "no" ? null : f.onwardCountry,
+                    onwardTimeline: i === "no" ? null : f.onwardTimeline,
+                  }))
+                }
+                onCountryChange={(c) =>
+                  setForm((f) => ({ ...f, onwardCountry: c }))
+                }
+                onTimelineChange={(t) =>
+                  setForm((f) => ({ ...f, onwardTimeline: t }))
+                }
+              />
+            )}
+            {currentStep === "transformer" && (
+              <TransformerStep
+                hasTransformer={form.hasTransformer}
+                model={form.transformerModel}
+                wattage={form.transformerWattage}
+                onHasTransformerChange={(h) =>
+                  setForm((f) => ({ ...f, hasTransformer: h }))
+                }
+                onModelChange={(m) =>
+                  setForm((f) => ({ ...f, transformerModel: m }))
+                }
+                onWattageChange={(w) =>
+                  setForm((f) => ({ ...f, transformerWattage: w }))
+                }
+              />
+            )}
+            {currentStep === "api-key" && (
+              <ApiKeyStep
+                value={form.apiKey}
+                onChange={(k) => setForm((f) => ({ ...f, apiKey: k }))}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
-    </div>
+
+      {/* Error message */}
+      {error && (
+        <p className={stepStyles.errorBanner} role="alert">
+          {error}
+        </p>
+      )}
+    </DSOnboardingWizard>
   );
 }

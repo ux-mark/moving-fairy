@@ -18,8 +18,8 @@ describe('cn()', () => {
     expect(cn('foo', false && 'bar')).toBe('foo')
   })
 
-  it('deduplicates conflicting tailwind classes (last wins)', () => {
-    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500')
+  it('concatenates classes without deduplication (no tailwind-merge)', () => {
+    expect(cn('text-red-500', 'text-blue-500')).toBe('text-red-500 text-blue-500')
   })
 
   it('handles arrays', () => {

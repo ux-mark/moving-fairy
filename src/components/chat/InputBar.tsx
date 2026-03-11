@@ -1,25 +1,24 @@
 "use client";
 
 import { useCallback, useRef, useState, type RefObject } from "react";
-import { Camera, Loader2, Send, X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ChatInput, Button, useToast } from "@thefairies/design-system/components";
+import styles from "./InputBar.module.css";
 
 interface InputBarProps {
   onSend: (message: string, imageUrls: string[]) => void;
   disabled?: boolean;
-  /** External ref for the textarea, allowing parent to manage focus */
+  /** External ref for the textarea — DS ChatInput manages its own ref internally;
+   *  this prop is accepted for API compatibility but is unused in the DS version. */
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
-export function InputBar({ onSend, disabled = false, textareaRef: externalRef }: InputBarProps) {
-  const [text, setText] = useState("");
+export function InputBar({ onSend, disabled = false }: InputBarProps) {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
-  const internalRef = useRef<HTMLTextAreaElement>(null);
-  const textareaRef = externalRef ?? internalRef;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,13 +36,13 @@ export function InputBar({ onSend, disabled = false, textareaRef: externalRef }:
       }
 
       if (images.length + files.length > 20) {
-        alert("You can attach up to 20 photos at a time — only the first 20 were added.");
+        addToast("warning", "You can attach up to 20 photos at a time — only the first 20 were added.");
       }
       setImages((prev) => [...prev, ...newImages].slice(0, 20));
       // Reset file input so the same file can be re-selected
       e.target.value = "";
     },
-    [images.length]
+    [images.length, addToast]
   );
 
   const removeImage = useCallback((index: number) => {
@@ -56,188 +55,149 @@ export function InputBar({ onSend, disabled = false, textareaRef: externalRef }:
     });
   }, []);
 
-  const handleSubmit = useCallback(async () => {
-    const trimmed = text.trim();
-    if (!trimmed && images.length === 0) return;
+  // DS ChatInput calls onSend(text) — we intercept, upload images, then forward
+  const handleDSSend = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed && images.length === 0) return;
 
-    // Upload images first
-    const imageUrls: string[] = [];
-    let uploadFailed = false;
-    if (images.length > 0) {
-      setUploading(true);
-      try {
-        for (const img of images) {
-          const formData = new FormData();
-          formData.append("file", img.file);
+      // Upload images first
+      const imageUrls: string[] = [];
+      let uploadFailed = false;
+      if (images.length > 0) {
+        setUploading(true);
+        try {
+          for (const img of images) {
+            const formData = new FormData();
+            formData.append("file", img.file);
 
-          try {
-            const res = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
-            });
+            try {
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
 
-            if (res.ok) {
-              const data = await res.json();
-              if (data.url) {
-                imageUrls.push(data.url);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.url) {
+                  imageUrls.push(data.url);
+                } else {
+                  uploadFailed = true;
+                }
               } else {
                 uploadFailed = true;
+                let errMsg = "Upload failed";
+                try {
+                  const errData = await res.json();
+                  if (errData.error) errMsg = errData.error;
+                } catch {
+                  // ignore parse error
+                }
+                console.error(`[InputBar] Image upload failed: ${errMsg}`);
               }
-            } else {
+            } catch (err) {
               uploadFailed = true;
-              let errMsg = "Upload failed";
-              try {
-                const errData = await res.json();
-                if (errData.error) errMsg = errData.error;
-              } catch {
-                // ignore parse error
-              }
-              console.error(`[InputBar] Image upload failed: ${errMsg}`);
+              console.error("[InputBar] Image upload error:", err);
             }
-          } catch (err) {
-            uploadFailed = true;
-            console.error("[InputBar] Image upload error:", err);
           }
+        } finally {
+          setUploading(false);
         }
-      } finally {
-        setUploading(false);
       }
-    }
 
-    // If some uploads failed, warn the user
-    if (uploadFailed && imageUrls.length < images.length) {
-      const failedCount = images.length - imageUrls.length;
-      if (imageUrls.length === 0) {
-        alert(
-          `${failedCount === 1 ? "The image" : `All ${failedCount} images`} couldn't be uploaded. Please try again.`
-        );
-      } else {
-        alert(
-          `${failedCount} of ${images.length} ${images.length === 1 ? "image" : "images"} couldn't be uploaded. The rest will be sent.`
-        );
+      // If some uploads failed, warn the user
+      if (uploadFailed && imageUrls.length < images.length) {
+        const failedCount = images.length - imageUrls.length;
+        if (imageUrls.length === 0) {
+          addToast(
+            "error",
+            `${failedCount === 1 ? "The image" : `All ${failedCount} images`} couldn't be uploaded. Please try again.`
+          );
+        } else {
+          addToast(
+            "warning",
+            `${failedCount} of ${images.length} ${images.length === 1 ? "image" : "images"} couldn't be uploaded. The rest will be sent.`
+          );
+        }
       }
-    }
 
-    // Don't send if we had images but all uploads failed and no text
-    if (!trimmed && imageUrls.length === 0) {
-      // Keep images in the input so the user can retry
-      if (uploadFailed) return;
-      // Clean up and bail
+      // Don't send if we had images but all uploads failed and no text
+      if (!trimmed && imageUrls.length === 0) {
+        if (uploadFailed) return;
+        images.forEach((img) => URL.revokeObjectURL(img.preview));
+        setImages([]);
+        return;
+      }
+
+      // Clean up previews
       images.forEach((img) => URL.revokeObjectURL(img.preview));
       setImages([]);
-      return;
-    }
 
-    // Clean up previews
-    images.forEach((img) => URL.revokeObjectURL(img.preview));
-    setImages([]);
-    setText("");
-
-    // Filter out any falsy URLs as a safety net
-    const validUrls = imageUrls.filter(Boolean);
-    onSend(trimmed, validUrls);
-
-    // Refocus textarea
-    textareaRef.current?.focus();
-  }, [text, images, onSend, textareaRef]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
+      // Filter out any falsy URLs as a safety net
+      const validUrls = imageUrls.filter(Boolean);
+      onSend(trimmed, validUrls);
     },
-    [handleSubmit]
+    [images, onSend, addToast]
   );
 
-  const canSend = (text.trim().length > 0 || images.length > 0) && !disabled && !uploading;
+  // Image preview strip — passed as aboveInput slot
+  const imagePreviewStrip =
+    images.length > 0 ? (
+      <div className={styles.previewStrip}>
+        {images.map((img, i) => (
+          <div key={i} className={styles.previewItem}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.preview}
+              alt={`Attached ${i + 1}`}
+              className={styles.previewThumb}
+            />
+            <button
+              type="button"
+              onClick={() => removeImage(i)}
+              className={styles.previewRemove}
+              aria-label={`Remove image ${i + 1}`}
+            >
+              <X className={styles.previewRemoveIcon} aria-hidden="true" />
+            </button>
+          </div>
+        ))}
+      </div>
+    ) : undefined;
+
+  // Camera button — passed as startAdornment slot
+  const cameraButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      onClick={() => fileInputRef.current?.click()}
+      disabled={disabled || uploading || images.length >= 20}
+      aria-label="Take a photo or choose from library"
+    >
+      <Camera aria-hidden="true" />
+    </Button>
+  );
 
   return (
-    <div className="border-t border-border bg-background px-4 py-3">
-      {/* Image previews */}
-      {images.length > 0 && (
-        <div className="mb-2 flex gap-2">
-          {images.map((img, i) => (
-            <div key={i} className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.preview}
-                alt={`Attached ${i + 1}`}
-                className="size-12 rounded-lg object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => removeImage(i)}
-                className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-white"
-                aria-label={`Remove image ${i + 1}`}
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-end gap-2">
-        {/* Camera button */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || images.length >= 20}
-          aria-label="Take a photo or choose from library"
-          className="shrink-0"
-        >
-          <Camera className="size-5" />
-        </Button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileSelect}
-          className="sr-only"
-          tabIndex={-1}
-        />
-
-        {/* Text input */}
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Snap a photo or type an item name..."
-          aria-label="Message to Aisling"
-          disabled={disabled}
-          rows={1}
-          className={cn(
-            "flex-1 resize-none rounded-lg border border-input bg-transparent px-3 py-2.5 text-base outline-none transition-colors",
-            "placeholder:text-muted-foreground",
-            "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "field-sizing-content max-h-32"
-          )}
-        />
-
-        {/* Send button */}
-        <Button
-          type="button"
-          size="icon"
-          onClick={handleSubmit}
-          disabled={!canSend}
-          aria-label="Send message"
-          className="shrink-0"
-        >
-          {uploading ? (
-            <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
-          ) : (
-            <Send className="size-5" />
-          )}
-        </Button>
-      </div>
+    <div className={styles.root}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleFileSelect}
+        className={styles.hiddenFileInput}
+        tabIndex={-1}
+      />
+      <ChatInput
+        onSend={handleDSSend}
+        disabled={disabled || uploading}
+        placeholder="Snap a photo or type an item name..."
+        startAdornment={cameraButton}
+        aboveInput={imagePreviewStrip}
+        ariaLabel="Message to Aisling"
+      />
     </div>
   );
 }
