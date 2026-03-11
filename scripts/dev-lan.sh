@@ -18,8 +18,14 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TOML="$PROJECT_DIR/supabase/config.toml"
 
 # --- Detect LAN IP -----------------------------------------------------------
-# Try en0 (Wi-Fi) first, then en1 (Ethernet), then fall back to localhost.
+# Method 1: ipconfig (works on standard DHCP Wi-Fi/Ethernet)
 LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "")
+
+# Method 2: parse ifconfig for private RFC 1918 IPs (handles CLAT46/NAT64 networks)
+if [ -z "$LAN_IP" ]; then
+  LAN_IP=$(ifconfig 2>/dev/null | awk '/inet / {print $2}' \
+    | grep -E '^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)' | head -1 || true)
+fi
 
 if [ -z "$LAN_IP" ]; then
   echo "Could not detect a LAN IP. Falling back to localhost."
