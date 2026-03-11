@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -139,6 +139,49 @@ function ContainerView({
   boxItems: Record<string, BoxItem[]>;
   onRefresh: () => void;
 }) {
+  const assessmentMap = useMemo(
+    () =>
+      assessments.reduce<Record<string, ItemAssessment>>((acc, a) => {
+        acc[a.id] = a;
+        return acc;
+      }, {}),
+    [assessments]
+  );
+
+  const handleAddItem = useCallback(
+    async (boxId: string, itemName: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_name: itemName }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleRemoveItem = useCallback(
+    async (boxId: string, boxItemId: string) => {
+      await fetch(`/api/boxes/${boxId}/items/${boxItemId}`, {
+        method: "DELETE",
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleMarkPacked = useCallback(
+    async (boxId: string) => {
+      await fetch(`/api/boxes/${boxId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "packed" }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
   const luggageBoxes = boxes.filter(
     (b) => b.box_type === "carryon" || b.box_type === "checked_luggage"
   );
@@ -177,7 +220,15 @@ function ContainerView({
         <Section icon={Plane} title="Travelling with me">
           <div className={styles.sectionContent}>
             {luggageBoxes.map((box) => (
-              <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
+              <BoxCard
+                key={box.id}
+                box={box}
+                items={boxItems[box.id] ?? []}
+                assessments={assessmentMap}
+                onAddItem={handleAddItem}
+                onRemoveItem={handleRemoveItem}
+                onMarkPacked={handleMarkPacked}
+              />
             ))}
           </div>
         </Section>
@@ -187,7 +238,15 @@ function ContainerView({
         <Section icon={Package} title="Freight boxes">
           <div className={styles.sectionContent}>
             {freightBoxes.map((box) => (
-              <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
+              <BoxCard
+                key={box.id}
+                box={box}
+                items={boxItems[box.id] ?? []}
+                assessments={assessmentMap}
+                onAddItem={handleAddItem}
+                onRemoveItem={handleRemoveItem}
+                onMarkPacked={handleMarkPacked}
+              />
             ))}
           </div>
         </Section>

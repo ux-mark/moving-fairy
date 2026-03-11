@@ -86,7 +86,7 @@ enabled = true
 # Port to use for Supabase Studio.
 port = 54343
 # External URL of the API server that frontend connects to.
-api_url = "http://127.0.0.1"
+api_url = "http://192.168.8.56"
 # OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
@@ -145,9 +145,9 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3333"
+site_url = "http://192.168.8.56:3333"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://127.0.0.1:3333/auth/callback", "http://localhost:3333/auth/callback"]
+additional_redirect_urls = ["http://192.168.8.56:3333/auth/callback", "http://127.0.0.1:3333/auth/callback", "http://localhost:3333/auth/callback"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -219,6 +219,12 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# Custom magic link template — routes verify through Next.js server
+# so mobile devices on LAN can complete auth (bypasses 127.0.0.1 issue)
+[auth.email.template.magic_link]
+subject = "Your Moving Fairy magic link"
+content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

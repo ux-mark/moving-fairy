@@ -1,5 +1,6 @@
 import { Badge } from "@thefairies/design-system/components";
 import type { BoxStatus } from "@/lib/constants";
+import styles from "./BoxStatusBadge.module.css";
 
 // DS token colours mapped per status
 const STATUS_COLORS: Record<BoxStatus, { bgColor: string; fgColor: string }> = {
@@ -35,13 +36,14 @@ interface BoxStatusBadgeProps {
 
 export function BoxStatusBadge({ status, className }: BoxStatusBadgeProps) {
   const { bgColor, fgColor } = STATUS_COLORS[status];
+  const combined = [styles.badge, className].filter(Boolean).join(" ");
   return (
     <Badge
       label={STATUS_LABELS[status]}
       bgColor={bgColor}
       fgColor={fgColor}
       size="sm"
-      {...(className ? { className } : {})}
+      className={combined}
     />
   );
 }
