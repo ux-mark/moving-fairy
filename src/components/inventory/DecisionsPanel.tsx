@@ -10,6 +10,8 @@ import {
   SkeletonPill,
 } from "@thefairies/design-system/components";
 import { SplitButton } from "@/components/shared/SplitButton";
+import { EditablePill } from "@/components/shared/EditablePill";
+import type { EditablePillOption } from "@/components/shared/EditablePill";
 import { Verdict } from "@/lib/constants";
 import type { ItemAssessment } from "@/types";
 import styles from "./DecisionsPanel.module.css";
@@ -25,7 +27,6 @@ export interface DecisionsPanelProps {
   onConfirm: (assessmentId: string) => Promise<void>;
   onConfirmAndSend: (assessmentId: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
-  onEdit?: (item: ItemAssessment) => void;
   onRefresh: () => Promise<void>;
 }
 
@@ -42,23 +43,6 @@ const VERDICT_ACCENT: Record<string, string> = {
   DECIDE_LATER: "var(--verdict-decide-later)",
 };
 
-const VERDICT_BADGE_COLOR: Record<string, string> = {
-  SHIP: "var(--verdict-ship)",
-  CARRY: "var(--verdict-carry)",
-  SELL: "var(--verdict-sell)",
-  DONATE: "var(--verdict-donate)",
-  DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
-};
-
-const VERDICT_OPTIONS = [
-  Verdict.SHIP,
-  Verdict.CARRY,
-  Verdict.SELL,
-  Verdict.DONATE,
-  Verdict.DISCARD,
-  Verdict.DECIDE_LATER,
-] as const;
 
 const VERDICT_LABELS: Record<string, string> = {
   SHIP: "Ship",
@@ -68,6 +52,16 @@ const VERDICT_LABELS: Record<string, string> = {
   DISCARD: "Discard",
   DECIDE_LATER: "Decide later",
 };
+
+/** Options for the EditablePill verdict selector — bg/fg from token pairs */
+const VERDICT_PILL_OPTIONS: EditablePillOption[] = [
+  { value: Verdict.SHIP,         label: "Ship",         color: "var(--verdict-ship-bg)",         textColor: "var(--verdict-ship-fg)" },
+  { value: Verdict.CARRY,        label: "Carry",        color: "var(--verdict-carry-bg)",        textColor: "var(--verdict-carry-fg)" },
+  { value: Verdict.SELL,         label: "Sell",         color: "var(--verdict-sell-bg)",         textColor: "var(--verdict-sell-fg)" },
+  { value: Verdict.DONATE,       label: "Donate",       color: "var(--verdict-donate-bg)",       textColor: "var(--verdict-donate-fg)" },
+  { value: Verdict.DISCARD,      label: "Discard",      color: "var(--verdict-discard-bg)",      textColor: "var(--verdict-discard-fg)" },
+  { value: Verdict.DECIDE_LATER, label: "Decide later", color: "var(--verdict-decide-later-bg)", textColor: "var(--verdict-decide-later-fg)" },
+];
 
 // ---------------------------------------------------------------------------
 // Skeleton card
@@ -100,7 +94,6 @@ interface DecisionCardProps {
   onConfirm: (id: string) => Promise<void>;
   onConfirmAndSend: (id: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
-  onEdit?: (item: ItemAssessment) => void;
 }
 
 type ActionState = "idle" | "confirming" | "confirmed" | "error";
@@ -110,15 +103,13 @@ function DecisionCard({
   onConfirm,
   onConfirmAndSend,
   onChatAbout,
-  onEdit,
 }: DecisionCardProps) {
   const [actionState, setActionState] = useState<ActionState>("idle");
-  const [editMode, setEditMode] = useState(false);
-  const [selectedVerdict, setSelectedVerdict] = useState<string>(assessment.verdict);
+  const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
 
-  const verdict = assessment.verdict;
+  const verdict = localVerdict;
   const accentColor = VERDICT_ACCENT[verdict] ?? "var(--color-primary)";
-  const badgeColor = VERDICT_BADGE_COLOR[verdict] ?? "var(--color-primary)";
+  const badgeColor = VERDICT_ACCENT[verdict] ?? "var(--color-primary)";
 
   // Build metadata array for cost info
   const metadata: { label: string; value: string }[] = [];
@@ -139,7 +130,7 @@ function DecisionCard({
 
   const optionalProps = {
     badge: {
-      label: verdict.replace("_", " "),
+      label: VERDICT_LABELS[verdict] ?? verdict.replace("_", " "),
       color: badgeColor,
     },
     accentColor,
@@ -156,16 +147,6 @@ function DecisionCard({
     }
   }
 
-  async function handleConfirmWithVerdict() {
-    if (!editMode) {
-      await handleConfirm();
-      return;
-    }
-    // If in edit mode with a changed verdict, we confirm with the selected verdict
-    // For MVP: just confirm the assessment as-is (verdict update would need a separate API)
-    await handleConfirm();
-  }
-
   async function handleConfirmAndSend() {
     setActionState("confirming");
     try {
@@ -173,14 +154,6 @@ function DecisionCard({
       setActionState("confirmed");
     } catch {
       setActionState("error");
-    }
-  }
-
-  function handleEditClick() {
-    if (onEdit) {
-      onEdit(assessment);
-    } else {
-      setEditMode((prev) => !prev);
     }
   }
 
@@ -209,32 +182,19 @@ function DecisionCard({
         {...optionalProps}
       />
 
-      {/* Edit mode: verdict selector */}
-      {editMode && (
-        <div className={styles.editRow}>
-          <label htmlFor={`verdict-${assessment.id}`} className={styles.editLabel}>
-            Change verdict:
-          </label>
-          <select
-            id={`verdict-${assessment.id}`}
-            className={styles.verdictSelect}
-            value={selectedVerdict}
-            onChange={(e) => setSelectedVerdict(e.target.value)}
-          >
-            {VERDICT_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {VERDICT_LABELS[v]}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Action row */}
+      {/* Action row: verdict pill + confirm + chat */}
       <div className={styles.actionRow}>
+        <EditablePill
+          value={localVerdict}
+          options={VERDICT_PILL_OPTIONS}
+          onChange={setLocalVerdict}
+          disabled={actionState === "confirming"}
+          size="sm"
+        />
+
         <SplitButton
           label="Confirm"
-          onClick={handleConfirmWithVerdict}
+          onClick={handleConfirm}
           items={[
             {
               label: "and Send",
@@ -246,15 +206,6 @@ function DecisionCard({
           loading={actionState === "confirming"}
           disabled={actionState === "confirming"}
         />
-
-        <button
-          type="button"
-          className={styles.editButton}
-          onClick={handleEditClick}
-          disabled={actionState === "confirming"}
-        >
-          {editMode ? "Cancel" : "Edit"}
-        </button>
 
         {onChatAbout && (
           <button
@@ -288,7 +239,6 @@ export function DecisionsPanel({
   onConfirm,
   onConfirmAndSend,
   onChatAbout,
-  onEdit,
   onRefresh,
 }: DecisionsPanelProps) {
   if (isLoading) {
@@ -333,7 +283,6 @@ export function DecisionsPanel({
             onConfirm={onConfirm}
             onConfirmAndSend={onConfirmAndSend}
             {...(onChatAbout ? { onChatAbout } : {})}
-            {...(onEdit ? { onEdit } : {})}
           />
         </div>
       ))}
