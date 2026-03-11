@@ -6,6 +6,7 @@ import { Navigation } from "@thefairies/design-system/components";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { CostSummary } from "@/components/inventory/CostSummary";
+import { DecisionNotificationTab } from "@/components/inventory/DecisionNotificationTab";
 import { ProfileEditPanel } from "@/components/profile/ProfileEditPanel";
 import { useInventory } from "@/lib/hooks/useInventory";
 
@@ -14,6 +15,8 @@ import styles from "./AppLayout.module.css";
 interface AppLayoutProps {
   chatPanel: React.ReactNode;
   inventoryPanel: React.ReactNode;
+  decisionCount?: number;
+  onOpenDecisions?: () => void;
 }
 
 const NAV_PRIMARY_ITEMS = [
@@ -30,7 +33,7 @@ const NAV_SECONDARY_ITEMS = [
  * content, and a toggleable right-side panel for inventory (desktop) or
  * full-screen overlay (mobile).
  */
-export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
+export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions }: AppLayoutProps) {
   const [inventoryOpen, setInventoryOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth > 768;
@@ -166,6 +169,16 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
           />
         )}
       </div>
+
+      {/* Decision notification tab — right edge, visible when pending decisions exist */}
+      <DecisionNotificationTab
+        count={decisionCount}
+        onClick={() => {
+          setInventoryOpen(true);
+          setActiveSection("inventory");
+          onOpenDecisions?.();
+        }}
+      />
     </div>
   );
 }

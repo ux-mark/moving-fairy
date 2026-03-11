@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatInterface } from "@/components/chat/ChatInterface";
@@ -16,7 +16,22 @@ export function ChatWithInventory() {
   const [logicEvents, setLogicEvents] = useState<LogicEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
 
-  const { decisions, isLoading: decisionsLoading, error: decisionsError, confirm, confirmAndSend, refresh: refreshDecisions, count: decisionCount } = useDecisions();
+  const {
+    decisions,
+    isLoading: decisionsLoading,
+    error: decisionsError,
+    confirm,
+    confirmAndSend,
+    refresh: refreshDecisions,
+    count: decisionCount,
+  } = useDecisions();
+
+  // Ref to allow AppLayout to switch the inventory panel to the Decisions tab
+  const switchToDecisionsRef = useRef<(() => void) | null>(null);
+
+  const handleOpenDecisions = useCallback(() => {
+    switchToDecisionsRef.current?.();
+  }, []);
 
   return (
     <AppLayout
@@ -39,8 +54,11 @@ export function ChatWithInventory() {
           onConfirm={confirm}
           onConfirmAndSend={confirmAndSend}
           onRefreshDecisions={refreshDecisions}
+          onSwitchToDecisionsRef={switchToDecisionsRef}
         />
       }
+      decisionCount={decisionCount}
+      onOpenDecisions={handleOpenDecisions}
     />
   );
 }

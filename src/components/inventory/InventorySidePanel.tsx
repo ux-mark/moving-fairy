@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type MutableRefObject, useEffect, useState } from "react";
 import { Package, Scale, Brain } from "lucide-react";
 import type { ItemAssessment } from "@/types";
 import { InventoryPanel } from "@/components/inventory/InventoryPanel";
@@ -19,6 +19,7 @@ interface InventorySidePanelProps {
   onConfirm?: (assessmentId: string) => Promise<void>;
   onConfirmAndSend?: (assessmentId: string) => Promise<void>;
   onRefreshDecisions?: () => Promise<void>;
+  onSwitchToDecisionsRef?: MutableRefObject<(() => void) | null>;
 }
 
 type SidePanelTab = "inventory" | "decisions" | "logic";
@@ -36,8 +37,21 @@ export function InventorySidePanel({
   onConfirm,
   onConfirmAndSend,
   onRefreshDecisions,
+  onSwitchToDecisionsRef,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
+
+  // Allow parent to programmatically switch to the Decisions tab
+  useEffect(() => {
+    if (onSwitchToDecisionsRef) {
+      onSwitchToDecisionsRef.current = () => setActiveTab("decisions");
+    }
+    return () => {
+      if (onSwitchToDecisionsRef) {
+        onSwitchToDecisionsRef.current = null;
+      }
+    };
+  }, [onSwitchToDecisionsRef]);
 
   return (
     <div className={styles.panel}>
