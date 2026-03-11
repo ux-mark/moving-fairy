@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 
 // Public routes that don't require authentication
-const PUBLIC_PATHS = ['/', '/auth/login', '/auth/signup', '/auth/callback']
+const PUBLIC_PATHS = ['/', '/auth/login', '/auth/signup', '/auth/callback', '/auth/verify']
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
