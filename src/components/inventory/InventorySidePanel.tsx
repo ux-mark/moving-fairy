@@ -59,7 +59,7 @@ export function InventorySidePanel({
   return (
     <div className={styles.panel}>
       {/* Toggle bar */}
-      <div className={styles.tabBar}>
+      <div className={styles.tabBar} data-active-tab={activeTab}>
         <button
           type="button"
           className={activeTab === "inventory" ? styles.tabActive : styles.tab}
@@ -68,9 +68,10 @@ export function InventorySidePanel({
           <Package size={13} />
           Inventory
         </button>
+        {/* On desktop, hide this button when Decisions is the active tab — it's already showing */}
         <button
           type="button"
-          className={activeTab === "decisions" ? styles.tabActive : styles.tab}
+          className={`${activeTab === "decisions" ? styles.tabActive : styles.tab} ${styles.decisionsTab}`}
           onClick={() => setActiveTab("decisions")}
         >
           <Scale size={13} />

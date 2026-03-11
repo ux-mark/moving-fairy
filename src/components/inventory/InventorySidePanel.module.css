@@ -98,6 +98,14 @@
   text-align: center;
 }
 
+/* ---- Desktop: hide Decisions tab when Decisions is the active view ---- */
+/* The tab is only needed as a navigation control — when already on Decisions, it's redundant */
+@media (min-width: 768px) {
+  .tabBar[data-active-tab="decisions"] .decisionsTab {
+    display: none;
+  }
+}
+
 /* ---- Mobile tab bar sizing ---- */
 @media (max-width: 767px) {
   .panel {
