@@ -21,12 +21,12 @@ const VERDICT_FG: Record<Verdict, string> = {
 };
 
 const VERDICT_LABELS: Record<Verdict, string> = {
-  SHIP: "SHIP",
-  CARRY: "CARRY",
-  SELL: "SELL",
-  DONATE: "DONATE",
-  DISCARD: "DISCARD",
-  DECIDE_LATER: "DECIDE LATER",
+  SHIP: "Ship",
+  CARRY: "Carry",
+  SELL: "Sell",
+  DONATE: "Donate",
+  DISCARD: "Discard",
+  DECIDE_LATER: "Decide later",
 };
 
 interface VerdictBadgeProps {

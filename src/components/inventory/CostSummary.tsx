@@ -72,8 +72,12 @@ export function CostSummary({ data, variant, className }: CostSummaryProps) {
         bgColor: "var(--color-bg-subtle)",
         fgColor: "var(--color-text-muted)",
       };
+      const verdictLabel = verdict
+        .replace("_", " ")
+        .toLowerCase()
+        .replace(/^\w/, (c) => c.toUpperCase());
       return {
-        label: `${count} ${verdict.replace("_", " ")}`,
+        label: `${count} ${verdictLabel}`,
         bgColor: colors.bgColor,
         fgColor: colors.fgColor,
       };

@@ -79,6 +79,10 @@
   gap: 8px;
 }
 
+.tagsRow :global([class*="Badge"]) {
+  text-transform: none !important;
+}
+
 .tabularNums {
   font-variant-numeric: tabular-nums;
 }

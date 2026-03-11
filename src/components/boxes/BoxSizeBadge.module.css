@@ -1,4 +1,1 @@
-/* Override DS Badge text-transform: uppercase — no all-caps rule */
-.badge {
-  text-transform: none !important;
-}
+.badge { text-transform: none \!important; }
