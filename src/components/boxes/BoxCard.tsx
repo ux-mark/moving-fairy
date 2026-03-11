@@ -114,11 +114,22 @@ function ItemCombobox({
   const updateDropdownPosition = useCallback(() => {
     if (!inputRef.current) return;
     const rect = inputRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const minMargin = 8;
+
+    // Clamp left so the dropdown never runs off the left edge
+    const rawLeft = rect.left;
+    const clampedLeft = Math.max(minMargin, rawLeft);
+
+    // Clamp width so the dropdown never runs off the right edge
+    const availableWidth = vw - clampedLeft - minMargin;
+    const clampedWidth = Math.min(rect.width, availableWidth);
+
     setDropdownStyle({
       position: "fixed",
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: rect.width,
+      top: rect.bottom + 2,
+      left: clampedLeft,
+      width: clampedWidth,
       zIndex: 9999,
     });
   }, []);

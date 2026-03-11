@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, MessageCircle, X } from "lucide-react";
 import { Spinner } from "@thefairies/design-system/components";
 import { Verdict } from "@/lib/constants";
 import type { Box, ItemAssessment } from "@/types";
@@ -20,6 +20,8 @@ export interface ItemEditPanelProps {
   onSave: (updates: Partial<ItemAssessment>) => Promise<void>;
   /** Reference to the source card element for the desktop slide-from-card animation */
   sourceCardRef?: React.RefObject<HTMLElement | null>;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
 // Verdicts that support box assignment
@@ -99,6 +101,7 @@ export function ItemEditPanel({
   onClose,
   onSave,
   sourceCardRef,
+  onBackToChat,
 }: ItemEditPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -443,6 +446,18 @@ export function ItemEditPanel({
                     "Save changes"
                   )}
                 </button>
+
+                {/* Mobile: "Back to Aisling" link — always accessible even from the edit panel */}
+                {isMobile && onBackToChat && (
+                  <button
+                    type="button"
+                    className={styles.backToChat}
+                    onClick={onBackToChat}
+                  >
+                    <MessageCircle size={16} aria-hidden="true" />
+                    Back to Aisling
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

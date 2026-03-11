@@ -390,3 +390,44 @@
   align-items: center;
   gap: 8px;
 }
+
+/* "Back to Aisling" tertiary text link — mobile only, inside form scroll area */
+.backToChat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  margin-top: 4px;
+}
+
+.backToChat:hover {
+  opacity: 0.8;
+}
+
+.backToChat:active {
+  opacity: 0.7;
+}
+
+.backToChat:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backToChat {
+    transition: none;
+  }
+}

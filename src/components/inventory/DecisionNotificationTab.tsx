@@ -93,18 +93,22 @@ export function DecisionNotificationTab({
       {/* Bell icon */}
       <Bell className={styles.icon} aria-hidden="true" />
 
-      {/* Rotated label — reads top-to-bottom */}
+      {/* Badge count — visible on both mobile and desktop */}
+      {count > 0 && (
+        <span className={styles.badge} aria-hidden="true">
+          {badgeLabel}
+        </span>
+      )}
+
+      {/* Rotated label — reads top-to-bottom (desktop only, hidden on mobile via CSS) */}
       <span className={styles.label} aria-hidden="true">
         Decisions
       </span>
 
-      {/* Screen reader announcement for count (no visual badge) */}
+      {/* Screen reader announcement for count */}
       <span className="srOnly" aria-live="polite">
         {count} pending decision{count === 1 ? "" : "s"}
       </span>
-
-      {/* TODO: pin toggle — when implemented, add a pin button here that
-          keeps the tab visible even when count reaches 0 */}
     </div>
   );
 }

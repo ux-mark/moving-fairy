@@ -31,6 +31,8 @@ export interface DecisionsPanelProps {
   onConfirmAndSend: (assessmentId: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
   onRefresh: () => Promise<void>;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +82,7 @@ interface DecisionCardProps {
   onConfirmAndSend: (id: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
   onRefresh: () => Promise<void>;
+  onBackToChat?: (() => void) | undefined;
 }
 
 type ActionState = "idle" | "confirming" | "confirmed" | "error";
@@ -91,6 +94,7 @@ function DecisionCard({
   onConfirmAndSend,
   onChatAbout,
   onRefresh,
+  onBackToChat,
 }: DecisionCardProps) {
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
@@ -225,7 +229,8 @@ function DecisionCard({
             disabled={isConfirming}
             aria-label={`Edit ${assessment.item_name}`}
           >
-            <Pencil size={14} aria-hidden="true" />
+            <Pencil size={13} aria-hidden="true" />
+            Edit
           </button>
 
           {onChatAbout && (
@@ -254,6 +259,7 @@ function DecisionCard({
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
         sourceCardRef={cardRef}
+        onBackToChat={onBackToChat}
       />
     </>
   );
@@ -272,6 +278,7 @@ export function DecisionsPanel({
   onConfirmAndSend,
   onChatAbout,
   onRefresh,
+  onBackToChat,
 }: DecisionsPanelProps) {
   if (isLoading) {
     return (
@@ -316,6 +323,7 @@ export function DecisionsPanel({
             onConfirm={onConfirm}
             onConfirmAndSend={onConfirmAndSend}
             onRefresh={onRefresh}
+            onBackToChat={onBackToChat}
             {...(onChatAbout ? { onChatAbout } : {})}
           />
         </div>

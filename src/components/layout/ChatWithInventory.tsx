@@ -36,6 +36,13 @@ export function ChatWithInventory() {
   // Ref to allow AppLayout to switch the inventory panel to the Decisions tab
   const switchToDecisionsRef = useRef<(() => void) | null>(null);
 
+  // Ref to close the mobile overlay from inside nested panels (e.g. ItemEditPanel)
+  const closeMobileOverlayRef = useRef<(() => void) | null>(null);
+
+  const handleBackToChat = useCallback(() => {
+    closeMobileOverlayRef.current?.();
+  }, []);
+
   const handleOpenDecisions = useCallback(() => {
     switchToDecisionsRef.current?.();
   }, []);
@@ -63,10 +70,12 @@ export function ChatWithInventory() {
           onConfirmAndSend={confirmAndSend}
           onRefreshDecisions={refreshDecisions}
           onSwitchToDecisionsRef={switchToDecisionsRef}
+          onBackToChat={handleBackToChat}
         />
       }
       decisionCount={decisionCount}
       onOpenDecisions={handleOpenDecisions}
+      closeMobileOverlayRef={closeMobileOverlayRef}
     />
   );
 }

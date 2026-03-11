@@ -1,4 +1,4 @@
-/* Landing page styles — Nós DS tokens */
+/* Landing page styles — Nos DS tokens */
 
 .main {
   display: flex;
@@ -20,7 +20,7 @@
 
 /* Wordmark */
 .wordmark {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -42,7 +42,7 @@
 
 /* Tagline */
 .tagline {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   font-size: 18px;
   font-weight: 500;
   color: var(--color-text-muted);
@@ -50,7 +50,7 @@
 
 /* Aisling intro blockquote */
 .intro {
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   border-radius: var(--radius-xl);
   background: var(--color-bg-card);
   padding: 20px 24px;
@@ -61,24 +61,48 @@
   border: 1px solid var(--color-border-default);
 }
 
-/* Mobile: tighten spacing to fit on a single viewport */
-@media (max-height: 740px), (max-width: 480px) {
+/*
+ * Override the DS AuthCard wrapper styles.
+ * AuthCard renders a wrapper div with min-height: 100vh and centering,
+ * which creates a second full-viewport container inside our page.
+ * We neutralise that so the card flows naturally in the page layout.
+ * The > div targets the AuthCard wrapper (its outermost rendered element).
+ */
+.authCardOverride {
+  width: 100%;
+}
+
+.authCardOverride > div {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* ------------------------------------------------
+ * Mobile: tighten spacing to keep everything
+ * above the fold. Uses max-width: 767px (standard
+ * mobile breakpoint), not max-height.
+ * ------------------------------------------------ */
+@media (max-width: 767px) {
   .main {
-    padding: 24px 20px;
+    justify-content: flex-start;
+    padding: 40px 20px 24px;
   }
 
   .wordmark {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     gap: 8px;
   }
 
   .wordmarkIcon {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
   }
 
   .wordmarkTitle {
-    font-size: 24px;
+    font-size: 26px;
   }
 
   .tagline {
@@ -91,5 +115,31 @@
     padding: 14px 18px;
     font-size: 15px;
     line-height: 1.5;
+  }
+}
+
+/* Very small screens — condense further */
+@media (max-width: 374px) {
+  .main {
+    padding: 28px 16px 20px;
+  }
+
+  .wordmark {
+    margin-bottom: 8px;
+  }
+
+  .wordmarkTitle {
+    font-size: 24px;
+  }
+
+  .tagline {
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+
+  .intro {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    font-size: 14px;
   }
 }

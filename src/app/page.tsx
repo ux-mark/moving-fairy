@@ -42,13 +42,16 @@ export default async function Home() {
           </p>
         </blockquote>
 
-        {/* Email form wrapped in DS AuthCard */}
-        <AuthCard
-          title="Sign in to continue"
-          subtitle="We'll send you a magic link — no password needed."
-        >
-          <MagicLinkForm />
-        </AuthCard>
+        {/* Email form wrapped in DS AuthCard — override neutralises
+            AuthCard's built-in full-viewport centering wrapper */}
+        <div className={styles.authCardOverride}>
+          <AuthCard
+            title="Sign in to continue"
+            subtitle="We'll send you a magic link — no password needed."
+          >
+            <MagicLinkForm />
+          </AuthCard>
+        </div>
       </div>
     </main>
   )

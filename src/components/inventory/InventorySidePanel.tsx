@@ -21,6 +21,8 @@ interface InventorySidePanelProps {
   onConfirmAndSend?: (assessmentId: string) => Promise<void>;
   onRefreshDecisions?: () => Promise<void>;
   onSwitchToDecisionsRef?: MutableRefObject<(() => void) | null>;
+  /** Called when the user taps "Back to Aisling" from inside a nested panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
 type SidePanelTab = "inventory" | "decisions" | "logic";
@@ -39,6 +41,7 @@ export function InventorySidePanel({
   onConfirmAndSend,
   onRefreshDecisions,
   onSwitchToDecisionsRef,
+  onBackToChat,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
   // Fetch boxes so DecisionsPanel can offer box assignment in the edit panel
@@ -95,7 +98,7 @@ export function InventorySidePanel({
       {/* Tab content */}
       <div className={styles.content}>
         {activeTab === "inventory" ? (
-          <InventoryPanel />
+          <InventoryPanel onBackToChat={onBackToChat} />
         ) : activeTab === "decisions" ? (
           <DecisionsPanel
             decisions={decisions}
@@ -105,6 +108,7 @@ export function InventorySidePanel({
             onConfirm={onConfirm ?? (async () => {})}
             onConfirmAndSend={onConfirmAndSend ?? (async () => {})}
             onRefresh={onRefreshDecisions ?? (async () => {})}
+            onBackToChat={onBackToChat}
           />
         ) : (
           <AILogicPanel events={logicEvents} isStreaming={isStreaming} />
