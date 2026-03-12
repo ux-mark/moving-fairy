@@ -121,6 +121,40 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
     setActiveSection("chat");
   }, []);
 
+  // Lock body scroll when mobile inventory overlay is open.
+  // On iOS Safari, overflow:hidden alone does NOT prevent touch-driven
+  // scrolling of the body behind a fixed overlay. The reliable fix is to
+  // set position:fixed on the body (which pins it in place) and compensate
+  // for the scroll-jump by setting top:-scrollY then restoring afterwards.
+  const savedScrollYRef = useRef(0);
+
+  useEffect(() => {
+    if (mobileInventoryOpen) {
+      const scrollY = window.scrollY;
+      savedScrollYRef.current = scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.overflow = "hidden";
+    } else {
+      const scrollY = savedScrollYRef.current;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    }
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.overflow = "";
+    };
+  }, [mobileInventoryOpen]);
+
   // Expose closeMobileInventory to parent via ref
   useEffect(() => {
     if (closeMobileOverlayRef) {

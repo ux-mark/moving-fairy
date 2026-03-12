@@ -2,6 +2,7 @@
 
 .compact {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -29,6 +30,7 @@
 
 .full {
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   gap: 12px;
   border-bottom: 1px solid var(--color-border-default);
@@ -85,4 +87,27 @@
 
 .tabularNums {
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .compactCost {
+    font-size: 16px;
+  }
+
+  .compactItems {
+    font-size: 14px;
+  }
+
+  .totalLabel {
+    font-size: 13px;
+  }
+
+  .currencyLabel {
+    font-size: 13px;
+  }
+
+  .itemCount {
+    font-size: 16px;
+  }
 }

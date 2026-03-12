@@ -152,18 +152,27 @@
 
 /* ---- Mobile touch targets ---- */
 @media (max-width: 767px) {
+  .heading {
+    font-size: 16px;
+  }
+
   .itemName {
     font-size: 16px;
   }
 
   .dropdownTrigger {
+    font-size: 14px;
     min-height: 44px;
     padding: 8px 12px;
-    font-size: 14px;
   }
 
   .dropdownItemButton {
+    font-size: 16px;
     min-height: 44px;
     padding: 10px 12px;
+  }
+
+  .allBoxedText {
+    font-size: 16px;
   }
 }

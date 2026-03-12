@@ -126,7 +126,7 @@
 
 .sizeCbm {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--color-text-muted);
 }
@@ -157,4 +157,39 @@
 
 .cancelButton:hover {
   color: var(--color-text-primary);
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .legend {
+    font-size: 16px;
+  }
+
+  .typeOption {
+    font-size: 16px;
+  }
+
+  .labelText {
+    font-size: 16px;
+  }
+
+  .sizeOption {
+    font-size: 16px;
+  }
+
+  .sizeCbm {
+    font-size: 13px;
+  }
+
+  .errorMessage {
+    font-size: 16px;
+  }
+
+  .cancelButton {
+    font-size: 16px;
+  }
+
+  .inputField {
+    height: 44px;
+  }
 }

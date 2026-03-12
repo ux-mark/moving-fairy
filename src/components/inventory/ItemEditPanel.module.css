@@ -155,6 +155,46 @@
     /* Leave room for safe area at bottom */
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
+
+  .label {
+    font-size: 16px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .currencySymbol {
+    font-size: 16px;
+  }
+
+  .valueInput {
+    font-size: 16px;
+  }
+
+  .textarea {
+    font-size: 16px;
+  }
+
+  .select {
+    font-size: 16px;
+  }
+
+  .breadcrumbLink {
+    font-size: 16px;
+  }
+
+  .breadcrumbCurrent {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .successText {
+    font-size: 16px;
+  }
 }
 
 /* ---- Form ---- */

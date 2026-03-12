@@ -3,7 +3,15 @@ import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 
 // Public routes that don't require authentication
-const PUBLIC_PATHS = ['/', '/auth/login', '/auth/signup', '/auth/callback', '/auth/verify']
+const PUBLIC_PATHS = [
+  '/',
+  '/auth/login',
+  '/auth/signup',
+  '/auth/callback',
+  '/auth/verify',
+  // Test-only sign-in endpoint (only active in development)
+  ...(process.env.NODE_ENV === 'development' ? ['/api/test-auth'] : []),
+]
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))

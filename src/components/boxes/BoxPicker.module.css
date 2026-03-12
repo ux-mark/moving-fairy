@@ -108,3 +108,22 @@
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .headerLabel {
+    font-size: 14px;
+  }
+
+  .emptyMessage {
+    font-size: 16px;
+  }
+
+  .listItemButton {
+    font-size: 16px;
+  }
+
+  .listItemCount {
+    font-size: 14px;
+  }
+}

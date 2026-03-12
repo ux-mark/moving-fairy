@@ -245,6 +245,7 @@
   .badge {
     top: -6px;
     right: -6px;
+    font-size: 13px;
   }
 
   /* Gentle pulse on mobile when decisions are pending (non-alert state) */

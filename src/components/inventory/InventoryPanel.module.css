@@ -4,12 +4,20 @@
   display: flex;
   height: 100%;
   flex-direction: column;
+  /* min-height: 0 is critical in a nested flex column chain —
+     without it the panel grows to fit its content instead of
+     constraining .scrollArea, so everything scrolls together
+     instead of only the scroll area scrolling. */
+  min-height: 0;
+  overflow: hidden;
   background: var(--color-bg-page);
 }
 
 .tabBar {
   display: flex;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   border-bottom: 1px solid var(--color-border-default);
   background: var(--color-bg-card);
 }
@@ -44,6 +52,8 @@
 .scrollArea {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 /* Content views */
@@ -562,6 +572,43 @@
 
   .sectionTitle {
     font-size: 13px;
+  }
+
+  /* Mobile font-size bumps — prevent tiny text on small screens */
+  .itemName {
+    font-size: 16px;
+  }
+
+  .singleItemSubLabel {
+    font-size: 14px;
+  }
+
+  .itemEditButton {
+    font-size: 14px;
+  }
+
+  .verdictCount {
+    font-size: 14px;
+  }
+
+  .notShippingCount {
+    font-size: 14px;
+  }
+
+  .assignBoxButton {
+    font-size: 14px;
+  }
+
+  .emptyBody {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .retryButton {
+    font-size: 16px;
   }
 
   /* View stack spacing */

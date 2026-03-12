@@ -437,12 +437,29 @@
 }
 
 .dimensionNote {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
 /* ---- Mobile touch targets and sizing ---- */
 @media (max-width: 767px) {
+  /* Prevent header badges from wrapping to a new line, which causes layout shifts */
+  .headerTopRow {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  /* Contain the card so absolute-positioned dropdowns don't extend past the viewport */
+  .card {
+    overflow-x: hidden;
+  }
+
+  /* Right-align the size picker dropdown so it doesn't overflow the card on narrow screens */
+  .sizePickerDropdown {
+    left: auto;
+    right: 0;
+  }
+
   /* Box card header — 44px min touch target, comfortable tap area */
   .header {
     min-height: 56px;
@@ -483,5 +500,26 @@
   /* Mark as packed button — 44px */
   .markPackedRow {
     margin-top: 16px;
+  }
+
+  /* Font-size bumps */
+  .headerMeta {
+    font-size: 16px;
+  }
+
+  .emptyMessage {
+    font-size: 16px;
+  }
+
+  .sizePickerCbm {
+    font-size: 14px;
+  }
+
+  .dimensionText {
+    font-size: 14px;
+  }
+
+  .dimensionNote {
+    font-size: 13px;
   }
 }

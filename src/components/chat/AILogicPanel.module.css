@@ -92,3 +92,14 @@
   white-space: nowrap;
   min-width: 0;
 }
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .panel {
+    font-size: 14px;
+  }
+
+  .empty {
+    font-size: 14px;
+  }
+}

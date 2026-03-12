@@ -237,6 +237,44 @@
   margin-top: 4px;
 }
 
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .cardTitle {
+    font-size: 16px;
+  }
+
+  .rationale {
+    font-size: 16px;
+  }
+
+  .costItem {
+    font-size: 14px;
+  }
+
+  .editButton {
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .chatButton {
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .errorMessage {
+    font-size: 16px;
+  }
+
+  .retryButton {
+    font-size: 15px;
+    min-height: 44px;
+  }
+}
+
 /* ---- Mobile touch targets ---- */
 @media (max-width: 767px) {
   .card {

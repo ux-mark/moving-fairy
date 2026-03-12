@@ -113,3 +113,18 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .searchInput {
+    font-size: 16px;
+  }
+
+  .emptyMessage {
+    font-size: 16px;
+  }
+
+  .listItemButton {
+    font-size: 16px;
+  }
+}

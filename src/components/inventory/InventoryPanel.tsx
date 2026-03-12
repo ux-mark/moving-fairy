@@ -71,26 +71,25 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
 
   return (
     <div className={cn(styles.panel, className)} aria-live="polite">
-      <CostSummary data={costSummary} variant="full" />
-
-      <div className={styles.tabBar}>
-        <button
-          type="button"
-          onClick={() => setViewMode("container")}
-          className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
-        >
-          By container
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode("verdict")}
-          className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
-        >
-          By verdict
-        </button>
-      </div>
-
       <div className={styles.scrollArea}>
+        <CostSummary data={costSummary} variant="full" />
+
+        <div className={styles.tabBar}>
+          <button
+            type="button"
+            onClick={() => setViewMode("container")}
+            className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
+          >
+            By container
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("verdict")}
+            className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
+          >
+            By verdict
+          </button>
+        </div>
         {isLoading ? (
           <LoadingSkeleton />
         ) : error ? (

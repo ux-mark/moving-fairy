@@ -109,7 +109,7 @@
 /* ---- Mobile tab bar sizing ---- */
 @media (max-width: 767px) {
   .panel {
-    padding-top: 4px;
+    padding-top: 0;
   }
 
   .tabBar {
@@ -130,6 +130,10 @@
     min-width: 18px;
     height: 18px;
     font-size: 13px;
+  }
+
+  .decisionsPlaceholder {
+    font-size: 16px;
   }
 
   .panel {
