@@ -5,6 +5,7 @@
   flex-direction: column;
   height: 100svh;
   background: var(--color-bg-page);
+  overflow-x: hidden;
 }
 
 /* Skip nav */

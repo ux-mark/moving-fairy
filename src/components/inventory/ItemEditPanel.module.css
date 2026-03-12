@@ -434,3 +434,42 @@
     transition: none;
   }
 }
+
+/* ---- Delete item ---- */
+
+.deleteSeparator {
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin: 4px 0 0;
+}
+
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-error, #dc2626);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
+.deleteButton:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
+}
+
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

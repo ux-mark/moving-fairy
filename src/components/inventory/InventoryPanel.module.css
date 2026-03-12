@@ -31,6 +31,11 @@
   color: var(--color-text-primary);
 }
 
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .tabActive {
   border-bottom: 2px solid var(--color-primary, #16a34a);
   color: var(--color-primary, #16a34a);
@@ -261,6 +266,11 @@
   background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
 }
 
+.verdictTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .verdictTriggerLeft {
   display: flex;
   align-items: center;
@@ -296,6 +306,11 @@
 
 .notShippingTrigger:hover {
   background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
+}
+
+.notShippingTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .notShippingLabel {
@@ -466,6 +481,14 @@
   margin: 0 8px;
 }
 
+/* Skeleton loading state */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
 /* ---- Mobile touch target and sizing fixes ---- */
 @media (max-width: 767px) {
   /* Tab buttons — minimum 44px touch target */
@@ -545,6 +568,25 @@
   .viewStack {
     padding-bottom: 80px; /* Extra space for the floating "Back to Aisling" button */
     gap: 6px;
+  }
+
+  /* Item name — 16px minimum on mobile for readability */
+  .itemName {
+    font-size: 16px;
+  }
+
+  /* Edit button — 44px touch target on mobile */
+  .itemEditButton {
+    min-height: 44px;
+    height: auto;
+    padding: 4px 10px;
+  }
+
+  /* Assign box button — 44px touch target on mobile */
+  .assignBoxButton {
+    min-height: 44px;
+    padding: 4px 10px;
+    font-size: 14px;
   }
 
   /* Item thumbnails — slightly larger on mobile for tap recognition */

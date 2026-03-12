@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -59,6 +59,13 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
     useInventory();
   const [viewMode, setViewMode] = useState<ViewMode>("container");
   const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const isEmpty = assessments.length === 0 && boxes.length === 0;
   const router = useRouter();
 
@@ -99,10 +106,10 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={viewMode}
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+              initial={prefersReducedMotion ? false : isMobile ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={isMobile ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: isMobile ? 0.1 : 0.15 }}
             >
               {viewMode === "container" ? (
                 <ContainerView

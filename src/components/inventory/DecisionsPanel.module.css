@@ -16,10 +16,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px;
+  padding: var(--space-card-padding, 20px);
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-default);
+  border-top: 3px solid var(--color-primary);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -148,6 +150,11 @@
   cursor: not-allowed;
 }
 
+.chatButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Error text below a card */
 .errorText {
   font-size: 13px;
@@ -192,6 +199,11 @@
   opacity: 0.85;
 }
 
+.retryButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Empty state wrapper */
 .emptyWrapper {
   display: flex;
@@ -223,4 +235,32 @@
   display: flex;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* ---- Mobile touch targets ---- */
+@media (max-width: 767px) {
+  .card {
+    padding: 16px;
+  }
+
+  .editButton {
+    min-height: 44px;
+    height: auto;
+  }
+
+  .chatButton {
+    min-height: 44px;
+  }
+
+  .retryButton {
+    min-height: 44px;
+  }
+
+  .rationale {
+    font-size: 14px;
+  }
+
+  .cardTitle {
+    font-size: 16px;
+  }
 }

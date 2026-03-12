@@ -100,3 +100,14 @@
   line-height: 1.625;
   color: var(--color-text-primary);
 }
+
+/* ---- Mobile ---- */
+@media (max-width: 767px) {
+  .assistantText {
+    font-size: 1rem;
+  }
+
+  .messageRow {
+    padding: 6px 12px;
+  }
+}

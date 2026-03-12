@@ -132,4 +132,8 @@
     font-size: 13px;
   }
 
+  .panel {
+    padding-top: 0;
+    background: var(--color-bg-card);
+  }
 }

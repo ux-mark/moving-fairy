@@ -81,6 +81,11 @@
   color: var(--color-text-primary);
 }
 
+.dropdownTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -125,6 +130,11 @@
   background: var(--color-bg-subtle);
 }
 
+.dropdownItemButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 /* All boxed state */
 .allBoxed {
   border-radius: var(--radius-lg);
@@ -138,4 +148,22 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary);
+}
+
+/* ---- Mobile touch targets ---- */
+@media (max-width: 767px) {
+  .itemName {
+    font-size: 16px;
+  }
+
+  .dropdownTrigger {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .dropdownItemButton {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
 }

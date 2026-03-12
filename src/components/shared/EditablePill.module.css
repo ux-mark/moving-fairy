@@ -179,3 +179,16 @@
   flex-shrink: 0;
   color: var(--color-primary);
 }
+
+/* ---- Mobile touch targets ---- */
+@media (max-width: 767px) {
+  .md .pill {
+    min-height: 44px;
+    padding: 8px 14px;
+  }
+
+  .dropdownItem {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+}
