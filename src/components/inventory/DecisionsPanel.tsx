@@ -163,6 +163,11 @@ function DecisionCard({
     await onRefresh();
   }
 
+  async function handleItemDelete() {
+    await fetch(`/api/assessments/${assessment.id}`, { method: "DELETE" });
+    await onRefresh();
+  }
+
   // If confirmed, render nothing (card will be removed from list on refresh)
   if (actionState === "confirmed") {
     return null;
@@ -258,6 +263,7 @@ function DecisionCard({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        onDelete={handleItemDelete}
         sourceCardRef={cardRef}
         onBackToChat={onBackToChat}
       />
