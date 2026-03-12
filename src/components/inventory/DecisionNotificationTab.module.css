@@ -131,7 +131,7 @@
 /* "Decisions" label — reads top-to-bottom */
 .label {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-muted);
   writing-mode: vertical-rl;
@@ -230,7 +230,7 @@
   border-radius: var(--radius-full, 9999px);
   background: var(--color-error);
   color: var(--color-text-inverse);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 18px;
   display: flex;

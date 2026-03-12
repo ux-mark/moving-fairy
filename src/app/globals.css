@@ -64,3 +64,12 @@ html {
   padding: 0;
   margin: 0;
 }
+
+/* ---- Mobile form input safety net ----
+ * iOS Safari auto-zooms when an input with font-size < 16px receives focus.
+ * This global rule prevents that jarring UX on every tap.
+ * Component-level styles may set larger sizes; this only sets the floor.
+ */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
