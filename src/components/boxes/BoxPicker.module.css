@@ -93,11 +93,13 @@
 .listItemLabel {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--color-text-primary);
   font-weight: 500;
+  /* 2-line clamp in picker dropdown — keeps the list scannable while showing enough of the label */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .listItemCount {

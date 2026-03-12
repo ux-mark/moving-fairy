@@ -155,13 +155,13 @@
 }
 
 .itemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   min-width: 0;
   flex: 1;
   font-size: 14px;
   color: var(--color-text-primary);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Edit button on ItemRow — compact secondary style */
@@ -196,9 +196,6 @@
 /* Keep old classes for any remaining references */
 .itemNameButton {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: left;
   font-size: 14px;
   color: var(--color-text-primary);
@@ -206,6 +203,9 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .itemNameButton:hover {
@@ -323,11 +323,11 @@
 }
 
 .notShippingItemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 14px;
   color: var(--color-text-muted);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Empty state */
