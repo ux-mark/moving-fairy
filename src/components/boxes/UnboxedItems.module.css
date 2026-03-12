@@ -48,11 +48,11 @@
 }
 
 .itemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 14px;
   color: var(--color-text-primary);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Dropdown */
