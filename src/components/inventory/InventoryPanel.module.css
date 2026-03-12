@@ -317,17 +317,47 @@
 .notShippingItem {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   border-radius: var(--radius-sm);
   padding: 4px 8px;
 }
 
 .notShippingItemName {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
   color: var(--color-text-muted);
+}
+
+/* Trash icon button on not-shipping items */
+.notShippingDeleteButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.notShippingDeleteButton:hover {
+  color: var(--color-error, #dc2626);
+  background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
+.notShippingDeleteButton:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
 }
 
 /* Empty state */

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { updateItemAssessment } from '@/mcp'
+import { deleteItemAssessment, updateItemAssessment } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { Verdict } from '@/lib/constants'
 
@@ -40,5 +40,26 @@ export async function PATCH(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return Response.json({ ok: false, error: message }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
+
+  const { id } = await params
+
+  try {
+    await deleteItemAssessment(id, profile.id)
+    return Response.json({ ok: true })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    const status = message === 'Item assessment not found' ? 404
+      : message === 'Not authorised to delete this item' ? 403
+      : 500
+    return Response.json({ ok: false, error: message }, { status })
   }
 }

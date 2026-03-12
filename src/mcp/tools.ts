@@ -295,6 +295,68 @@ export async function getItemAssessments(
   return (data ?? []) as ItemAssessment[]
 }
 
+// ─── Delete ItemAssessment ──────────────────────────────────────────────────
+
+/**
+ * Deletes an item assessment and all associated data:
+ * 1. Verifies the assessment exists and belongs to the given user profile
+ * 2. Deletes any box_item rows referencing this assessment
+ * 3. Deletes the item_assessment row itself
+ * 4. If the assessment had an image_url, attempts to delete from Supabase Storage
+ */
+export async function deleteItemAssessment(
+  assessmentId: string,
+  userProfileId: string
+): Promise<void> {
+  const supabase = getAdminClient()
+
+  // 1. Fetch and verify ownership
+  const { data: assessment, error: fetchErr } = await supabase
+    .from('item_assessment')
+    .select('id, user_profile_id, image_url')
+    .eq('id', assessmentId)
+    .single()
+
+  if (fetchErr || !assessment) {
+    throw new Error('Item assessment not found')
+  }
+
+  if (assessment.user_profile_id !== userProfileId) {
+    throw new Error('Not authorised to delete this item')
+  }
+
+  // 2. Delete associated box_item rows
+  const { error: boxItemErr } = await supabase
+    .from('box_item')
+    .delete()
+    .eq('item_assessment_id', assessmentId)
+
+  if (boxItemErr) throw new Error(boxItemErr.message)
+
+  // 3. Delete the item_assessment row
+  const { error: deleteErr } = await supabase
+    .from('item_assessment')
+    .delete()
+    .eq('id', assessmentId)
+
+  if (deleteErr) throw new Error(deleteErr.message)
+
+  // 4. Delete image from Supabase Storage if present
+  if (assessment.image_url) {
+    try {
+      // URL format: https://<project>.supabase.co/storage/v1/object/public/item-images/{profile_id}/{uuid}.webp
+      const url = new URL(assessment.image_url as string)
+      // Extract path after /item-images/ — e.g. "{profile_id}/{uuid}.webp"
+      const match = url.pathname.match(/\/item-images\/(.+)$/)
+      if (match?.[1]) {
+        await supabase.storage.from('item-images').remove([match[1]])
+      }
+    } catch {
+      // Non-fatal: image deletion failure should not block the response
+    }
+  }
+}
+
 // ─── Cost summary ──────────────────────────────────────────────────────────
 
 export async function getCostSummary(userProfileId: string): Promise<{

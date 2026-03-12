@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -11,8 +11,10 @@ import {
   Pencil,
   Plane,
   ShoppingBag,
+  Trash2,
 } from "lucide-react";
 import {
+  ConfirmDialog,
   EmptyState,
   Skeleton,
   SkeletonGroup,
@@ -332,7 +334,9 @@ function ContainerView({
         </Section>
       )}
 
-      {notShipping.length > 0 && <NotShippingSection items={notShipping} />}
+      {notShipping.length > 0 && (
+        <NotShippingSection items={notShipping} onRefresh={onRefresh} />
+      )}
     </div>
   );
 }
@@ -487,6 +491,12 @@ function ItemRow({
     [item.id, onRefresh]
   );
 
+  const handleDeleteItem = useCallback(async () => {
+    await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+    setIsEditOpen(false);
+    onRefresh();
+  }, [item.id, onRefresh]);
+
   const handleSelectBox = useCallback(
     (box: Box) => {
       onAssignToBox?.(box.id, item.id);
@@ -554,13 +564,20 @@ function ItemRow({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        onDelete={handleDeleteItem}
         onBackToChat={onBackToChat}
       />
     </>
   );
 }
 
-function NotShippingSection({ items }: { items: ItemAssessment[] }) {
+function NotShippingSection({
+  items,
+  onRefresh,
+}: {
+  items: ItemAssessment[];
+  onRefresh: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -578,14 +595,59 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <div key={item.id} className={styles.notShippingItem}>
-              <span className={styles.notShippingItemName}>{item.item_name}</span>
-              <VerdictBadge verdict={item.verdict} />
-            </div>
+            <NotShippingItemRow key={item.id} item={item} onRefresh={onRefresh} />
           ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function NotShippingItemRow({
+  item,
+  onRefresh,
+}: {
+  item: ItemAssessment;
+  onRefresh: () => void;
+}) {
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleDelete = useCallback(async () => {
+    await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+    onRefresh();
+  }, [item.id, onRefresh]);
+
+  return (
+    <>
+      <div className={styles.notShippingItem}>
+        <span className={styles.notShippingItemName}>{item.item_name}</span>
+        <VerdictBadge verdict={item.verdict} />
+        <button
+          ref={deleteButtonRef}
+          type="button"
+          className={styles.notShippingDeleteButton}
+          onClick={() => setIsDeleteOpen(true)}
+          aria-label={`Delete ${item.item_name}`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Delete this item?"
+        description={`This will permanently remove ${item.item_name} from your inventory. This can't be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          handleDelete();
+        }}
+        triggerRef={deleteButtonRef}
+      />
+    </>
   );
 }
 
