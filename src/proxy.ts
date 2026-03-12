@@ -38,8 +38,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    const homeUrl = new URL('/', request.url)
-    return NextResponse.redirect(homeUrl)
+    const host = request.headers.get('host') || request.nextUrl.host
+    const proto = request.headers.get('x-forwarded-proto') || 'http'
+    return NextResponse.redirect(new URL('/', `${proto}://${host}`))
   }
 
   return response

@@ -53,6 +53,7 @@ echo "  cd $PROJECT_DIR && supabase stop && supabase start"
 echo ""
 
 # --- Start Next.js on all interfaces -----------------------------------------
+export LAN_IP="$LAN_IP"
 export NEXT_PUBLIC_SUPABASE_URL="http://$LAN_IP:54341"
 
 echo "Starting Next.js dev server on 0.0.0.0:3333 ..."

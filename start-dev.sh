@@ -54,5 +54,6 @@ TOKEN=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/nu
 
 # --- Start Next.js on all interfaces -----------------------------------------
 echo "→ Starting Next.js on 0.0.0.0:3333 ..."
+export LAN_IP="$LAN_IP"
 export NEXT_PUBLIC_SUPABASE_URL="http://$LAN_IP:54341"
 exec npx next dev --hostname 0.0.0.0 --port 3333
