@@ -51,8 +51,11 @@ export function useInventory() {
 
       if (boxesRes.status === "fulfilled" && boxesRes.value.ok) {
         const data = await boxesRes.value.json();
-        boxes = data.boxes ?? data ?? [];
-        boxItems = data.box_items ?? data.boxItems ?? {};
+        const rawBoxes = data.boxes ?? data ?? [];
+        boxes = rawBoxes.map(({ items, ...box }: { items?: unknown; [key: string]: unknown }) => box);
+        boxItems = Object.fromEntries(
+          rawBoxes.map((b: { id: string; items?: unknown[] }) => [b.id, b.items ?? []])
+        );
       }
 
       if (costRes.status === "fulfilled" && costRes.value.ok) {
