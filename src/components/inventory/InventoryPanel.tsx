@@ -614,8 +614,13 @@ function NotShippingItemRow({
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleDelete = useCallback(async () => {
-    await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
-    onRefresh();
+    try {
+      await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      alert("Failed to delete item. Please try again.");
+    }
   }, [item.id, onRefresh]);
 
   return (
@@ -629,6 +634,7 @@ function NotShippingItemRow({
           className={styles.notShippingDeleteButton}
           onClick={() => setIsDeleteOpen(true)}
           aria-label={`Delete ${item.item_name}`}
+          aria-haspopup="dialog"
         >
           <Trash2 size={14} aria-hidden="true" />
         </button>
@@ -638,9 +644,10 @@ function NotShippingItemRow({
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         title="Delete this item?"
-        description={`This will permanently remove ${item.item_name} from your inventory. This can't be undone.`}
+        description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
         confirmLabel="Delete"
         cancelLabel="Keep it"
+        variant="danger"
         onConfirm={() => {
           setIsDeleteOpen(false);
           handleDelete();

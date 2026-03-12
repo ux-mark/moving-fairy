@@ -164,8 +164,13 @@ function DecisionCard({
   }
 
   async function handleItemDelete() {
-    await fetch(`/api/assessments/${assessment.id}`, { method: "DELETE" });
-    await onRefresh();
+    try {
+      await fetch(`/api/assessments/${assessment.id}`, { method: "DELETE" });
+      await onRefresh();
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      alert("Failed to delete item. Please try again.");
+    }
   }
 
   // If confirmed, render nothing (card will be removed from list on refresh)

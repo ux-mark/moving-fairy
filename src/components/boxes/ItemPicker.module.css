@@ -29,7 +29,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-primary);
   min-width: 0;
 }
@@ -106,6 +106,7 @@
   flex: 1;
   min-width: 0;
   color: var(--color-text-primary);
+  line-height: 1.4;
   /* 2-line clamp in picker dropdown — keeps the list scannable while showing enough of the name */
   display: -webkit-box;
   -webkit-box-orient: vertical;

@@ -463,6 +463,7 @@ export function ItemEditPanel({
                       onClick={() => setIsDeleteOpen(true)}
                       disabled={isSaving}
                       aria-label={`Delete ${item.item_name}`}
+                      aria-haspopup="dialog"
                     >
                       <Trash2 size={15} aria-hidden="true" />
                       Delete item
@@ -493,9 +494,10 @@ export function ItemEditPanel({
           isOpen={isDeleteOpen}
           onClose={() => setIsDeleteOpen(false)}
           title="Delete this item?"
-          description={`This will permanently remove ${item.item_name} from your inventory and any boxes it's in. This can't be undone.`}
+          description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
           confirmLabel="Delete"
           cancelLabel="Keep it"
+          variant="danger"
           onConfirm={() => {
             setIsDeleteOpen(false);
             onDelete();

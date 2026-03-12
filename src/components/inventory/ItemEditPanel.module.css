@@ -132,6 +132,7 @@
   font-weight: 600;
   color: var(--color-text-primary);
   min-width: 0;
+  line-height: 1.4;
   /* 2-line clamp for breadcrumb item name — keeps the bar compact while showing enough to identify the item */
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -192,7 +193,7 @@
   background: var(--color-bg-card);
   padding: 0 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-primary);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
@@ -246,7 +247,7 @@
   background: transparent;
   padding: 0 12px 0 0;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-primary);
   /* Remove browser default number input arrows */
   -moz-appearance: textfield;
@@ -279,7 +280,7 @@
   background: var(--color-bg-card);
   padding: 10px 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   color: var(--color-text-primary);
   resize: vertical;
@@ -312,7 +313,7 @@
   background: var(--color-bg-card);
   padding: 0 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-primary);
   cursor: pointer;
   transition: border-color var(--transition-fast);

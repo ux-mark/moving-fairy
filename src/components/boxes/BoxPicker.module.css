@@ -19,7 +19,7 @@
 }
 
 .headerLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-muted);
   letter-spacing: 0.04em;
@@ -95,6 +95,7 @@
   min-width: 0;
   color: var(--color-text-primary);
   font-weight: 500;
+  line-height: 1.4;
   /* 2-line clamp in picker dropdown — keeps the list scannable while showing enough of the label */
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -103,7 +104,7 @@
 }
 
 .listItemCount {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
