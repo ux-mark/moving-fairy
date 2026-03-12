@@ -48,9 +48,11 @@ const VERDICT_ORDER: Verdict[] = [
 
 interface InventoryPanelProps {
   className?: string;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
-export function InventoryPanel({ className }: InventoryPanelProps) {
+export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps) {
   const { assessments, boxes, boxItems, costSummary, isLoading, error, refreshInventory } =
     useInventory();
   const [viewMode, setViewMode] = useState<ViewMode>("container");
@@ -106,12 +108,14 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
                   boxes={boxes}
                   boxItems={boxItems}
                   onRefresh={refreshInventory}
+                  onBackToChat={onBackToChat}
                 />
               ) : (
                 <VerdictView
                   assessments={assessments}
                   boxes={boxes}
                   onRefresh={refreshInventory}
+                  onBackToChat={onBackToChat}
                 />
               )}
             </motion.div>
@@ -131,11 +135,13 @@ function ContainerView({
   boxes,
   boxItems,
   onRefresh,
+  onBackToChat,
 }: {
   assessments: ItemAssessment[];
   boxes: Box[];
   boxItems: Record<string, BoxItem[]>;
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
   const assessmentMap = useMemo(
     () =>
@@ -319,6 +325,7 @@ function ContainerView({
                 boxItemCounts={boxItemCounts}
                 onAssignToBox={handleAssignToBox}
                 onRefresh={onRefresh}
+                onBackToChat={onBackToChat}
               />
             ))}
           </div>
@@ -338,10 +345,12 @@ function VerdictView({
   assessments,
   boxes,
   onRefresh,
+  onBackToChat,
 }: {
   assessments: ItemAssessment[];
   boxes: Box[];
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
   const grouped = VERDICT_ORDER.reduce(
     (acc, v) => {
@@ -361,6 +370,7 @@ function VerdictView({
           items={items}
           boxes={boxes}
           onRefresh={onRefresh}
+          onBackToChat={onBackToChat}
         />
       ))}
     </div>
@@ -372,11 +382,13 @@ function VerdictGroup({
   items,
   boxes,
   onRefresh,
+  onBackToChat,
 }: {
   verdict: Verdict;
   items: ItemAssessment[];
   boxes: Box[];
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -395,7 +407,7 @@ function VerdictGroup({
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} />
+            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} />
           ))}
         </div>
       </CollapsibleContent>
@@ -437,6 +449,8 @@ interface ItemRowProps {
   boxItemCounts?: Record<string, number>;
   /** Called when the user selects a box via the quick-assign picker */
   onAssignToBox?: (boxId: string, assessmentId: string) => void;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
 function ItemRow({
@@ -446,6 +460,7 @@ function ItemRow({
   packingBoxes,
   boxItemCounts,
   onAssignToBox,
+  onBackToChat,
 }: ItemRowProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPickingBox, setIsPickingBox] = useState(false);
@@ -539,6 +554,7 @@ function ItemRow({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        onBackToChat={onBackToChat}
       />
     </>
   );

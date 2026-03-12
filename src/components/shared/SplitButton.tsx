@@ -23,6 +23,14 @@ export interface SplitButtonProps {
   className?: string;
 }
 
+interface DropdownPosition {
+  top: number;
+  /** right-aligned: distance from viewport right edge */
+  right?: number;
+  /** left-aligned fallback: distance from viewport left edge */
+  left?: number;
+}
+
 export function SplitButton({
   label,
   onClick,
@@ -34,10 +42,31 @@ export function SplitButton({
   className,
 }: SplitButtonProps) {
   const [open, setOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<DropdownPosition | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chevronRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
   const isDisabled = disabled || loading;
+
+  /** Compute fixed dropdown position from container rect with viewport clamping. */
+  const calcDropdownPos = useCallback((): DropdownPosition | null => {
+    if (!containerRef.current) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    const top = rect.bottom + 2;
+
+    // Dropdown min-width is 180px (from CSS). Use that to detect overflow.
+    const dropdownMinWidth = 180;
+    const rightAligned = window.innerWidth - rect.right;
+    const projectedLeft = rect.right - dropdownMinWidth;
+
+    if (projectedLeft < 8) {
+      // Would overflow left edge — align to container's left edge, clamped to 8px
+      return { top, left: Math.max(8, rect.left) };
+    }
+
+    // Right-align to container right, clamped so right edge stays >= 8px from viewport
+    return { top, right: Math.max(8, rightAligned) };
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -55,6 +84,23 @@ export function SplitButton({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open]);
+
+  // Recompute dropdown position on scroll/resize while open
+  useEffect(() => {
+    if (!open) return;
+
+    function recalculate() {
+      const pos = calcDropdownPos();
+      if (pos) setDropdownPos(pos);
+    }
+
+    window.addEventListener("scroll", recalculate, { capture: true, passive: true });
+    window.addEventListener("resize", recalculate, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", recalculate, { capture: true });
+      window.removeEventListener("resize", recalculate);
+    };
+  }, [open, calcDropdownPos]);
 
   // Keyboard navigation within dropdown
   const handleDropdownKeyDown = useCallback(
@@ -99,8 +145,15 @@ export function SplitButton({
 
   const toggleDropdown = useCallback(() => {
     if (isDisabled) return;
-    setOpen((prev) => !prev);
-  }, [isDisabled]);
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        const pos = calcDropdownPos();
+        if (pos) setDropdownPos(pos);
+      }
+      return next;
+    });
+  }, [isDisabled, calcDropdownPos]);
 
   const handleItemClick = useCallback(
     async (item: SplitButtonItem) => {
@@ -165,12 +218,18 @@ export function SplitButton({
         <ChevronDown size={16} aria-hidden="true" />
       </button>
 
-      {/* Dropdown */}
-      {open && (
+      {/* Dropdown — rendered with position:fixed so it escapes overflow:hidden ancestors */}
+      {open && dropdownPos && (
         <ul
           ref={dropdownRef}
           role="menu"
           className={styles.dropdown}
+          style={{
+            top: dropdownPos.top,
+            ...(dropdownPos.left !== undefined
+              ? { left: dropdownPos.left }
+              : { right: dropdownPos.right }),
+          }}
           onKeyDown={handleDropdownKeyDown}
         >
           {items.map((item, index) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Package, Settings, Sparkles } from "lucide-react";
 import { Navigation } from "@thefairies/design-system/components";
 
@@ -18,6 +18,8 @@ interface AppLayoutProps {
   inventoryPanel: React.ReactNode;
   decisionCount?: number;
   onOpenDecisions?: () => void;
+  /** Ref populated with the function to close the mobile overlay and return to chat */
+  closeMobileOverlayRef?: MutableRefObject<(() => void) | null>;
 }
 
 const NAV_PRIMARY_ITEMS = [
@@ -34,7 +36,7 @@ const NAV_SECONDARY_ITEMS = [
  * content, and a toggleable right-side panel for inventory (desktop) or
  * a full-screen top-down overlay (mobile).
  */
-export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions }: AppLayoutProps) {
+export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef }: AppLayoutProps) {
   const [inventoryOpen, setInventoryOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth > 768;
@@ -118,6 +120,18 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
     setMobileInventoryOpen(false);
     setActiveSection("chat");
   }, []);
+
+  // Expose closeMobileInventory to parent via ref
+  useEffect(() => {
+    if (closeMobileOverlayRef) {
+      closeMobileOverlayRef.current = closeMobileInventory;
+    }
+    return () => {
+      if (closeMobileOverlayRef) {
+        closeMobileOverlayRef.current = null;
+      }
+    };
+  }, [closeMobileOverlayRef, closeMobileInventory]);
 
   return (
     <div className={styles.root}>

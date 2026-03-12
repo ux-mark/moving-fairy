@@ -110,7 +110,8 @@
 /* prefers-reduced-motion: skip all animations */
 @media (prefers-reduced-motion: reduce) {
   .tab,
-  .tabFlash {
+  .tabFlash,
+  .tab:not(.tabAlert):not(.tabFlash) {
     animation: none;
   }
 }
@@ -208,22 +209,46 @@
   }
 }
 
+/* Gentle pulse for mobile — draws the eye without being aggressive */
+@keyframes gentlePulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 4px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+}
+
 /* Count badge — absolute positioned top-right */
 .badge {
   position: absolute;
-  top: 6px;
-  right: 5px;
+  top: -4px;
+  right: -4px;
   min-width: 18px;
   height: 18px;
-  padding: 0 4px;
-  border-radius: var(--radius-full);
+  padding: 0 5px;
+  border-radius: var(--radius-full, 9999px);
   background: var(--color-error);
   color: var(--color-text-inverse);
   font-size: 11px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  /* Subtle border to separate badge from tab background */
+  border: 2px solid var(--color-bg-page);
+}
+
+@media (max-width: 767px) {
+  .badge {
+    top: -6px;
+    right: -6px;
+  }
+
+  /* Gentle pulse on mobile when decisions are pending (non-alert state) */
+  .tab:not(.tabAlert):not(.tabFlash) {
+    animation: slideUp 0.25s ease both, gentlePulse 3s ease-in-out 0.5s infinite;
+  }
 }

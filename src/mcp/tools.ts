@@ -567,3 +567,30 @@ export async function updateBoxCbm(boxId: string, cbm: number): Promise<Box> {
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box CBM')
   return box as Box
 }
+
+export async function updateBoxLabel(boxId: string, label: string): Promise<Box> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ label, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box label')
+  return box as Box
+}
+
+export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> {
+  const supabase = getAdminClient()
+  const cbm = BOX_SIZE_CBM[size]
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ size, cbm, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box size')
+  return box as Box
+}

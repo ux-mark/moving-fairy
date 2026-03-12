@@ -20,6 +20,23 @@
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Subtle depth effect while the edit panel is open (desktop only) */
+@media (min-width: 768px) {
+  .cardEditing {
+    transform: scale(0.98);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+                0 0 12px color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
 }
 
 /* Card header: item name on left, verdict pill on right */
@@ -72,7 +89,7 @@
   padding-top: 2px;
 }
 
-/* Edit button — secondary outlined style */
+/* Edit button — outlined secondary action with icon + label */
 .editButton {
   display: inline-flex;
   align-items: center;
@@ -93,6 +110,11 @@
 .editButton:hover:not(:disabled) {
   border-color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.editButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .editButton:disabled {

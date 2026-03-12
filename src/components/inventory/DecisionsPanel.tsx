@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   EmptyState,
   SkeletonGroup,
@@ -14,6 +14,7 @@ import { EditablePill } from "@/components/shared/EditablePill";
 import type { EditablePillOption } from "@/components/shared/EditablePill";
 import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
 import { Verdict } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { Box, ItemAssessment } from "@/types";
 import styles from "./DecisionsPanel.module.css";
 
@@ -30,6 +31,8 @@ export interface DecisionsPanelProps {
   onConfirmAndSend: (assessmentId: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
   onRefresh: () => Promise<void>;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +82,7 @@ interface DecisionCardProps {
   onConfirmAndSend: (id: string) => Promise<void>;
   onChatAbout?: (item: ItemAssessment) => void;
   onRefresh: () => Promise<void>;
+  onBackToChat?: (() => void) | undefined;
 }
 
 type ActionState = "idle" | "confirming" | "confirmed" | "error";
@@ -90,10 +94,12 @@ function DecisionCard({
   onConfirmAndSend,
   onChatAbout,
   onRefresh,
+  onBackToChat,
 }: DecisionCardProps) {
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
 
   // Build cost metadata lines
   const costLines: string[] = [];
@@ -167,7 +173,8 @@ function DecisionCard({
   return (
     <>
       <article
-        className={styles.card}
+        ref={cardRef}
+        className={cn(styles.card, isEditOpen && styles.cardEditing)}
         aria-label={`Decision for ${assessment.item_name}`}
       >
         {/* Card header: item name + verdict pill */}
@@ -209,7 +216,7 @@ function DecisionCard({
                 onClick: handleConfirmAndSend,
               },
             ]}
-            variant="success"
+            variant="primary"
             size="sm"
             loading={isConfirming}
             disabled={isConfirming}
@@ -251,6 +258,8 @@ function DecisionCard({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        sourceCardRef={cardRef}
+        onBackToChat={onBackToChat}
       />
     </>
   );
@@ -269,6 +278,7 @@ export function DecisionsPanel({
   onConfirmAndSend,
   onChatAbout,
   onRefresh,
+  onBackToChat,
 }: DecisionsPanelProps) {
   if (isLoading) {
     return (
@@ -313,6 +323,7 @@ export function DecisionsPanel({
             onConfirm={onConfirm}
             onConfirmAndSend={onConfirmAndSend}
             onRefresh={onRefresh}
+            onBackToChat={onBackToChat}
             {...(onChatAbout ? { onChatAbout } : {})}
           />
         </div>
