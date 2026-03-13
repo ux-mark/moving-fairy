@@ -728,7 +728,17 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
       } catch {
         summaryText = 'They have previously assessed items.'
       }
-      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
+      let boxSummaryText = ''
+      try {
+        const boxes = await getBoxes(profileId)
+        if (boxes.length > 0) {
+          const boxDescriptions = boxes.map((b) => `${b.label}: ${b.items.length} items, status ${b.status}`).join('; ')
+          boxSummaryText = ` Boxes: ${boxDescriptions}.`
+        }
+      } catch {
+        // Non-critical — Aisling can still generate a welcome without box details
+      }
+      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText}${boxSummaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Use the box item counts provided above — do not rely on previous conversation history for counts, as they may be outdated. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
     } else {
       effectiveMessage = message
     }
