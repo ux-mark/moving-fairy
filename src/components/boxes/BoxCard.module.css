@@ -526,6 +526,11 @@
     font-size: 16px;
   }
 
+  /* Combobox dropdown — shorter on mobile to leave room for keyboard */
+  .comboboxDropdown {
+    max-height: 180px;
+  }
+
   /* Combobox options — 44px touch target */
   .comboboxOption {
     min-height: 44px;
