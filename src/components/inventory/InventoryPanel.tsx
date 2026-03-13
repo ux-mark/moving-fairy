@@ -525,6 +525,25 @@ function VerdictView({
     },
     [boxes, onRefresh]
   );
+  // Build reverse map: assessment ID → box it's currently assigned to
+  const boxById = useMemo(
+    () => Object.fromEntries(boxes.map((b) => [b.id, b])),
+    [boxes]
+  );
+  const assessmentBoxMap = useMemo(() => {
+    const map: Record<string, Box> = {};
+    for (const [bid, items] of Object.entries(boxItems)) {
+      const box = boxById[bid];
+      if (!box) continue;
+      for (const bi of items) {
+        if (bi.item_assessment_id) {
+          map[bi.item_assessment_id] = box;
+        }
+      }
+    }
+    return map;
+  }, [boxItems, boxById]);
+
   const grouped = VERDICT_ORDER.reduce(
     (acc, v) => {
       const items = assessments
@@ -546,6 +565,7 @@ function VerdictView({
           boxes={boxes}
           packingBoxes={packingBoxes}
           boxItemCounts={boxItemCounts}
+          assessmentBoxMap={assessmentBoxMap}
           onAssignToBox={handleAssignToBox}
           onAutoAssignCarry={handleAutoAssignCarry}
           onRefresh={onRefresh}
@@ -562,6 +582,7 @@ function VerdictGroup({
   boxes,
   packingBoxes,
   boxItemCounts,
+  assessmentBoxMap,
   onAssignToBox,
   onAutoAssignCarry,
   onRefresh,
@@ -572,6 +593,7 @@ function VerdictGroup({
   boxes: Box[];
   packingBoxes: Box[];
   boxItemCounts: Record<string, number>;
+  assessmentBoxMap: Record<string, Box>;
   onAssignToBox: (boxId: string, assessmentId: string) => void;
   onAutoAssignCarry: (assessmentId: string) => void;
   onRefresh: () => void;
@@ -614,6 +636,7 @@ function VerdictGroup({
                   onRefresh={onRefresh}
                   onBackToChat={onBackToChat}
                   showVerdict={false}
+                  currentBox={assessmentBoxMap[item.id]}
                 />
               </motion.div>
             ))}
@@ -664,6 +687,8 @@ interface ItemRowProps {
   onBackToChat?: (() => void) | undefined;
   /** Whether to show the verdict badge inline in the row (default true). Pass false inside VerdictGroup where the badge is already in the group header. */
   showVerdict?: boolean;
+  /** The box this item is currently assigned to (if any) */
+  currentBox?: Box | undefined;
 }
 
 function ItemRow({
@@ -676,6 +701,7 @@ function ItemRow({
   onAutoAssignCarry,
   onBackToChat,
   showVerdict = true,
+  currentBox,
 }: ItemRowProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPickingBox, setIsPickingBox] = useState(false);
@@ -740,19 +766,26 @@ function ItemRow({
           <div className={styles.itemRowActions}>
             {showVerdict && <VerdictBadge verdict={item.verdict} />}
 
+            {currentBox && (
+              <span className={styles.currentBoxLabel} title={currentBox.label}>
+                <Package size={12} aria-hidden="true" />
+                {currentBox.label}
+              </span>
+            )}
+
             {canQuickAssign && (
               <button
                 type="button"
                 className={styles.assignBoxButton}
                 onClick={() => setIsPickingBox((prev) => !prev)}
                 aria-expanded={isPickingBox}
-                aria-label={`Assign ${item.item_name} to a box`}
+                aria-label={currentBox ? `Change box for ${item.item_name}` : `Assign ${item.item_name} to a box`}
               >
-                Assign to box
+                {currentBox ? "Change box" : "Assign to box"}
               </button>
             )}
 
-            {canAutoAssignCarry && (
+            {canAutoAssignCarry && !currentBox && (
               <button
                 type="button"
                 className={styles.carryOnButton}
@@ -797,6 +830,7 @@ function ItemRow({
         onDelete={handleDeleteItem}
         onBackToChat={onBackToChat}
         breadcrumbLabel="Inventory"
+        currentBoxId={currentBox?.id}
       />
     </>
   );

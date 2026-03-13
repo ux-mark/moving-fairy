@@ -464,6 +464,17 @@
 .itemRowOuter[data-verdict="DISCARD"] { --row-accent: var(--verdict-donate); }
 .itemRowOuter[data-verdict="DECIDE_LATER"] { --row-accent: var(--verdict-decide-later); }
 
+/* Current box label on ItemRow — shows which box an item is assigned to */
+.currentBoxLabel {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 /* Assign to box button on ItemRow */
 .assignBoxButton {
   flex-shrink: 0;
@@ -667,6 +678,10 @@
   }
 
   .assignBoxButton {
+    font-size: 14px;
+  }
+
+  .currentBoxLabel {
     font-size: 14px;
   }
 
