@@ -736,6 +736,7 @@ export function BoxCard({
                       const assessment = item.item_assessment_id
                         ? assessments?.[item.item_assessment_id]
                         : undefined;
+                      const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
 
                       return (
                         <li key={item.id} className={styles.itemRow}>
@@ -749,7 +750,7 @@ export function BoxCard({
                               }}
                               aria-hidden="true"
                             />
-                            <span className={styles.itemName}>{item.item_name}</span>
+                            <span className={styles.itemName}>{displayName}</span>
                             {item.quantity > 1 && (
                               <span className={styles.itemQty}>x{item.quantity}</span>
                             )}
@@ -768,7 +769,7 @@ export function BoxCard({
                                 e.stopPropagation();
                                 onRemoveItem(box.id, item.id);
                               }}
-                              aria-label={`Remove ${item.item_name} from ${box.label}`}
+                              aria-label={`Remove ${displayName} from ${box.label}`}
                               className={styles.removeItemButton ?? ""}
                             >
                               <XIcon style={{ width: 16, height: 16 }} />

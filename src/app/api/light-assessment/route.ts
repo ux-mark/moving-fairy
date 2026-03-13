@@ -222,6 +222,7 @@ Rules:
         ok: true,
         verdict,
         assessment_id: saved.id,
+        assessment: saved,
         box_item: boxItem,
         flags: [],
       })

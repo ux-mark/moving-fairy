@@ -172,6 +172,10 @@ function ContainerView({
     [onRefresh]
   );
 
+  // Note: unlike BoxManagement (which does incremental state updates),
+  // ContainerView relies on onRefresh() to re-fetch all data after mutations.
+  // This is correct because getBox() resolves box_item names from item_assessment
+  // server-side, so the refreshed data always has canonical names.
   const handleAddExistingItem = useCallback(
     async (boxId: string, assessmentId: string) => {
       await fetch(`/api/boxes/${boxId}/items`, {

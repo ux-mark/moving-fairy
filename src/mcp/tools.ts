@@ -461,14 +461,14 @@ export async function addItemToBox(
 ): Promise<BoxItem> {
   const supabase = getAdminClient()
 
-  let itemName = opts.itemName ?? ''
+  const itemName = opts.itemName ?? ''
   let fromAssessment = false
 
   if (opts.itemAssessmentId) {
     // Validate verdict gate
     const { data: assessment, error: aErr } = await supabase
       .from('item_assessment')
-      .select('verdict, item_name')
+      .select('verdict')
       .eq('id', opts.itemAssessmentId)
       .single()
 
@@ -481,7 +481,6 @@ export async function addItemToBox(
       )
     }
 
-    itemName = assessment.item_name as string
     fromAssessment = true
 
     // Check if this assessed item is already in a box (partial unique index)
@@ -508,7 +507,9 @@ export async function addItemToBox(
   const payload = {
     box_id: boxId,
     item_assessment_id: opts.itemAssessmentId ?? null,
-    item_name: itemName,
+    // For assessed items the canonical name lives on item_assessment.item_name.
+    // For unassessed items item_name is the only source — keep it as provided.
+    item_name: fromAssessment ? null : itemName,
     quantity: 1,
     from_handwritten_list: false,
     needs_assessment: !fromAssessment,
@@ -553,7 +554,34 @@ export async function getBox(boxId: string): Promise<Box & { items: BoxItem[] }>
 
   if (itemsErr) throw new Error(itemsErr.message)
 
-  return { ...(box as Box), items: (items ?? []) as BoxItem[] }
+  const rawItems = (items ?? []) as BoxItem[]
+
+  // Resolve canonical names for assessed items from item_assessment.item_name
+  const assessmentIds = rawItems
+    .map((i) => i.item_assessment_id)
+    .filter((id): id is string => id !== null)
+
+  let assessmentNames: Record<string, string> = {}
+  if (assessmentIds.length > 0) {
+    const { data: assessments } = await supabase
+      .from('item_assessment')
+      .select('id, item_name')
+      .in('id', assessmentIds)
+    if (assessments) {
+      assessmentNames = Object.fromEntries(assessments.map((a) => [a.id, a.item_name]))
+    }
+  }
+
+  const resolvedItems = rawItems.map((item) => ({
+    ...item,
+    // For assessed items, resolve the canonical name from item_assessment.
+    // Fall back to box_item.item_name for unassessed items (handwritten lists).
+    item_name: item.item_assessment_id
+      ? (assessmentNames[item.item_assessment_id] ?? item.item_name ?? '[Item name unavailable]')
+      : item.item_name,
+  }))
+
+  return { ...(box as Box), items: resolvedItems }
 }
 
 export async function getBoxes(userProfileId: string): Promise<Box[]> {
@@ -583,7 +611,7 @@ export async function saveBoxManifestPhoto(boxId: string, imageUrl: string): Pro
 
 export async function getBoxManifest(
   boxId: string
-): Promise<{ label: string; items: { item_name: string; quantity: number }[] }> {
+): Promise<{ label: string; items: { item_name: string | null; quantity: number }[] }> {
   const { label, items } = await getBox(boxId)
   return {
     label,

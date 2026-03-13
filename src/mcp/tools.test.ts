@@ -265,11 +265,11 @@ describe('getCostSummary()', () => {
 
 describe('addItemToBox()', () => {
   function setupAddItemChains(opts: {
-    assessment?: { verdict: string; item_name: string } | null
+    assessment?: { verdict: string } | null
     assessmentError?: { message: string } | null
-    existing?: { id: string; box_id: string; item_assessment_id: string; item_name: string } | null
+    existing?: { id: string; box_id: string; item_assessment_id: string; item_name: string | null } | null
     deleteResult?: { error: null }
-    insertResult?: { id: string; box_id: string; item_assessment_id: string; item_name: string } | null
+    insertResult?: { id: string; box_id: string; item_assessment_id: string; item_name: string | null } | null
     insertError?: { message: string } | null
   }) {
     // Track all from() calls to return different chain behaviour
@@ -347,7 +347,7 @@ describe('addItemToBox()', () => {
 
   it('rejects SELL verdict items', async () => {
     setupAddItemChains({
-      assessment: { verdict: 'SELL', item_name: 'Old TV' },
+      assessment: { verdict: 'SELL' },
     })
 
     await expect(
@@ -357,7 +357,7 @@ describe('addItemToBox()', () => {
 
   it('rejects DECIDE_LATER verdict items', async () => {
     setupAddItemChains({
-      assessment: { verdict: 'DECIDE_LATER', item_name: 'Uncertain item' },
+      assessment: { verdict: 'DECIDE_LATER' },
     })
 
     await expect(
@@ -370,10 +370,10 @@ describe('addItemToBox()', () => {
       id: 'bi-existing',
       box_id: 'box-1',
       item_assessment_id: 'assess-1',
-      item_name: 'KitchenAid',
+      item_name: null, // assessed items store null; name resolved via item_assessment
     }
     setupAddItemChains({
-      assessment: { verdict: 'SHIP', item_name: 'KitchenAid' },
+      assessment: { verdict: 'SHIP' },
       existing: existingBoxItem,
     })
 
