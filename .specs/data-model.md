@@ -300,7 +300,7 @@ Links items to boxes. An assessed item can only be in one box at a time.
 | `id`                    | UUID              | No       | Primary key. |
 | `box_id`                | UUID (FK)         | No       | References `Box.id`. |
 | `item_assessment_id`    | UUID (FK)         | Yes      | References `ItemAssessment.id`. Null for items added from a handwritten list that have not yet been assessed. |
-| `item_name`             | text              | No       | Display name. Copied from `ItemAssessment.item_name` if linked; free text if unassessed. |
+| `item_name`             | text              | Yes      | Display name for unassessed items only. NULL for assessed items — use `ItemAssessment.item_name` as the canonical source. |
 | `quantity`              | integer           | No       | Default 1. |
 | `from_handwritten_list` | boolean           | No       | Default false. True if added via handwritten list OCR rather than directly by the user or Aisling. |
 | `needs_assessment`      | boolean           | No       | Default false. True if `item_assessment_id` is null — flags items from handwritten lists pending assessment. |

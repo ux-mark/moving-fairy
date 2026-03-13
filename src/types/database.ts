@@ -77,7 +77,7 @@ export interface BoxItem {
   id: string
   box_id: string
   item_assessment_id: string | null
-  item_name: string
+  item_name: string | null
   quantity: number
   from_handwritten_list: boolean
   needs_assessment: boolean
