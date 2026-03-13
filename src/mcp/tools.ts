@@ -461,7 +461,7 @@ export async function addItemToBox(
 ): Promise<BoxItem> {
   const supabase = getAdminClient()
 
-  let itemName = opts.itemName ?? ''
+  const itemName = opts.itemName ?? ''
   let fromAssessment = false
 
   if (opts.itemAssessmentId) {
@@ -574,8 +574,10 @@ export async function getBox(boxId: string): Promise<Box & { items: BoxItem[] }>
 
   const resolvedItems = rawItems.map((item) => ({
     ...item,
+    // For assessed items, resolve the canonical name from item_assessment.
+    // Fall back to box_item.item_name for unassessed items (handwritten lists).
     item_name: item.item_assessment_id
-      ? (assessmentNames[item.item_assessment_id] ?? item.item_name)
+      ? (assessmentNames[item.item_assessment_id] ?? item.item_name ?? '[Item name unavailable]')
       : item.item_name,
   }))
 

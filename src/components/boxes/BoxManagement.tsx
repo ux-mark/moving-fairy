@@ -52,7 +52,7 @@ export function BoxManagement({
 }: BoxManagementProps) {
   const [boxes, setBoxes] = useState(initialBoxes);
   const [boxItems, setBoxItems] = useState(initialBoxItems);
-  const [assessments] = useState(initialAssessments);
+  const [assessments, setAssessments] = useState(initialAssessments);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingWarning, setPendingWarning] = useState<PendingWarning | null>(null);
 
@@ -139,7 +139,10 @@ export function BoxManagement({
         }
 
         // Clean — item was saved and added to box by the light-assessment endpoint.
-        // Use the returned box_item to update local state.
+        // Use the returned box_item and assessment to update local state.
+        if (assessData.assessment) {
+          setAssessments((prev) => [...prev, assessData.assessment as ItemAssessment]);
+        }
         if (assessData.box_item) {
           setBoxItems((prev) => ({
             ...prev,
@@ -266,6 +269,9 @@ export function BoxManagement({
         if (!res.ok) throw new Error("Failed to confirm assessment");
         const data = await res.json();
 
+        if (data.assessment) {
+          setAssessments((prev) => [...prev, data.assessment as ItemAssessment]);
+        }
         if (data.box_item) {
           setBoxItems((prev) => ({
             ...prev,
