@@ -29,7 +29,7 @@
 
   /* Verdict colours (domain-specific) */
   --verdict-ship: #16a34a;
-  --verdict-carry: #16a34a;
+  --verdict-carry: #2563eb;
   --verdict-sell: #d97706;
   --verdict-donate: #6b7280;
   --verdict-discard: #6b7280;
@@ -38,8 +38,8 @@
   /* Verdict bg/fg pairs for badges */
   --verdict-ship-bg: #dcfce7;
   --verdict-ship-fg: #166534;
-  --verdict-carry-bg: #dcfce7;
-  --verdict-carry-fg: #166534;
+  --verdict-carry-bg: #dbeafe;
+  --verdict-carry-fg: #1e40af;
   --verdict-sell-bg: #fef3c7;
   --verdict-sell-fg: #92400e;
   --verdict-donate-bg: #f3f4f6;

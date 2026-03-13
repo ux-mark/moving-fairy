@@ -12,6 +12,30 @@ import styles from "./ItemEditPanel.module.css";
 // Types
 // ---------------------------------------------------------------------------
 
+interface VerdictOption {
+  value: Verdict;
+  label: string;
+}
+
+const VERDICT_OPTIONS: VerdictOption[] = [
+  { value: Verdict.SHIP, label: "Ship" },
+  { value: Verdict.CARRY, label: "Carry" },
+  { value: Verdict.SELL, label: "Sell" },
+  { value: Verdict.DONATE, label: "Donate" },
+  { value: Verdict.DISCARD, label: "Discard" },
+  { value: Verdict.DECIDE_LATER, label: "Decide later" },
+];
+
+// CSS variable key fragment per verdict (matches moving-fairy-tokens.css naming)
+const VERDICT_CSS_KEY: Record<Verdict, string> = {
+  [Verdict.SHIP]: "ship",
+  [Verdict.CARRY]: "carry",
+  [Verdict.SELL]: "sell",
+  [Verdict.DONATE]: "donate",
+  [Verdict.DISCARD]: "discard",
+  [Verdict.DECIDE_LATER]: "decide-later",
+};
+
 export interface ItemEditPanelProps {
   item: ItemAssessment;
   boxes: Box[];
@@ -95,6 +119,72 @@ function useIsMobile(breakpoint = 768) {
 }
 
 // ---------------------------------------------------------------------------
+// VerdictSelector sub-component
+// ---------------------------------------------------------------------------
+
+interface VerdictSelectorProps {
+  value: Verdict;
+  onChange: (verdict: Verdict) => void;
+  disabled?: boolean;
+}
+
+function VerdictSelector({ value, onChange, disabled }: VerdictSelectorProps) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const currentIndex = VERDICT_OPTIONS.findIndex((opt) => opt.value === value);
+    let nextIndex = currentIndex;
+
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      nextIndex = (currentIndex + 1) % VERDICT_OPTIONS.length;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      nextIndex = (currentIndex - 1 + VERDICT_OPTIONS.length) % VERDICT_OPTIONS.length;
+    } else {
+      return;
+    }
+
+    const next = VERDICT_OPTIONS[nextIndex];
+    if (next && !disabled) {
+      onChange(next.value);
+      // Move focus to the newly selected pill
+      const container = e.currentTarget;
+      const pills = container.querySelectorAll<HTMLElement>('[role="radio"]');
+      pills[nextIndex]?.focus();
+    }
+  };
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Decision"
+      className={styles.verdictSelector}
+      onKeyDown={handleKeyDown}
+    >
+      {VERDICT_OPTIONS.map((opt) => {
+        const key = VERDICT_CSS_KEY[opt.value];
+        const isSelected = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={isSelected}
+            tabIndex={isSelected ? 0 : -1}
+            disabled={disabled}
+            className={styles.verdictPill}
+            data-verdict={key}
+            data-selected={isSelected ? "true" : undefined}
+            onClick={() => !disabled && onChange(opt.value)}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -120,6 +210,7 @@ export function ItemEditPanel({
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   // Form state — initialised from item, reset when item or panel open state changes
+  const [verdict, setVerdict] = useState<Verdict>(item.verdict);
   const [itemName, setItemName] = useState(item.item_name);
   const [estimatedValue, setEstimatedValue] = useState<string>(
     item.estimated_replace_cost != null
@@ -132,6 +223,7 @@ export function ItemEditPanel({
   // Reset form when panel opens or item changes
   useEffect(() => {
     if (!isOpen) return;
+    setVerdict(item.verdict);
     setItemName(item.item_name);
     setEstimatedValue(
       item.estimated_replace_cost != null
@@ -143,6 +235,14 @@ export function ItemEditPanel({
     setError(null);
     setSuccess(false);
   }, [isOpen, item]);
+
+  // When verdict changes away from shipping verdicts, clear box selection
+  const handleVerdictChange = (next: Verdict) => {
+    setVerdict(next);
+    if (!SHIPPING_VERDICTS.includes(next)) {
+      setBoxId("");
+    }
+  };
 
   // Focus management: trap focus within panel and restore on close
   useEffect(() => {
@@ -211,7 +311,7 @@ export function ItemEditPanel({
     }
   }, [isOpen, isMobile]);
 
-  const showBoxField = SHIPPING_VERDICTS.includes(item.verdict);
+  const showBoxField = SHIPPING_VERDICTS.includes(verdict);
   const shippingBoxes = boxes.filter(
     (b) =>
       b.box_type === "standard" ||
@@ -235,6 +335,9 @@ export function ItemEditPanel({
 
     const updates: Partial<ItemAssessment> = {};
 
+    if (verdict !== item.verdict) {
+      updates.verdict = verdict;
+    }
     if (trimmedName !== item.item_name) {
       updates.item_name = trimmedName;
     }
@@ -267,7 +370,7 @@ export function ItemEditPanel({
     } finally {
       setIsSaving(false);
     }
-  }, [itemName, estimatedValue, notes, boxId, item, showBoxField, onSave, onClose]);
+  }, [verdict, itemName, estimatedValue, notes, boxId, item, showBoxField, onSave, onClose]);
 
   // Choose animation variants based on viewport and motion preference
   const variants = isMobile
@@ -343,6 +446,30 @@ export function ItemEditPanel({
             {/* Scrollable form body */}
             <div className={styles.body}>
               <div className={styles.form}>
+                {/* Decision / verdict selector */}
+                <div className={styles.fieldGroup}>
+                  <span className={styles.label} id="verdict-group-label">
+                    Decision
+                  </span>
+                  <VerdictSelector
+                    value={verdict}
+                    onChange={handleVerdictChange}
+                    disabled={isSaving}
+                  />
+                  {/* Inline note when changing away from ship/carry */}
+                  {!SHIPPING_VERDICTS.includes(verdict) &&
+                    SHIPPING_VERDICTS.includes(item.verdict) && (
+                      <p className={styles.verdictChangeNote} role="note">
+                        Changing to{" "}
+                        {
+                          VERDICT_OPTIONS.find((o) => o.value === verdict)
+                            ?.label
+                        }{" "}
+                        will remove this item from any boxes it&apos;s in.
+                      </p>
+                    )}
+                </div>
+
                 {/* Item name */}
                 <div className={styles.fieldGroup}>
                   <label htmlFor="item-edit-name" className={styles.label}>

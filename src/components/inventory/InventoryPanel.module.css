@@ -495,6 +495,66 @@
   margin: 0 8px;
 }
 
+/* Add a box button — dashed outline, full width, at the bottom of the freight boxes section */
+.addBoxButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.addBoxButton:hover {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.addBoxButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Add to carry-on button on ItemRow — matches assignBoxButton style with briefcase icon */
+.carryOnButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #16a34a) 40%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.carryOnButton:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 10%, transparent);
+  border-color: var(--color-primary, #16a34a);
+}
+
+.carryOnButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
 /* Skeleton loading state */
 .skeleton {
   display: flex;
@@ -637,6 +697,13 @@
 
   /* Assign box button — 44px touch target on mobile */
   .assignBoxButton {
+    min-height: 44px;
+    padding: 4px 10px;
+    font-size: 14px;
+  }
+
+  /* Carry-on button — 44px touch target on mobile */
+  .carryOnButton {
     min-height: 44px;
     padding: 4px 10px;
     font-size: 14px;

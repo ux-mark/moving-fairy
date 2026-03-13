@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  Briefcase,
   ChevronDown,
   Luggage,
   Package,
   PackagePlus,
   Pencil,
   Plane,
+  Plus,
   ShoppingBag,
   Trash2,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import {
 import { BoxCard } from "@/components/boxes/BoxCard";
 import { BoxPicker } from "@/components/boxes/BoxPicker";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
+import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { CostSummary } from "@/components/inventory/CostSummary";
 import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
@@ -31,6 +34,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/shared/Collapsible";
 import type { Verdict } from "@/lib/constants";
+import { BoxSize, BoxType } from "@/lib/constants";
 import { useInventory } from "@/lib/hooks/useInventory";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { cn } from "@/lib/utils";
@@ -151,6 +155,10 @@ function ContainerView({
   onRefresh: () => void;
   onBackToChat?: (() => void) | undefined;
 }) {
+  const [createPanelOpen, setCreatePanelOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+
   const assessmentMap = useMemo(
     () =>
       assessments.reduce<Record<string, ItemAssessment>>((acc, a) => {
@@ -222,6 +230,68 @@ function ContainerView({
     [onRefresh]
   );
 
+  const handleCreateBox = useCallback(
+    async (data: { roomName: string; size: BoxSize; boxType: (typeof BoxType)[keyof typeof BoxType] }) => {
+      setIsCreating(true);
+      try {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: data.roomName,
+            size: data.size,
+            box_type: data.boxType,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create box");
+        setCreatePanelOpen(false);
+        onRefresh();
+      } catch (err) {
+        console.error("Failed to create box:", err);
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [onRefresh]
+  );
+
+  const handleAutoAssignCarry = useCallback(
+    async (assessmentId: string) => {
+      const carryBox = boxes.find(
+        (b) =>
+          (b.box_type === "carryon" || b.box_type === "checked_luggage") &&
+          b.status === "packing"
+      );
+
+      let targetBoxId: string;
+
+      if (carryBox) {
+        targetBoxId = carryBox.id;
+      } else {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: "Carry-on bag",
+            box_type: "carryon",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create carry-on box");
+        const json = await res.json();
+        targetBoxId = (json.box ?? json).id;
+      }
+
+      await fetch(`/api/boxes/${targetBoxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+
+      onRefresh();
+    },
+    [boxes, onRefresh]
+  );
+
   const luggageBoxes = boxes.filter(
     (b) => b.box_type === "carryon" || b.box_type === "checked_luggage"
   );
@@ -291,25 +361,39 @@ function ContainerView({
         </Section>
       )}
 
-      {freightBoxes.length > 0 && (
-        <Section icon={Package} title="Freight boxes">
-          <div className={styles.sectionContent}>
-            {freightBoxes.map((box) => (
-              <BoxCard
-                key={box.id}
-                box={box}
-                items={boxItems[box.id] ?? []}
-                assessments={assessmentMap}
-                unboxedItems={unboxedItems}
-                onAddItem={handleAddItem}
-                onAddExistingItem={handleAddExistingItem}
-                onRemoveItem={handleRemoveItem}
-                onMarkPacked={handleMarkPacked}
-              />
-            ))}
-          </div>
-        </Section>
-      )}
+      <Section icon={Package} title="Freight boxes">
+        <div className={styles.sectionContent}>
+          {freightBoxes.map((box) => (
+            <BoxCard
+              key={box.id}
+              box={box}
+              items={boxItems[box.id] ?? []}
+              assessments={assessmentMap}
+              unboxedItems={unboxedItems}
+              onAddItem={handleAddItem}
+              onAddExistingItem={handleAddExistingItem}
+              onRemoveItem={handleRemoveItem}
+              onMarkPacked={handleMarkPacked}
+            />
+          ))}
+          <button
+            type="button"
+            className={styles.addBoxButton}
+            onClick={() => setCreatePanelOpen(true)}
+            aria-label="Add a box"
+          >
+            <Plus size={15} aria-hidden="true" />
+            Add a box
+          </button>
+        </div>
+      </Section>
+
+      <CreateBoxPanel
+        open={createPanelOpen}
+        onClose={() => setCreatePanelOpen(false)}
+        onSubmit={handleCreateBox}
+        isSubmitting={isCreating}
+      />
 
       {singleItems.length > 0 && (
         <Section icon={Luggage} title="Large items — shipping individually">
@@ -332,18 +416,29 @@ function ContainerView({
       {unboxedItems.length > 0 && (
         <Section icon={PackagePlus} title="Not yet boxed">
           <div className={styles.collapsibleItems}>
-            {unboxedItems.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                boxes={boxes}
-                packingBoxes={packingBoxes}
-                boxItemCounts={boxItemCounts}
-                onAssignToBox={handleAssignToBox}
-                onRefresh={onRefresh}
-                onBackToChat={onBackToChat}
-              />
-            ))}
+            <AnimatePresence mode="popLayout">
+              {unboxedItems.map((item) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+                >
+                  <ItemRow
+                    item={item}
+                    boxes={boxes}
+                    packingBoxes={packingBoxes}
+                    boxItemCounts={boxItemCounts}
+                    onAssignToBox={handleAssignToBox}
+                    onAutoAssignCarry={handleAutoAssignCarry}
+                    onRefresh={onRefresh}
+                    onBackToChat={onBackToChat}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </Section>
       )}
@@ -411,6 +506,7 @@ function VerdictGroup({
   onBackToChat?: (() => void) | undefined;
 }) {
   const [isOpen, setIsOpen] = useState(true);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -426,9 +522,20 @@ function VerdictGroup({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
-          {items.map((item) => (
-            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} showVerdict={false} />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {items.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+              >
+                <ItemRow item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} showVerdict={false} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -469,6 +576,8 @@ interface ItemRowProps {
   boxItemCounts?: Record<string, number>;
   /** Called when the user selects a box via the quick-assign picker */
   onAssignToBox?: (boxId: string, assessmentId: string) => void;
+  /** Called when the user taps "Add to carry-on" for a CARRY item — auto-creates carry-on if needed */
+  onAutoAssignCarry?: (assessmentId: string) => void;
   /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
   onBackToChat?: (() => void) | undefined;
   /** Whether to show the verdict badge inline in the row (default true). Pass false inside VerdictGroup where the badge is already in the group header. */
@@ -482,6 +591,7 @@ function ItemRow({
   packingBoxes,
   boxItemCounts,
   onAssignToBox,
+  onAutoAssignCarry,
   onBackToChat,
   showVerdict = true,
 }: ItemRowProps) {
@@ -489,10 +599,13 @@ function ItemRow({
   const [isPickingBox, setIsPickingBox] = useState(false);
 
   const canQuickAssign =
-    (item.verdict === "SHIP" || item.verdict === "CARRY") &&
+    item.verdict === "SHIP" &&
     onAssignToBox !== undefined &&
     packingBoxes !== undefined &&
     packingBoxes.length > 0;
+
+  const canAutoAssignCarry =
+    item.verdict === "CARRY" && onAutoAssignCarry !== undefined;
 
   const handleItemSave = useCallback(
     async (updates: Partial<ItemAssessment>) => {
@@ -557,6 +670,18 @@ function ItemRow({
               </button>
             )}
 
+            {canAutoAssignCarry && (
+              <button
+                type="button"
+                className={styles.carryOnButton}
+                onClick={() => onAutoAssignCarry!(item.id)}
+                aria-label={`Add ${item.item_name} to carry-on`}
+              >
+                <Briefcase size={13} aria-hidden="true" />
+                Add to carry-on
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsEditOpen(true)}
@@ -603,6 +728,7 @@ function NotShippingSection({
   onRefresh: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -618,9 +744,20 @@ function NotShippingSection({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
-          {items.map((item) => (
-            <NotShippingItemRow key={item.id} item={item} onRefresh={onRefresh} />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {items.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+              >
+                <NotShippingItemRow item={item} onRefresh={onRefresh} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </CollapsibleContent>
     </Collapsible>

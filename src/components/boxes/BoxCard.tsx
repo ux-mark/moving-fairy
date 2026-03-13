@@ -580,6 +580,15 @@ export function BoxCard({
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [itemCountKey, setItemCountKey] = useState(0);
+  const prevItemCount = useRef(items.length);
+
+  useEffect(() => {
+    if (items.length !== prevItemCount.current) {
+      setItemCountKey((k) => k + 1);
+      prevItemCount.current = items.length;
+    }
+  }, [items.length]);
 
   // On mobile, use simple CSS transitions instead of spring physics
   const [isMobile, setIsMobile] = useState(false);
@@ -656,7 +665,11 @@ export function BoxCard({
 
   return (
     <>
-      <div className={cn(styles.card, isShipped && styles.cardShipped)}>
+      <div
+        className={cn(styles.card, isShipped && styles.cardShipped)}
+        data-open={isOpen ? "true" : "false"}
+        data-box-type={box.box_type}
+      >
         {/* Collapsed header — always visible */}
         <div
           role="button"
@@ -692,17 +705,24 @@ export function BoxCard({
               <BoxStatusBadge status={box.status} />
             </div>
             <div className={styles.headerMeta}>
-              <span>
+              <motion.span
+                key={itemCountKey}
+                initial={itemCountKey > 0 ? { scale: 1.15 } : false}
+                animate={{ scale: 1 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.3, ease: "easeOut" }}
+              >
                 {items.length} {items.length === 1 ? "item" : "items"}
-              </span>
+              </motion.span>
               {showCbm && <span>{box.cbm} CBM</span>}
             </div>
           </div>
 
-          <ChevronDown
-            className={cn(styles.chevron, isOpen && styles.chevronOpen)}
-            style={{ width: 16, height: 16 }}
-          />
+          <div className={styles.chevronWrap}>
+            <ChevronDown
+              className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+              style={{ width: 16, height: 16 }}
+            />
+          </div>
         </div>
 
         {/* Expanded content */}
@@ -733,6 +753,7 @@ export function BoxCard({
                   <p className={styles.emptyMessage}>No items in this box yet.</p>
                 ) : (
                   <ul className={styles.itemList}>
+                    <AnimatePresence mode="popLayout">
                     {[...items]
                       .sort((a, b) => {
                         const nameA = (a.item_assessment_id ? assessments?.[a.item_assessment_id]?.item_name : undefined) ?? a.item_name ?? "";
@@ -746,7 +767,15 @@ export function BoxCard({
                       const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
 
                       return (
-                        <li key={item.id} className={styles.itemRow}>
+                        <motion.li
+                          key={item.id}
+                          layout
+                          className={styles.itemRow}
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: 12 }}
+                          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+                        >
                           <div className={styles.itemRowLeft}>
                             <span
                               className={styles.verdictDot}
@@ -782,9 +811,10 @@ export function BoxCard({
                               <XIcon style={{ width: 16, height: 16 }} />
                             </Button>
                           )}
-                        </li>
+                        </motion.li>
                       );
                     })}
+                    </AnimatePresence>
                   </ul>
                 )}
 
