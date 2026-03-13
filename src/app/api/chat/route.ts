@@ -699,18 +699,23 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 
     // ── Build message history ─────────────────────────────────────────────────
 
-    const history = Array.isArray(session.messages) ? session.messages : []
-
-    const anthropicMessages: Anthropic.Messages.MessageParam[] = history
-      .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0)
-      .map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }))
-
     // ── Detect opening / welcome-back trigger ────────────────────────────────
     const isOpeningTrigger = message === '__opening__'
     const isWelcomeBack = message === '__welcome_back__'
+
+    const history = Array.isArray(session.messages) ? session.messages : []
+
+    // For welcome-back, skip conversation history — the injected summary data
+    // (verdict counts + box counts) is the source of truth. Passing full history
+    // causes Aisling to echo prior turns as text in her welcome message.
+    const anthropicMessages: Anthropic.Messages.MessageParam[] = isWelcomeBack
+      ? []
+      : history
+          .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0)
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
 
     let effectiveMessage: string
     if (isOpeningTrigger) {
