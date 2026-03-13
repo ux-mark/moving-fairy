@@ -25,6 +25,7 @@ export interface UserProfile {
 
 export interface Message {
   id: string
+  session_id: string
   role: 'user' | 'assistant'
   content: string
   created_at: string
@@ -35,7 +36,6 @@ export interface Session {
   created_at: string
   updated_at: string
   user_profile_id: string
-  messages: Message[]
 }
 
 export interface ItemAssessment {

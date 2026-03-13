@@ -123,7 +123,6 @@ export async function createSession(userProfileId: string): Promise<Session> {
     .from('session')
     .insert({
       user_profile_id: userProfileId,
-      messages: [],
     })
     .select()
     .single()
@@ -144,27 +143,47 @@ export async function getSession(sessionId: string): Promise<Session | null> {
   return session as Session
 }
 
-export async function appendMessage(sessionId: string, message: Message): Promise<void> {
+export async function appendMessage(sessionId: string, message: Omit<Message, 'session_id'>): Promise<void> {
   const supabase = getAdminClient()
 
-  // Fetch current messages, append, update
-  const { data: session, error: fetchErr } = await supabase
-    .from('session')
-    .select('messages')
-    .eq('id', sessionId)
-    .single()
-
-  if (fetchErr || !session) throw new Error(fetchErr?.message ?? 'Session not found')
-
-  const messages: Message[] = Array.isArray(session.messages) ? session.messages : []
-  messages.push(message)
-
   const { error } = await supabase
-    .from('session')
-    .update({ messages, updated_at: new Date().toISOString() })
-    .eq('id', sessionId)
+    .from('message')
+    .insert({
+      id: message.id,
+      session_id: sessionId,
+      role: message.role,
+      content: message.content,
+      created_at: message.created_at,
+    })
 
   if (error) throw new Error(error.message)
+}
+
+export async function getMessages(sessionId: string): Promise<Message[]> {
+  const supabase = getAdminClient()
+
+  const { data, error } = await supabase
+    .from('message')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Message[]
+}
+
+export async function getRecentMessages(sessionId: string, count: number): Promise<Message[]> {
+  const supabase = getAdminClient()
+
+  const { data, error } = await supabase
+    .from('message')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(count)
+
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as Message[]).reverse()
 }
 
 // ─── ItemAssessment ────────────────────────────────────────────────────────

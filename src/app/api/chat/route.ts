@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import {
   appendMessage,
   findOrCreateSession,
+  getMessages,
   saveItemAssessment,
   updateItemAssessment,
   getItemAssessments,
@@ -703,7 +704,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const isOpeningTrigger = message === '__opening__'
     const isWelcomeBack = message === '__welcome_back__'
 
-    const history = Array.isArray(session.messages) ? session.messages : []
+    const history = await getMessages(sessionId)
 
     // For welcome-back, skip conversation history — the injected summary data
     // (verdict counts + box counts) is the source of truth. Passing full history
