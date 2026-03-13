@@ -126,6 +126,7 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
                 <VerdictView
                   assessments={assessments}
                   boxes={boxes}
+                  boxItems={boxItems}
                   onRefresh={refreshInventory}
                   onBackToChat={onBackToChat}
                 />
@@ -457,14 +458,73 @@ function ContainerView({
 function VerdictView({
   assessments,
   boxes,
+  boxItems,
   onRefresh,
   onBackToChat,
 }: {
   assessments: ItemAssessment[];
   boxes: Box[];
+  boxItems: Record<string, BoxItem[]>;
   onRefresh: () => void;
   onBackToChat?: (() => void) | undefined;
 }) {
+  const packingBoxes = boxes.filter((b) => b.status === "packing");
+  const boxItemCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(boxItems).map(([bid, bItems]) => [bid, bItems.length])
+      ),
+    [boxItems]
+  );
+
+  const handleAssignToBox = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleAutoAssignCarry = useCallback(
+    async (assessmentId: string) => {
+      const carryBox = boxes.find(
+        (b) =>
+          (b.box_type === "carryon" || b.box_type === "checked_luggage") &&
+          b.status === "packing"
+      );
+
+      let targetBoxId: string;
+
+      if (carryBox) {
+        targetBoxId = carryBox.id;
+      } else {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: "Carry-on bag",
+            box_type: "carryon",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create carry-on box");
+        const json = await res.json();
+        targetBoxId = (json.box ?? json).id;
+      }
+
+      await fetch(`/api/boxes/${targetBoxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+
+      onRefresh();
+    },
+    [boxes, onRefresh]
+  );
   const grouped = VERDICT_ORDER.reduce(
     (acc, v) => {
       const items = assessments
@@ -484,6 +544,10 @@ function VerdictView({
           verdict={verdict}
           items={items}
           boxes={boxes}
+          packingBoxes={packingBoxes}
+          boxItemCounts={boxItemCounts}
+          onAssignToBox={handleAssignToBox}
+          onAutoAssignCarry={handleAutoAssignCarry}
           onRefresh={onRefresh}
           onBackToChat={onBackToChat}
         />
@@ -496,12 +560,20 @@ function VerdictGroup({
   verdict,
   items,
   boxes,
+  packingBoxes,
+  boxItemCounts,
+  onAssignToBox,
+  onAutoAssignCarry,
   onRefresh,
   onBackToChat,
 }: {
   verdict: Verdict;
   items: ItemAssessment[];
   boxes: Box[];
+  packingBoxes: Box[];
+  boxItemCounts: Record<string, number>;
+  onAssignToBox: (boxId: string, assessmentId: string) => void;
+  onAutoAssignCarry: (assessmentId: string) => void;
   onRefresh: () => void;
   onBackToChat?: (() => void) | undefined;
 }) {
@@ -532,7 +604,17 @@ function VerdictGroup({
                 exit={{ opacity: 0, x: -12 }}
                 transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
               >
-                <ItemRow item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} showVerdict={false} />
+                <ItemRow
+                  item={item}
+                  boxes={boxes}
+                  packingBoxes={packingBoxes}
+                  boxItemCounts={boxItemCounts}
+                  onAssignToBox={onAssignToBox}
+                  onAutoAssignCarry={onAutoAssignCarry}
+                  onRefresh={onRefresh}
+                  onBackToChat={onBackToChat}
+                  showVerdict={false}
+                />
               </motion.div>
             ))}
           </AnimatePresence>

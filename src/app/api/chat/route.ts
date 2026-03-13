@@ -228,6 +228,10 @@ const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
           type: 'string',
           description: 'Biosecurity or customs restriction that affects the verdict. Omit if none.',
         },
+        assessment_id: {
+          type: 'string',
+          description: 'ID of an existing assessment to update (from Previously Assessed Items list). Include this when revising an item to avoid creating a duplicate.',
+        },
         item_description: { type: 'string', description: 'Brief description of the item' },
         image_url: { type: 'string', description: 'Storage URL of uploaded item image if from a photo assessment' },
         voltage_compatible: { type: 'boolean', description: 'Whether item works at destination voltage' },
@@ -479,25 +483,47 @@ async function runAislingLoop(
         const cardPayload = JSON.stringify({ __type: 'card', ...cardInput })
         controller.enqueue(encoder.encode(`data: ${cardPayload}\n\n`))
 
-        // Auto-save assessment immediately with user_confirmed = false
+        // Auto-save assessment with user_confirmed = false.
+        // If assessment_id is provided (revision of an existing item), update directly.
+        // Otherwise saveItemAssessment handles upsert by item_name.
         let autoSaveResult: { assessment_id?: string } = {}
         try {
-          const autoSaved = await saveItemAssessment({
-            user_profile_id: userProfileId,
-            session_id: sessionId,
-            item_name: cardInput.item as string,
-            verdict: cardInput.verdict as import('@/lib/constants').Verdict,
-            advice_text: (cardInput.rationale as string) ?? null,
-            item_description: (cardInput.item_description as string) ?? null,
-            image_url: (cardInput.image_url as string) ?? null,
-            voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
-            needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
-            estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
-            currency: (cardInput.currency as string) ?? null,
-            estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
-            replace_currency: (cardInput.replace_currency as string) ?? null,
-            user_confirmed: false,
-          })
+          const existingId = cardInput.assessment_id as string | undefined
+          let autoSaved: import('@/types/database').ItemAssessment
+
+          if (existingId) {
+            autoSaved = await updateItemAssessment(existingId, {
+              item_name: cardInput.item as string,
+              verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+              advice_text: (cardInput.rationale as string) ?? null,
+              item_description: (cardInput.item_description as string) ?? null,
+              image_url: (cardInput.image_url as string) ?? null,
+              voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+              needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+              estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+              currency: (cardInput.currency as string) ?? null,
+              estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+              replace_currency: (cardInput.replace_currency as string) ?? null,
+              user_confirmed: false,
+            }, userProfileId)
+          } else {
+            autoSaved = await saveItemAssessment({
+              user_profile_id: userProfileId,
+              session_id: sessionId,
+              item_name: cardInput.item as string,
+              verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+              advice_text: (cardInput.rationale as string) ?? null,
+              item_description: (cardInput.item_description as string) ?? null,
+              image_url: (cardInput.image_url as string) ?? null,
+              voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+              needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+              estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+              currency: (cardInput.currency as string) ?? null,
+              estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+              replace_currency: (cardInput.replace_currency as string) ?? null,
+              user_confirmed: false,
+            })
+          }
           autoSaveResult = { assessment_id: autoSaved.id }
         } catch (saveErr) {
           console.error('[chat] auto-save assessment failed:', saveErr)
@@ -650,9 +676,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
       const assessments = await getItemAssessments(profileId)
       if (assessments.length > 0) {
         const lines = assessments.map(
-          (a) => `- ${a.item_name}: ${a.verdict}${a.advice_text ? ` (${a.advice_text.slice(0, 80)})` : ''}`
+          (a) => `- ${a.item_name}: ${a.verdict} [id: ${a.id}]${a.advice_text ? ` (${a.advice_text.slice(0, 80)})` : ''}`
         )
-        assessmentContext = `## Previously Assessed Items (${assessments.length} total)\n\n${lines.join('\n')}\n\nDo not re-assess these items unless the user explicitly asks. You may reference previous decisions.`
+        assessmentContext = `## Previously Assessed Items (${assessments.length} total)\n\n${lines.join('\n')}\n\nDo not re-assess these items unless the user explicitly asks. You may reference previous decisions. When re-assessing an item, include its assessment_id from the list above in your render_assessment_card call to update the existing record.`
       }
     } catch {
       // Non-fatal
@@ -745,25 +771,44 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     ): Promise<string> => {
       if (toolName === 'render_assessment_card') {
         const cardInput = toolInput
-        // Send card data as structured SSE event (handled by runCliAgentLoop)
         let autoSaveResult: { assessment_id?: string } = {}
         try {
-          const autoSaved = await saveItemAssessment({
-            user_profile_id: userProfileId,
-            session_id: sessionId,
-            item_name: cardInput.item as string,
-            verdict: cardInput.verdict as import('@/lib/constants').Verdict,
-            advice_text: (cardInput.rationale as string) ?? null,
-            item_description: (cardInput.item_description as string) ?? null,
-            image_url: (cardInput.image_url as string) ?? null,
-            voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
-            needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
-            estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
-            currency: (cardInput.currency as string) ?? null,
-            estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
-            replace_currency: (cardInput.replace_currency as string) ?? null,
-            user_confirmed: false,
-          })
+          const existingId = cardInput.assessment_id as string | undefined
+          let autoSaved: import('@/types/database').ItemAssessment
+
+          if (existingId) {
+            autoSaved = await updateItemAssessment(existingId, {
+              item_name: cardInput.item as string,
+              verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+              advice_text: (cardInput.rationale as string) ?? null,
+              item_description: (cardInput.item_description as string) ?? null,
+              image_url: (cardInput.image_url as string) ?? null,
+              voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+              needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+              estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+              currency: (cardInput.currency as string) ?? null,
+              estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+              replace_currency: (cardInput.replace_currency as string) ?? null,
+              user_confirmed: false,
+            }, userProfileId)
+          } else {
+            autoSaved = await saveItemAssessment({
+              user_profile_id: userProfileId,
+              session_id: sessionId,
+              item_name: cardInput.item as string,
+              verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+              advice_text: (cardInput.rationale as string) ?? null,
+              item_description: (cardInput.item_description as string) ?? null,
+              image_url: (cardInput.image_url as string) ?? null,
+              voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+              needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+              estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+              currency: (cardInput.currency as string) ?? null,
+              estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+              replace_currency: (cardInput.replace_currency as string) ?? null,
+              user_confirmed: false,
+            })
+          }
           autoSaveResult = { assessment_id: autoSaved.id }
         } catch (saveErr) {
           console.error('[chat] auto-save assessment failed:', saveErr)

@@ -7,6 +7,7 @@ import { InputBar } from "@/components/chat/InputBar";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import type { LogicEvent } from "@/components/chat/AILogicPanel";
+import { triggerInventoryRefresh } from "@/hooks/useInventoryData";
 import styles from "./ChatInterface.module.css";
 
 interface ChatMessage {
@@ -56,6 +57,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const openingTriggeredRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced inventory refresh — collapses rapid-fire card events into one refresh
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      triggerInventoryRefresh();
+      refreshTimerRef.current = null;
+    }, 500);
+  }, []);
 
   const updateIsStreaming = useCallback(
     (val: boolean) => {
@@ -212,6 +223,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                       },
                     },
                   ]);
+                  // Refresh sidebar so it reflects the new/updated assessment
+                  debouncedRefresh();
                   continue;
                 }
                 if (
@@ -226,6 +239,17 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                     timestamp: Date.now(),
                   };
                   onLogicEvent?.(logicEvent);
+                  // Refresh sidebar after write operations complete
+                  if (parsed.__type === "tool_result") {
+                    const writeTool = [
+                      "save_item_assessment", "update_item_assessment",
+                      "create_box", "add_item_to_box", "remove_item_from_box",
+                      "set_all_boxes_shipped",
+                    ];
+                    if (writeTool.includes(parsed.name as string)) {
+                      debouncedRefresh();
+                    }
+                  }
                   continue;
                 }
               } catch {
