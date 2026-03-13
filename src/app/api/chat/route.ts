@@ -18,6 +18,7 @@ import {
 } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import { useCliMode, runCliAgentLoop, type ToolDefinition } from '@/lib/claude-cli'
 import { BoxSize, BoxType, Country } from '@/lib/constants'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -582,12 +583,13 @@ export async function POST(req: NextRequest) {
   try {
     const profile = authProfile
 
-    const apiKey =
-      getAnthropicApiKey() ||
-      profile.anthropic_api_key ||
-      ''
+    const cliMode = useCliMode()
 
-    if (!apiKey) {
+    const apiKey = cliMode
+      ? '' // CLI mode doesn't need an API key
+      : getAnthropicApiKey() || profile.anthropic_api_key || ''
+
+    if (!cliMode && !apiKey) {
       return Response.json(
         {
           ok: false,
@@ -729,9 +731,6 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 
     // ── Stream ────────────────────────────────────────────────────────────────
 
-    const anthropic = apiKey.startsWith('sk-ant-oat')
-      ? new Anthropic({ authToken: apiKey })
-      : new Anthropic({ apiKey })
     const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
 
     const userMessageId = `msg_${Date.now()}_user`
@@ -739,18 +738,85 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const now = new Date().toISOString()
     const userProfileId = session.user_profile_id
 
+    // ── Tool executor for CLI mode (handles render_assessment_card auto-save) ──
+    const cliToolExecutor = async (
+      toolName: string,
+      toolInput: Record<string, unknown>
+    ): Promise<string> => {
+      if (toolName === 'render_assessment_card') {
+        const cardInput = toolInput
+        // Send card data as structured SSE event (handled by runCliAgentLoop)
+        let autoSaveResult: { assessment_id?: string } = {}
+        try {
+          const autoSaved = await saveItemAssessment({
+            user_profile_id: userProfileId,
+            session_id: sessionId,
+            item_name: cardInput.item as string,
+            verdict: cardInput.verdict as import('@/lib/constants').Verdict,
+            advice_text: (cardInput.rationale as string) ?? null,
+            item_description: (cardInput.item_description as string) ?? null,
+            image_url: (cardInput.image_url as string) ?? null,
+            voltage_compatible: (cardInput.voltage_compatible as boolean) ?? null,
+            needs_transformer: (cardInput.needs_transformer as boolean) ?? null,
+            estimated_ship_cost: (cardInput.estimated_ship_cost_usd as number) ?? null,
+            currency: (cardInput.currency as string) ?? null,
+            estimated_replace_cost: (cardInput.estimated_replace_cost_usd as number) ?? null,
+            replace_currency: (cardInput.replace_currency as string) ?? null,
+            user_confirmed: false,
+          })
+          autoSaveResult = { assessment_id: autoSaved.id }
+        } catch (saveErr) {
+          console.error('[chat] auto-save assessment failed:', saveErr)
+        }
+        return JSON.stringify({ success: true, ...autoSaveResult })
+      }
+      return executeTool(toolName, toolInput, userProfileId, sessionId)
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const assistantText = await runAislingLoop(
-            anthropic,
-            model,
-            systemParts,
-            anthropicMessages,
-            controller,
-            userProfileId,
-            sessionId
-          )
+          let assistantText: string
+
+          if (cliMode) {
+            // ── CLI mode: use claude subprocess ──
+            const cliMessages = anthropicMessages.map((m) => ({
+              role: m.role,
+              content:
+                typeof m.content === 'string'
+                  ? m.content
+                  : Array.isArray(m.content)
+                    ? m.content
+                        .filter((b) => 'text' in b)
+                        .map((b) => (b as { text: string }).text)
+                        .join('\n')
+                    : '',
+            }))
+
+            assistantText = await runCliAgentLoop(
+              systemParts,
+              cliMessages,
+              AISLING_TOOLS as unknown as ToolDefinition[],
+              model,
+              controller,
+              cliToolExecutor
+            )
+          } else {
+            // ── SDK mode: direct Anthropic API ──
+            const anthropic = apiKey.startsWith('sk-ant-oat')
+              ? new Anthropic({ authToken: apiKey })
+              : new Anthropic({ apiKey })
+
+            assistantText = await runAislingLoop(
+              anthropic,
+              model,
+              systemParts,
+              anthropicMessages,
+              controller,
+              userProfileId,
+              sessionId
+            )
+          }
 
           controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
           controller.close()
@@ -779,10 +845,10 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             errMsg.includes('401') ||
             errMsg.includes('invalid x-api-key') ||
             errMsg.includes('invalid api key')
-          if (isAuthError) {
+          if (isAuthError && !cliMode) {
             refreshAnthropicApiKey()
           }
-          const retryHint = isAuthError
+          const retryHint = isAuthError && !cliMode
             ? ' (API key refreshed from keychain — please retry your message)'
             : ''
           controller.enqueue(

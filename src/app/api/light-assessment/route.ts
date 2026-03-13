@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { saveItemAssessment, addItemToBox, findOrCreateSession } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import { useCliMode, callCli } from '@/lib/claude-cli'
 import { Verdict } from '@/lib/constants'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -59,12 +60,13 @@ export async function POST(req: NextRequest) {
   try {
     const session = await findOrCreateSession(profile.id)
 
-    const apiKey =
-      getAnthropicApiKey() ||
-      profile.anthropic_api_key ||
-      ''
+    const cliMode = useCliMode()
 
-    if (!apiKey) {
+    const apiKey = cliMode
+      ? ''
+      : getAnthropicApiKey() || profile.anthropic_api_key || ''
+
+    if (!cliMode && !apiKey) {
       return Response.json(
         {
           ok: false,
@@ -125,54 +127,57 @@ Rules:
 - For needs_transformer: flag if the item could work with a transformer but the user does not have one, or note if transformer is available.`
 
     const model = process.env.MODEL_LIGHT_ASSESSMENT ?? 'claude-haiku-4-5-20251001'
+    const userPrompt = `Assess this item for my move: ${item_name.trim()}`
 
-    const callAnthropic = async (key: string) => {
-      const client = key.startsWith('sk-ant-oat')
-        ? new Anthropic({ authToken: key })
-        : new Anthropic({ apiKey: key })
+    let rawText: string
 
-      return client.messages.create({
-        model,
-        max_tokens: 512,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: `Assess this item for my move: ${item_name.trim()}`,
-          },
-        ],
-      })
-    }
+    if (cliMode) {
+      // ── CLI mode: use claude subprocess ──
+      rawText = await callCli(userPrompt, systemPrompt, model)
+    } else {
+      // ── SDK mode: direct Anthropic API ──
+      const callAnthropic = async (key: string) => {
+        const client = key.startsWith('sk-ant-oat')
+          ? new Anthropic({ authToken: key })
+          : new Anthropic({ apiKey: key })
 
-    let response: Anthropic.Messages.Message
-    try {
-      response = await callAnthropic(apiKey)
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : ''
-      const isAuthError =
-        errMsg.includes('authentication_error') ||
-        errMsg.includes('401') ||
-        errMsg.includes('invalid x-api-key') ||
-        errMsg.includes('invalid api key')
+        return client.messages.create({
+          model,
+          max_tokens: 512,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        })
+      }
 
-      if (isAuthError) {
-        // Refresh token from keychain and retry once
-        const freshKey = refreshAnthropicApiKey()
-        if (freshKey && freshKey !== apiKey) {
-          console.log('[light-assessment] Retrying with refreshed token...')
-          response = await callAnthropic(freshKey)
+      let response: Anthropic.Messages.Message
+      try {
+        response = await callAnthropic(apiKey)
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : ''
+        const isAuthError =
+          errMsg.includes('authentication_error') ||
+          errMsg.includes('401') ||
+          errMsg.includes('invalid x-api-key') ||
+          errMsg.includes('invalid api key')
+
+        if (isAuthError) {
+          const freshKey = refreshAnthropicApiKey()
+          if (freshKey && freshKey !== apiKey) {
+            console.log('[light-assessment] Retrying with refreshed token...')
+            response = await callAnthropic(freshKey)
+          } else {
+            throw err
+          }
         } else {
           throw err
         }
-      } else {
-        throw err
       }
-    }
 
-    const rawText = response.content
-      .filter((b) => b.type === 'text')
-      .map((b) => (b as { type: 'text'; text: string }).text)
-      .join('')
+      rawText = response.content
+        .filter((b) => b.type === 'text')
+        .map((b) => (b as { type: 'text'; text: string }).text)
+        .join('')
+    }
 
     let assessment: HaikuAssessmentResult
     try {
