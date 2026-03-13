@@ -85,7 +85,7 @@ export function BoxPicker({ boxes, itemCounts, onSelect, onDismiss }: BoxPickerP
         <p className={styles.emptyMessage}>No boxes available for packing.</p>
       ) : (
         <ul className={styles.list} aria-label="Available boxes">
-          {boxes.map((box, index) => {
+          {[...boxes].sort((a, b) => a.label.localeCompare(b.label)).map((box, index) => {
             const count = itemCounts[box.id] ?? 0;
             return (
               <li key={box.id} className={styles.listItem}>

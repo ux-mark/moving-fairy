@@ -37,7 +37,7 @@ export function UnboxedItems({
         </span>
       </h3>
       <ul className={styles.list}>
-        {items.map((item, index) => (
+        {[...items].sort((a, b) => a.item_name.localeCompare(b.item_name)).map((item, index) => (
           <UnboxedItemRow
             key={item.id}
             item={item}
@@ -112,7 +112,7 @@ function UnboxedItemRow({
                 }}
                 className={styles.dropdownMenu}
               >
-                {availableBoxes.map((box) => (
+                {[...availableBoxes].sort((a, b) => a.label.localeCompare(b.label)).map((box) => (
                   <li key={box.id} role="option" aria-selected={false} className={styles.dropdownItem}>
                     <button
                       type="button"

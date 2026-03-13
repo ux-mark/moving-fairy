@@ -84,6 +84,7 @@ function ItemCombobox({
 
     const matches: ComboboxItem[] = unboxedItems
       .filter((item) => item.item_name.toLowerCase().includes(lowerQuery))
+      .sort((a, b) => a.item_name.localeCompare(b.item_name))
       .map((item) => ({
         type: "existing" as const,
         id: item.id,
@@ -732,7 +733,13 @@ export function BoxCard({
                   <p className={styles.emptyMessage}>No items in this box yet.</p>
                 ) : (
                   <ul className={styles.itemList}>
-                    {items.map((item) => {
+                    {[...items]
+                      .sort((a, b) => {
+                        const nameA = (a.item_assessment_id ? assessments?.[a.item_assessment_id]?.item_name : undefined) ?? a.item_name ?? "";
+                        const nameB = (b.item_assessment_id ? assessments?.[b.item_assessment_id]?.item_name : undefined) ?? b.item_name ?? "";
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((item) => {
                       const assessment = item.item_assessment_id
                         ? assessments?.[item.item_assessment_id]
                         : undefined;

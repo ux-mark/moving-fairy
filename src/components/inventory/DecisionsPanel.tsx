@@ -324,9 +324,11 @@ export function DecisionsPanel({
     );
   }
 
+  const sorted = [...decisions].sort((a, b) => a.item_name.localeCompare(b.item_name));
+
   return (
     <div className={styles.container} role="list" aria-label="Pending decisions">
-      {decisions.map((assessment) => (
+      {sorted.map((assessment) => (
         <div key={assessment.id} role="listitem">
           <DecisionCard
             assessment={assessment}
