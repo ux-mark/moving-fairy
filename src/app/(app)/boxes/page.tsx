@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 import { Button } from '@thefairies/design-system/components'
 
-import { getSession, getBoxes, getBox, getItemAssessments } from '@/mcp'
+import { getSession, getBoxes, getItemAssessments } from '@/mcp'
 import { BoxManagement } from '@/components/boxes/BoxManagement'
 import { Verdict } from '@/lib/constants'
 
@@ -23,8 +23,7 @@ export default async function BoxesPage() {
     getItemAssessments(session.user_profile_id),
   ])
 
-  const boxesWithItems = await Promise.all(boxes.map((b) => getBox(b.id)))
-  const boxItems = Object.fromEntries(boxesWithItems.map((b) => [b.id, b.items]))
+  const boxItems = Object.fromEntries(boxes.map((b) => [b.id, b.items]))
 
   // Only SHIP and CARRY assessments matter for box management
   const relevantAssessments = assessments.filter(

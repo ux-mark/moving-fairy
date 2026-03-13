@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getBoxes, getBox, createBox } from '@/mcp'
+import { getBoxes, createBox } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { BoxType, BoxSize } from '@/lib/constants'
 
@@ -9,8 +9,7 @@ export async function GET() {
 
   try {
     const boxes = await getBoxes(profile.id)
-    const boxesWithItems = await Promise.all(boxes.map((b) => getBox(b.id)))
-    return Response.json(boxesWithItems)
+    return Response.json(boxes)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return Response.json({ ok: false, error: message }, { status: 500 })
