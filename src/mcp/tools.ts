@@ -612,7 +612,7 @@ export async function getBox(boxId: string): Promise<Box & { items: BoxItem[] }>
   return { ...(box as Box), items: resolvedItems }
 }
 
-export async function getBoxes(userProfileId: string): Promise<Box[]> {
+export async function getBoxes(userProfileId: string): Promise<(Box & { items: BoxItem[] })[]> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('box')
@@ -621,7 +621,11 @@ export async function getBoxes(userProfileId: string): Promise<Box[]> {
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as Box[]
+  const boxes = (data ?? []) as Box[]
+
+  // Fetch items for each box so callers get accurate item counts
+  const boxesWithItems = await Promise.all(boxes.map((box) => getBox(box.id)))
+  return boxesWithItems
 }
 
 export async function saveBoxManifestPhoto(boxId: string, imageUrl: string): Promise<Box> {

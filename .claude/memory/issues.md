@@ -16,6 +16,35 @@
 - **Workaround**: None needed -- warnings only, not errors.
 - **Status**: open
 
+## ISSUE-004: Existing duplicate records in database need cleanup
+
+- **Severity**: medium
+- **Location**: Supabase `item_assessment` table
+- **Description**: Prior to the upsert fix in PR #22, duplicate assessment records were created when Aisling revised a verdict. Existing duplicates (e.g. Bio Bidet with 3 records) still exist in the DB. The app-level fix prevents new duplicates but does not clean up old ones.
+- **Workaround**: Manually delete duplicate records via Supabase dashboard — keep the most recent unconfirmed record per item name per user, delete the rest.
+- **Status**: open
+
+## ISSUE-005: Duplicate inventory hooks (useInventoryData and useInventory)
+
+- **Severity**: low
+- **Location**: `src/hooks/useInventoryData.ts` and `src/lib/hooks/useInventory.ts`
+- **Description**: Two hooks fetch the same data from the same three endpoints with independent state. Both now register with the refresh callback system (fixed in PR #22), but the duplication is tech debt. Should be consolidated into a single hook or React Context.
+- **Status**: open (carried from MF-ISSUE-008)
+
+## ISSUE-006: Pre-existing lint errors across codebase (8 errors, 14 warnings)
+
+- **Severity**: low
+- **Location**: Multiple files
+- **Description**: 8 errors and 14 warnings from `pnpm lint`. Key issues:
+  - `jsx-a11y/interactive-supports-focus` error in `ItemEditPanel.tsx:159` (radiogroup not focusable)
+  - Unused variables in `claude-cli.ts` (`roundText`, `extractTextContent`) and `useInventory.ts` (`items`)
+  - Unused eslint-disable directive in `DecisionNotificationTab.tsx`
+  - `<img>` instead of `<Image>` in `InventoryPanel.tsx:753`
+  - Plus other pre-existing errors in route types and API routes (see ISSUE-001, ISSUE-002)
+- **Workaround**: None needed — app functions correctly.
+- **Status**: open
+- **Action**: Clean up in a dedicated lint-fix PR, separate from feature work.
+
 ## ISSUE-003: Supabase item-images bucket requires `supabase db reset` or manual creation for local dev
 
 - **Severity**: medium
