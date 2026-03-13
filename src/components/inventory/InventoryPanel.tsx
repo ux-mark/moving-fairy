@@ -246,9 +246,11 @@ function ContainerView({
       .filter((bi) => bi.item_assessment_id)
       .map((bi) => bi.item_assessment_id)
   );
-  const unboxedItems = assessments.filter(
-    (a) => (a.verdict === "SHIP" || a.verdict === "CARRY") && !boxedItemIds.has(a.id)
-  );
+  const unboxedItems = assessments
+    .filter(
+      (a) => (a.verdict === "SHIP" || a.verdict === "CARRY") && !boxedItemIds.has(a.id)
+    )
+    .sort((a, b) => a.item_name.localeCompare(b.item_name));
 
   const packingBoxes = boxes.filter((b) => b.status === "packing");
 
@@ -261,9 +263,11 @@ function ContainerView({
     [boxItems]
   );
 
-  const notShipping = assessments.filter(
-    (a) => a.verdict === "SELL" || a.verdict === "DONATE" || a.verdict === "DISCARD"
-  );
+  const notShipping = assessments
+    .filter(
+      (a) => a.verdict === "SELL" || a.verdict === "DONATE" || a.verdict === "DISCARD"
+    )
+    .sort((a, b) => a.item_name.localeCompare(b.item_name));
 
   return (
     <div className={styles.viewStack}>
@@ -368,7 +372,9 @@ function VerdictView({
 }) {
   const grouped = VERDICT_ORDER.reduce(
     (acc, v) => {
-      const items = assessments.filter((a) => a.verdict === v);
+      const items = assessments
+        .filter((a) => a.verdict === v)
+        .sort((a, b) => a.item_name.localeCompare(b.item_name));
       if (items.length > 0) acc.push({ verdict: v, items });
       return acc;
     },

@@ -20,11 +20,12 @@ export function ItemPicker({ items, onSelect, onDismiss, label = "Select an item
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const filtered = query.trim()
+  const filtered = (query.trim()
     ? items.filter((item) =>
         item.item_name.toLowerCase().includes(query.trim().toLowerCase())
       )
-    : items;
+    : [...items]
+  ).sort((a, b) => a.item_name.localeCompare(b.item_name));
 
   // Auto-focus the search input when the picker opens
   useEffect(() => {
