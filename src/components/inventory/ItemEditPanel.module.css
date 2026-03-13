@@ -4,7 +4,10 @@
 
 .overlay {
   position: fixed;
-  inset: 0;
+  top: 59px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--color-bg-overlay, rgba(0, 0, 0, 0.3));
   z-index: var(--z-overlay, 400);
 }
@@ -522,4 +525,13 @@
 .deleteButton:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Portal wrapper — elevates the ConfirmDialog above the edit panel (z-index 500) */
+.deleteDialogWrapper :global([class*="overlay"]) {
+  z-index: 600 !important;
+}
+
+.deleteDialogWrapper :global([class*="dialog"]) {
+  z-index: 601 !important;
 }

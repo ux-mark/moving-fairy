@@ -134,28 +134,15 @@ function ItemCombobox({
     });
   }, []);
 
-  // On mobile, close dropdown on scroll to avoid jumpy repositioning.
-  // On desktop, reposition as before.
+  // Position dropdown once when it opens; only recalculate on window resize
+  // (NOT on scroll — recalculating on scroll caused visible jumping)
   useEffect(() => {
     if (showDropdown) {
       updateDropdownPosition();
-      const isMobileViewport = window.innerWidth < 768;
-      if (isMobileViewport) {
-        const handleScroll = () => setIsOpen(false);
-        window.addEventListener("scroll", handleScroll, true);
-        window.addEventListener("resize", updateDropdownPosition);
-        return () => {
-          window.removeEventListener("scroll", handleScroll, true);
-          window.removeEventListener("resize", updateDropdownPosition);
-        };
-      } else {
-        window.addEventListener("scroll", updateDropdownPosition, true);
-        window.addEventListener("resize", updateDropdownPosition);
-        return () => {
-          window.removeEventListener("scroll", updateDropdownPosition, true);
-          window.removeEventListener("resize", updateDropdownPosition);
-        };
-      }
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("resize", updateDropdownPosition);
+      };
     }
   }, [showDropdown, updateDropdownPosition]);
 

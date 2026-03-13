@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { CostSummaryData } from "@/components/inventory/CostSummary";
 
@@ -29,8 +29,13 @@ export function useInventory() {
     error: null,
   });
 
+  const hasLoadedRef = useRef(false);
+
   const fetchInventory = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    // Only show skeleton on initial load, not background refreshes
+    if (!hasLoadedRef.current) {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    }
 
     try {
       const [assessRes, boxesRes, costRes] = await Promise.allSettled([
@@ -66,6 +71,7 @@ export function useInventory() {
         costSummary = deriveCostSummary(assessments);
       }
 
+      hasLoadedRef.current = true;
       setState({
         assessments,
         boxes,
