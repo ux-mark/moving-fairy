@@ -699,18 +699,23 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 
     // ── Build message history ─────────────────────────────────────────────────
 
-    const history = Array.isArray(session.messages) ? session.messages : []
-
-    const anthropicMessages: Anthropic.Messages.MessageParam[] = history
-      .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0)
-      .map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }))
-
     // ── Detect opening / welcome-back trigger ────────────────────────────────
     const isOpeningTrigger = message === '__opening__'
     const isWelcomeBack = message === '__welcome_back__'
+
+    const history = Array.isArray(session.messages) ? session.messages : []
+
+    // For welcome-back, skip conversation history — the injected summary data
+    // (verdict counts + box counts) is the source of truth. Passing full history
+    // causes Aisling to echo prior turns as text in her welcome message.
+    const anthropicMessages: Anthropic.Messages.MessageParam[] = isWelcomeBack
+      ? []
+      : history
+          .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0)
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
 
     let effectiveMessage: string
     if (isOpeningTrigger) {
@@ -728,7 +733,17 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
       } catch {
         summaryText = 'They have previously assessed items.'
       }
-      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
+      let boxSummaryText = ''
+      try {
+        const boxes = await getBoxes(profileId)
+        if (boxes.length > 0) {
+          const boxDescriptions = boxes.map((b) => `${b.label}: ${b.items.length} items, status ${b.status}`).join('; ')
+          boxSummaryText = ` Boxes: ${boxDescriptions}.`
+        }
+      } catch {
+        // Non-critical — Aisling can still generate a welcome without box details
+      }
+      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText}${boxSummaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Use the box item counts provided above — do not rely on previous conversation history for counts, as they may be outdated. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
     } else {
       effectiveMessage = message
     }
