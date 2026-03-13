@@ -50,6 +50,8 @@ export interface ItemEditPanelProps {
   onBackToChat?: (() => void) | undefined;
   /** Label for the breadcrumb back link on mobile (e.g. "Inventory", "Decisions") */
   breadcrumbLabel?: string;
+  /** The box this item is currently assigned to (pre-populates the box selector) */
+  currentBoxId?: string | undefined;
 }
 
 // Verdicts that support box assignment
@@ -198,6 +200,7 @@ export function ItemEditPanel({
   sourceCardRef,
   onBackToChat,
   breadcrumbLabel = "Decisions",
+  currentBoxId,
 }: ItemEditPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +221,7 @@ export function ItemEditPanel({
       : ""
   );
   const [notes, setNotes] = useState<string>(item.advice_text ?? "");
-  const [boxId, setBoxId] = useState<string>("");
+  const [boxId, setBoxId] = useState<string>(currentBoxId ?? "");
 
   // Reset form when panel opens or item changes
   useEffect(() => {
@@ -231,10 +234,10 @@ export function ItemEditPanel({
         : ""
     );
     setNotes(item.advice_text ?? "");
-    setBoxId("");
+    setBoxId(currentBoxId ?? "");
     setError(null);
     setSuccess(false);
-  }, [isOpen, item]);
+  }, [isOpen, item, currentBoxId]);
 
   // When verdict changes away from shipping verdicts, clear box selection
   const handleVerdictChange = (next: Verdict) => {
@@ -531,7 +534,7 @@ export function ItemEditPanel({
                 {showBoxField && shippingBoxes.length > 0 && (
                   <div className={styles.fieldGroup}>
                     <label htmlFor="item-edit-box" className={styles.label}>
-                      Assign to box{" "}
+                      Box{" "}
                       <span className={styles.labelHint}>(optional)</span>
                     </label>
                     <select
