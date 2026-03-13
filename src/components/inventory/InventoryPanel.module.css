@@ -116,37 +116,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-default);
-  border-top: 3px solid var(--color-primary);
-  background: var(--color-bg-card);
-  box-shadow: var(--shadow-card);
   padding: 8px 12px;
-  transition: box-shadow var(--transition-fast), background var(--transition-fast);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  transition: background var(--transition-fast);
 }
 
 .itemRow:hover {
-  background: color-mix(in srgb, var(--color-bg-subtle) 60%, var(--color-bg-card));
-  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
-}
-
-/* Verdict-specific top border colours */
-.itemRow[data-verdict="SHIP"],
-.itemRow[data-verdict="CARRY"] {
-  border-top-color: var(--verdict-ship);
-}
-
-.itemRow[data-verdict="SELL"] {
-  border-top-color: var(--verdict-sell);
-}
-
-.itemRow[data-verdict="DONATE"],
-.itemRow[data-verdict="DISCARD"] {
-  border-top-color: var(--verdict-donate);
-}
-
-.itemRow[data-verdict="DECIDE_LATER"] {
-  border-top-color: var(--verdict-decide-later);
+  background: var(--color-bg-subtle);
 }
 
 .itemThumb {
@@ -449,7 +426,7 @@
 .collapsibleItems {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   padding: 0 16px 12px;
 }
 
@@ -458,6 +435,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.itemRowOuter + .itemRowOuter {
+  border-top: 1px solid var(--color-border-default);
 }
 
 /* Assign to box button on ItemRow */
@@ -513,6 +494,7 @@
     min-height: 44px;
     padding: 10px 12px;
     gap: 10px;
+    background: transparent;
   }
 
   .singleItemRow {
