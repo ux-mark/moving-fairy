@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { CostSummaryData } from "@/components/inventory/CostSummary";
+import { registerInventoryRefresh } from "@/hooks/useInventoryData";
 
 interface InventoryState {
   assessments: ItemAssessment[];
@@ -91,6 +92,13 @@ export function useInventory() {
 
   useEffect(() => {
     fetchInventory();
+
+    // Register with the global refresh system so external triggers
+    // (e.g. ChatInterface after AI tool calls) refresh this hook too.
+    const unregister = registerInventoryRefresh(fetchInventory);
+    return () => {
+      unregister();
+    };
   }, [fetchInventory]);
 
   return { ...state, refreshInventory: fetchInventory };

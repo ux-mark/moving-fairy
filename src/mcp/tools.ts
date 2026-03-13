@@ -209,6 +209,35 @@ export async function saveItemAssessment(data: {
   const isLightweight =
     verdict === Verdict.SELL || verdict === Verdict.DONATE || verdict === Verdict.DISCARD
 
+  // Check for existing unconfirmed record with the same item name (case-insensitive).
+  // If found, update it instead of creating a duplicate.
+  const { data: existing } = await supabase
+    .from('item_assessment')
+    .select('id')
+    .eq('user_profile_id', data.user_profile_id)
+    .ilike('item_name', data.item_name)
+    .eq('user_confirmed', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (existing) {
+    return updateItemAssessment(existing.id, {
+      item_name: data.item_name,
+      verdict: data.verdict,
+      advice_text: data.advice_text ?? null,
+      item_description: isLightweight ? null : (data.item_description ?? null),
+      image_url: isLightweight ? null : (data.image_url ?? null),
+      voltage_compatible: isLightweight ? null : (data.voltage_compatible ?? null),
+      needs_transformer: isLightweight ? null : (data.needs_transformer ?? null),
+      estimated_ship_cost: isLightweight ? null : (data.estimated_ship_cost ?? null),
+      currency: isLightweight ? null : (data.currency ?? null),
+      estimated_replace_cost: isLightweight ? null : (data.estimated_replace_cost ?? null),
+      replace_currency: isLightweight ? null : (data.replace_currency ?? null),
+      user_confirmed: data.user_confirmed ?? false,
+    }, data.user_profile_id)
+  }
+
   const payload: ItemAssessmentInsert = {
     user_profile_id: data.user_profile_id,
     session_id: data.session_id ?? null,
