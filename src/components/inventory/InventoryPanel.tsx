@@ -579,6 +579,7 @@ function ItemRow({
         onSave={handleItemSave}
         onDelete={handleDeleteItem}
         onBackToChat={onBackToChat}
+        breadcrumbLabel="Inventory"
       />
     </>
   );

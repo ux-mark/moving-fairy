@@ -235,7 +235,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               let chunkText: string;
               try {
                 const parsed = JSON.parse(data);
-                chunkText = parsed.text ?? parsed;
+                if (typeof parsed === 'string') {
+                  chunkText = parsed;
+                } else if (typeof parsed?.text === 'string') {
+                  chunkText = parsed.text;
+                } else {
+                  // Skip non-string JSON payloads (error objects, metadata, etc.)
+                  continue;
+                }
               } catch {
                 chunkText = data;
               }

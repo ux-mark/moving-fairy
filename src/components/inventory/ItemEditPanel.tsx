@@ -24,6 +24,8 @@ export interface ItemEditPanelProps {
   sourceCardRef?: React.RefObject<HTMLElement | null>;
   /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
   onBackToChat?: (() => void) | undefined;
+  /** Label for the breadcrumb back link on mobile (e.g. "Inventory", "Decisions") */
+  breadcrumbLabel?: string;
 }
 
 // Verdicts that support box assignment
@@ -105,6 +107,7 @@ export function ItemEditPanel({
   onDelete,
   sourceCardRef,
   onBackToChat,
+  breadcrumbLabel = "Decisions",
 }: ItemEditPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -309,7 +312,7 @@ export function ItemEditPanel({
                   className={styles.breadcrumbLink}
                   onClick={onClose}
                 >
-                  Decisions
+                  {breadcrumbLabel}
                 </button>
                 <ChevronRight
                   size={14}
@@ -515,22 +518,25 @@ export function ItemEditPanel({
       )}
     </AnimatePresence>
 
-    {/* Delete confirmation dialog — rendered completely outside AnimatePresence */}
+    {/* Delete confirmation dialog — rendered completely outside AnimatePresence.
+        Wrapped in deleteDialogWrapper to elevate z-index above the edit panel. */}
     {onDelete && (
-      <ConfirmDialog
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="Delete this item?"
-        description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
-        confirmLabel="Delete"
-        cancelLabel="Keep it"
-        variant="danger"
-        onConfirm={() => {
-          setIsDeleteOpen(false);
-          onDelete();
-        }}
-        triggerRef={deleteButtonRef}
-      />
+      <div className={styles.deleteDialogWrapper}>
+        <ConfirmDialog
+          isOpen={isDeleteOpen}
+          onClose={() => setIsDeleteOpen(false)}
+          title="Delete this item?"
+          description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
+          confirmLabel="Delete"
+          cancelLabel="Keep it"
+          variant="danger"
+          onConfirm={() => {
+            setIsDeleteOpen(false);
+            onDelete();
+          }}
+          triggerRef={deleteButtonRef}
+        />
+      </div>
     )}
   </>
   );
