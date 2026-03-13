@@ -1,6 +1,6 @@
 "use client";
 
-import { type MutableRefObject, useEffect, useState } from "react";
+import { type MutableRefObject, useEffect, useRef, useState } from "react";
 import { Package, Scale, Brain } from "lucide-react";
 import type { ItemAssessment } from "@/types";
 import { useInventory } from "@/lib/hooks/useInventory";
@@ -23,6 +23,8 @@ interface InventorySidePanelProps {
   onSwitchToDecisionsRef?: MutableRefObject<(() => void) | null>;
   /** Called when the user taps "Back to Aisling" from inside a nested panel on mobile */
   onBackToChat?: (() => void) | undefined;
+  /** Called when the active tab changes — lets the parent hide/show the notification tab */
+  onActiveTabChange?: (tab: "inventory" | "decisions" | "logic") => void;
 }
 
 type SidePanelTab = "inventory" | "decisions" | "logic";
@@ -42,15 +44,29 @@ export function InventorySidePanel({
   onRefreshDecisions,
   onSwitchToDecisionsRef,
   onBackToChat,
+  onActiveTabChange,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
+  const decisionsButtonRef = useRef<HTMLButtonElement>(null);
   // Fetch boxes so DecisionsPanel can offer box assignment in the edit panel
   const { boxes } = useInventory();
 
-  // Allow parent to programmatically switch to the Decisions tab
+  // Notify parent when the active tab changes
+  useEffect(() => {
+    onActiveTabChange?.(activeTab);
+  }, [activeTab, onActiveTabChange]);
+
+  // Allow parent to programmatically switch to the Decisions tab.
+  // When triggered (e.g. from the notification tab), focus the Decisions
+  // toggle button so keyboard users land somewhere meaningful instead of <body>.
   useEffect(() => {
     if (onSwitchToDecisionsRef) {
-      onSwitchToDecisionsRef.current = () => setActiveTab("decisions");
+      onSwitchToDecisionsRef.current = () => {
+        setActiveTab("decisions");
+        requestAnimationFrame(() => {
+          decisionsButtonRef.current?.focus();
+        });
+      };
     }
     return () => {
       if (onSwitchToDecisionsRef) {
@@ -71,8 +87,8 @@ export function InventorySidePanel({
           <Package size={13} />
           Inventory
         </button>
-        {/* On desktop, hide this button when Decisions is the active tab — it's already showing */}
         <button
+          ref={decisionsButtonRef}
           type="button"
           className={`${activeTab === "decisions" ? styles.tabActive : styles.tab} ${styles.decisionsTab}`}
           onClick={() => setActiveTab("decisions")}

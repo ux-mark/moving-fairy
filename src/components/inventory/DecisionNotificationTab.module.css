@@ -35,9 +35,9 @@
   transform: translateY(-50%);
   z-index: calc(var(--z-panel) + 10);
 
-  /* Size — 44px wide touch target, 120px tall */
-  width: 44px;
-  height: 120px;
+  /* Size — slimmer on desktop, 44px touch target preserved via padding */
+  width: 36px;
+  height: 100px;
 
   /* Rounded on left side only (hugs right edge) */
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
@@ -219,7 +219,8 @@
   }
 }
 
-/* Count badge — absolute positioned top-right */
+/* Count badge — absolute positioned top-right.
+   Hidden on desktop because the toggle bar already shows the count. */
 .badge {
   position: absolute;
   top: -4px;
@@ -233,7 +234,7 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 18px;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -242,7 +243,9 @@
 }
 
 @media (max-width: 767px) {
+  /* Show badge on mobile — it's the only indicator there */
   .badge {
+    display: flex;
     top: -6px;
     right: -6px;
     font-size: 13px;

@@ -154,6 +154,10 @@
   color: var(--color-text-primary);
   /* Allow item names to wrap — user-generated content should never be truncated */
   overflow-wrap: break-word;
+  /* Prevent the name from being crushed to nothing when actions take all the space.
+     On desktop the side panel can be narrow (380px), so claim at least 40% so the
+     actions wrap below the name rather than squeezing the text to one char per line. */
+  min-width: 40%;
 }
 
 /* Actions group — badge + buttons inline */
