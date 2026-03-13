@@ -111,12 +111,16 @@ function ItemCombobox({
 
   const showDropdown = isOpen && trimmed.length > 0 && suggestions.length > 0;
 
-  // Position dropdown using fixed positioning to avoid clipping
+  // Position dropdown using fixed positioning to avoid clipping.
+  // On mobile with the virtual keyboard open, position above the input
+  // if there isn't enough room below.
   const updateDropdownPosition = useCallback(() => {
     if (!inputRef.current) return;
     const rect = inputRef.current.getBoundingClientRect();
     const vw = window.innerWidth;
+    const vh = window.visualViewport?.height ?? window.innerHeight;
     const minMargin = 8;
+    const dropdownMaxHeight = vw < 768 ? 180 : 240;
 
     // Clamp left so the dropdown never runs off the left edge
     const rawLeft = rect.left;
@@ -126,23 +130,32 @@ function ItemCombobox({
     const availableWidth = vw - clampedLeft - minMargin;
     const clampedWidth = Math.min(rect.width, availableWidth);
 
+    const spaceBelow = vh - rect.bottom - minMargin;
+    const spaceAbove = rect.top - minMargin;
+    const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
     setDropdownStyle({
       position: "fixed",
-      top: rect.bottom + 2,
+      ...(openAbove
+        ? { bottom: vh - rect.top + 2 }
+        : { top: rect.bottom + 2 }),
       left: clampedLeft,
       width: clampedWidth,
+      maxHeight: openAbove ? spaceAbove : Math.min(spaceBelow, dropdownMaxHeight),
       zIndex: 9999,
     });
   }, []);
 
-  // Position dropdown once when it opens; only recalculate on window resize
-  // (NOT on scroll — recalculating on scroll caused visible jumping)
+  // Position dropdown once when it opens; recalculate on window/viewport resize
+  // (viewport resize fires when mobile keyboard opens/closes)
   useEffect(() => {
     if (showDropdown) {
       updateDropdownPosition();
       window.addEventListener("resize", updateDropdownPosition);
+      window.visualViewport?.addEventListener("resize", updateDropdownPosition);
       return () => {
         window.removeEventListener("resize", updateDropdownPosition);
+        window.visualViewport?.removeEventListener("resize", updateDropdownPosition);
       };
     }
   }, [showDropdown, updateDropdownPosition]);
@@ -253,6 +266,12 @@ function ItemCombobox({
           onKeyDown={handleKeyDown}
           onFocus={() => {
             if (trimmed) setIsOpen(true);
+            // On mobile, scroll input into view after keyboard opens
+            if (window.innerWidth < 768) {
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+              }, 300);
+            }
           }}
           placeholder="Search or add an item..."
           className={styles.addItemInput}

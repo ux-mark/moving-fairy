@@ -490,14 +490,14 @@ export async function addItemToBox(
 ): Promise<BoxItem> {
   const supabase = getAdminClient()
 
-  const itemName = opts.itemName ?? ''
+  let itemName = opts.itemName ?? ''
   let fromAssessment = false
 
   if (opts.itemAssessmentId) {
-    // Validate verdict gate
+    // Validate verdict gate — also fetch item_name for the insert payload
     const { data: assessment, error: aErr } = await supabase
       .from('item_assessment')
-      .select('verdict')
+      .select('verdict, item_name')
       .eq('id', opts.itemAssessmentId)
       .single()
 
@@ -511,6 +511,7 @@ export async function addItemToBox(
     }
 
     fromAssessment = true
+    itemName = assessment.item_name
 
     // Check if this assessed item is already in a box (partial unique index)
     const { data: existing } = await supabase
@@ -536,9 +537,7 @@ export async function addItemToBox(
   const payload = {
     box_id: boxId,
     item_assessment_id: opts.itemAssessmentId ?? null,
-    // For assessed items the canonical name lives on item_assessment.item_name.
-    // For unassessed items item_name is the only source — keep it as provided.
-    item_name: fromAssessment ? null : itemName,
+    item_name: itemName,
     quantity: 1,
     from_handwritten_list: false,
     needs_assessment: !fromAssessment,
