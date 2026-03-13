@@ -435,24 +435,26 @@ export function ItemEditPanel({
                   </div>
                 )}
 
-                {/* Save button */}
-                <button
-                  type="button"
-                  className={styles.saveButton}
-                  onClick={handleSave}
-                  disabled={isSaving || success}
-                >
-                  {isSaving ? (
-                    <span className={styles.saveButtonInner}>
-                      <Spinner size="sm" />
-                      Saving...
-                    </span>
-                  ) : success ? (
-                    "Saved"
-                  ) : (
-                    "Save changes"
-                  )}
-                </button>
+                {/* Save button — desktop only (mobile puts it in sticky footer) */}
+                {!isMobile && (
+                  <button
+                    type="button"
+                    className={styles.saveButton}
+                    onClick={handleSave}
+                    disabled={isSaving || success}
+                  >
+                    {isSaving ? (
+                      <span className={styles.saveButtonInner}>
+                        <Spinner size="sm" />
+                        Saving...
+                      </span>
+                    ) : success ? (
+                      "Saved"
+                    ) : (
+                      "Save changes"
+                    )}
+                  </button>
+                )}
 
                 {/* Delete item — destructive action, separated visually */}
                 {onDelete && (
@@ -476,17 +478,36 @@ export function ItemEditPanel({
               </div>
             </div>
 
-            {/* Sticky footer — always visible on mobile */}
-            {isMobile && onBackToChat && (
+            {/* Sticky footer — always visible on mobile with Save + back link */}
+            {isMobile && (
               <div className={styles.stickyFooter}>
                 <button
                   type="button"
-                  className={styles.backToChat}
-                  onClick={onBackToChat}
+                  className={styles.saveButton}
+                  onClick={handleSave}
+                  disabled={isSaving || success}
                 >
-                  <MessageCircle size={16} aria-hidden="true" />
-                  Back to Aisling
+                  {isSaving ? (
+                    <span className={styles.saveButtonInner}>
+                      <Spinner size="sm" />
+                      Saving...
+                    </span>
+                  ) : success ? (
+                    "Saved"
+                  ) : (
+                    "Save changes"
+                  )}
                 </button>
+                {onBackToChat && (
+                  <button
+                    type="button"
+                    className={styles.backToChat}
+                    onClick={onBackToChat}
+                  >
+                    <MessageCircle size={16} aria-hidden="true" />
+                    Back to Aisling
+                  </button>
+                )}
               </div>
             )}
           </motion.div>

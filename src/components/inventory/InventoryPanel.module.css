@@ -115,8 +115,9 @@
 .itemRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: transparent;
   transition: background var(--transition-fast);
@@ -127,16 +128,16 @@
 }
 
 .itemThumb {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   object-fit: cover;
 }
 
 .itemThumbPlaceholder {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -153,6 +154,14 @@
   color: var(--color-text-primary);
   /* Allow item names to wrap — user-generated content should never be truncated */
   overflow-wrap: break-word;
+}
+
+/* Actions group — badge + buttons inline */
+.itemRowActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 /* Edit button on ItemRow — compact secondary style */
@@ -318,8 +327,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid color-mix(in srgb, var(--verdict-donate) 50%, transparent);
+  padding: 8px 12px;
 }
 
 .notShippingItemName {
@@ -426,7 +438,7 @@
 .collapsibleItems {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 6px;
   padding: 0 16px 12px;
 }
 
@@ -435,11 +447,18 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--row-accent, var(--color-border-default));
 }
 
-.itemRowOuter + .itemRowOuter {
-  border-top: 1px solid var(--color-border-default);
-}
+.itemRowOuter[data-verdict="SHIP"],
+.itemRowOuter[data-verdict="CARRY"] { --row-accent: var(--verdict-ship); }
+.itemRowOuter[data-verdict="SELL"] { --row-accent: var(--verdict-sell); }
+.itemRowOuter[data-verdict="DONATE"],
+.itemRowOuter[data-verdict="DISCARD"] { --row-accent: var(--verdict-donate); }
+.itemRowOuter[data-verdict="DECIDE_LATER"] { --row-accent: var(--verdict-decide-later); }
 
 /* Assign to box button on ItemRow */
 .assignBoxButton {
@@ -489,12 +508,23 @@
     font-size: 15px;
   }
 
-  /* Item rows — 44px min height, better spacing */
+  /* Item rows — wrap to two lines on mobile so actions don't crush the name */
   .itemRow {
-    min-height: 44px;
-    padding: 10px 12px;
-    gap: 10px;
+    min-height: 48px;
+    padding: 12px 14px;
+    gap: 8px 10px;
     background: transparent;
+  }
+
+  /* Force the item name to claim enough width that actions wrap below */
+  .itemName {
+    min-width: 60%;
+    font-size: 16px;
+  }
+
+  /* Actions group — right-align on the wrapped second line */
+  .itemRowActions {
+    margin-left: auto;
   }
 
   .singleItemRow {
@@ -534,7 +564,7 @@
   /* Not-shipping items — 44px touch target */
   .notShippingItem {
     min-height: 44px;
-    padding: 8px;
+    padding: 8px 12px;
   }
 
   .notShippingItemName {
@@ -554,11 +584,6 @@
 
   .sectionTitle {
     font-size: 13px;
-  }
-
-  /* Mobile font-size bumps — prevent tiny text on small screens */
-  .itemName {
-    font-size: 16px;
   }
 
   .singleItemSubLabel {
@@ -599,11 +624,6 @@
     gap: 6px;
   }
 
-  /* Item name — 16px minimum on mobile for readability */
-  .itemName {
-    font-size: 16px;
-  }
-
   /* Edit button — 44px touch target on mobile */
   .itemEditButton {
     min-height: 44px;
@@ -621,7 +641,7 @@
   /* Item thumbnails — slightly larger on mobile for tap recognition */
   .itemThumb,
   .itemThumbPlaceholder {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
   }
 }

@@ -38,7 +38,7 @@ echo "→ Stopping Supabase (data is preserved)..."
 supabase stop || true
 
 echo "→ Starting Supabase..."
-supabase start
+supabase start --ignore-health-check
 
 # --- Kill stale Next.js -------------------------------------------------------
 echo "→ Killing any process on port 3333..."
