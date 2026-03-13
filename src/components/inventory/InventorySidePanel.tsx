@@ -23,6 +23,8 @@ interface InventorySidePanelProps {
   onSwitchToDecisionsRef?: MutableRefObject<(() => void) | null>;
   /** Called when the user taps "Back to Aisling" from inside a nested panel on mobile */
   onBackToChat?: (() => void) | undefined;
+  /** Called when the active tab changes — lets the parent hide/show the notification tab */
+  onActiveTabChange?: (tab: "inventory" | "decisions" | "logic") => void;
 }
 
 type SidePanelTab = "inventory" | "decisions" | "logic";
@@ -42,10 +44,16 @@ export function InventorySidePanel({
   onRefreshDecisions,
   onSwitchToDecisionsRef,
   onBackToChat,
+  onActiveTabChange,
 }: InventorySidePanelProps) {
   const [activeTab, setActiveTab] = useState<SidePanelTab>("inventory");
   // Fetch boxes so DecisionsPanel can offer box assignment in the edit panel
   const { boxes } = useInventory();
+
+  // Notify parent when the active tab changes
+  useEffect(() => {
+    onActiveTabChange?.(activeTab);
+  }, [activeTab, onActiveTabChange]);
 
   // Allow parent to programmatically switch to the Decisions tab
   useEffect(() => {

@@ -33,6 +33,9 @@ export function ChatWithInventory() {
     count: decisionCount,
   } = useDecisions({ onSendToChat: handleSendToChat });
 
+  // Track which tab is active in the side panel so AppLayout can hide the notification tab
+  const [activeSidePanelTab, setActiveSidePanelTab] = useState<"inventory" | "decisions" | "logic">("inventory");
+
   // Ref to allow AppLayout to switch the inventory panel to the Decisions tab
   const switchToDecisionsRef = useRef<(() => void) | null>(null);
 
@@ -70,12 +73,14 @@ export function ChatWithInventory() {
           onConfirmAndSend={confirmAndSend}
           onRefreshDecisions={refreshDecisions}
           onSwitchToDecisionsRef={switchToDecisionsRef}
+          onActiveTabChange={setActiveSidePanelTab}
           onBackToChat={handleBackToChat}
         />
       }
       decisionCount={decisionCount}
       onOpenDecisions={handleOpenDecisions}
       closeMobileOverlayRef={closeMobileOverlayRef}
+      decisionsTabActive={activeSidePanelTab === "decisions"}
     />
   );
 }

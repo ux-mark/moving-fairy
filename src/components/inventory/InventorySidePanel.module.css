@@ -98,13 +98,9 @@
   text-align: center;
 }
 
-/* ---- Desktop: hide Decisions tab when Decisions is the active view ---- */
-/* The tab is only needed as a navigation control — when already on Decisions, it's redundant */
-@media (min-width: 768px) {
-  .tabBar[data-active-tab="decisions"] .decisionsTab {
-    display: none;
-  }
-}
+/* Note: the Decisions toggle button is always visible in the tab bar.
+   Instead, the DecisionNotificationTab (right-edge) hides when Decisions is active,
+   controlled via React state in AppLayout. */
 
 /* ---- Mobile tab bar sizing ---- */
 @media (max-width: 767px) {

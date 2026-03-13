@@ -20,6 +20,8 @@ interface AppLayoutProps {
   onOpenDecisions?: () => void;
   /** Ref populated with the function to close the mobile overlay and return to chat */
   closeMobileOverlayRef?: MutableRefObject<(() => void) | null>;
+  /** When true, the Decisions tab is active in the side panel — hide the notification tab */
+  decisionsTabActive?: boolean;
 }
 
 const NAV_PRIMARY_ITEMS = [
@@ -36,7 +38,7 @@ const NAV_SECONDARY_ITEMS = [
  * content, and a toggleable right-side panel for inventory (desktop) or
  * a full-screen top-down overlay (mobile).
  */
-export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef }: AppLayoutProps) {
+export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef, decisionsTabActive = false }: AppLayoutProps) {
   const [inventoryOpen, setInventoryOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth > 768;
@@ -268,8 +270,10 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
         </div>
       </div>
 
-      {/* Decision notification tab — right edge, only on chat view (hidden when inventory overlay is open) */}
-      {!mobileInventoryOpen && (
+      {/* Decision notification tab — right edge.
+          Hidden when: mobile overlay is open, or Decisions tab is active in the side panel
+          (no point showing a "go to Decisions" tab when you're already looking at Decisions). */}
+      {!mobileInventoryOpen && !(decisionsTabActive && inventoryOpen) && (
         <DecisionNotificationTab
           count={decisionCount}
           onClick={() => {
