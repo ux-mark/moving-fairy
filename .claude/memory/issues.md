@@ -31,6 +31,15 @@
 - **Description**: Two hooks fetch the same data from the same three endpoints with independent state. Both now register with the refresh callback system (fixed in PR #22), but the duplication is tech debt. Should be consolidated into a single hook or React Context.
 - **Status**: open (carried from MF-ISSUE-008)
 
+## ISSUE-007: Rename DECIDE_LATER verdict to ASSESS_LATER
+
+- **Severity**: medium
+- **Location**: DB enum, `src/lib/constants.ts`, agent prompts (aisling.md), UI components, `getCostSummary()`, welcome-back prompt
+- **Description**: The `DECIDE_LATER` verdict implies the *user* is deciding later, but it actually means *Aisling* is deferring her assessment (needs more context). The real "decisions" are unconfirmed assessments in the Decisions tab. Renaming to `ASSESS_LATER` clarifies the distinction: "Decisions" = unconfirmed assessments awaiting user action; "Assess later" = Aisling hasn't made a call yet.
+- **Scope**: DB enum migration, constants, Aisling agent definition, UI labels/badges, cost summary, welcome-back prompt, any component referencing the verdict.
+- **Status**: open
+- **Action**: Separate PR — touches many files across the stack.
+
 ## ISSUE-006: Pre-existing lint errors across codebase (8 errors, 14 warnings)
 
 - **Severity**: low

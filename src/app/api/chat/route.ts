@@ -743,7 +743,17 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
       } catch {
         // Non-critical — Aisling can still generate a welcome without box details
       }
-      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText}${boxSummaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Use the box item counts provided above — do not rely on previous conversation history for counts, as they may be outdated. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
+      let decisionsSummaryText = ''
+      try {
+        const unconfirmed = await getItemAssessments(profileId, { user_confirmed: false })
+        if (unconfirmed.length > 0) {
+          const itemNames = unconfirmed.map((a) => a.item_name).join(', ')
+          decisionsSummaryText = ` Pending decisions: ${unconfirmed.length} item(s) have been assessed but not yet confirmed by the user: ${itemNames}. Mention these and encourage the user to review and confirm them.`
+        }
+      } catch {
+        // Non-critical
+      }
+      effectiveMessage = `[SYSTEM: The user is returning to a previous session. ${summaryText}${boxSummaryText}${decisionsSummaryText} Generate a warm, specific welcome-back message summarising their progress with real numbers. Use the box item counts provided above — do not rely on previous conversation history for counts, as they may be outdated. Invite them to continue where they left off — perhaps ask what room or category they want to tackle next.]`
     } else {
       effectiveMessage = message
     }
