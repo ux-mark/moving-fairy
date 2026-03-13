@@ -134,15 +134,28 @@ function ItemCombobox({
     });
   }, []);
 
+  // On mobile, close dropdown on scroll to avoid jumpy repositioning.
+  // On desktop, reposition as before.
   useEffect(() => {
     if (showDropdown) {
       updateDropdownPosition();
-      window.addEventListener("scroll", updateDropdownPosition, true);
-      window.addEventListener("resize", updateDropdownPosition);
-      return () => {
-        window.removeEventListener("scroll", updateDropdownPosition, true);
-        window.removeEventListener("resize", updateDropdownPosition);
-      };
+      const isMobileViewport = window.innerWidth < 768;
+      if (isMobileViewport) {
+        const handleScroll = () => setIsOpen(false);
+        window.addEventListener("scroll", handleScroll, true);
+        window.addEventListener("resize", updateDropdownPosition);
+        return () => {
+          window.removeEventListener("scroll", handleScroll, true);
+          window.removeEventListener("resize", updateDropdownPosition);
+        };
+      } else {
+        window.addEventListener("scroll", updateDropdownPosition, true);
+        window.addEventListener("resize", updateDropdownPosition);
+        return () => {
+          window.removeEventListener("scroll", updateDropdownPosition, true);
+          window.removeEventListener("resize", updateDropdownPosition);
+        };
+      }
     }
   }, [showDropdown, updateDropdownPosition]);
 
@@ -708,19 +721,21 @@ export function BoxCard({
         <AnimatePresence initial={false}>
           {isOpen && (
             <motion.div
-              initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+              initial={
+                prefersReducedMotion || isMobile
+                  ? false
+                  : { height: 0, opacity: 0 }
+              }
               animate={{ height: "auto", opacity: 1 }}
               exit={
-                prefersReducedMotion
+                prefersReducedMotion || isMobile
                   ? { opacity: 0 }
                   : { height: 0, opacity: 0 }
               }
               transition={
-                prefersReducedMotion
+                prefersReducedMotion || isMobile
                   ? { duration: 0 }
-                  : isMobile
-                    ? { duration: 0.15, ease: "easeOut" }
-                    : { type: "spring", stiffness: 300, damping: 30 }
+                  : { type: "spring", stiffness: 300, damping: 30 }
               }
               className={styles.expandedContent}
             >

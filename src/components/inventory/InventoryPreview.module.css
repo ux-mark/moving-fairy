@@ -49,11 +49,13 @@
   }
 }
 
+/* Note: this component is mobile-only (.strip is display:none at >=768px),
+   so these sizes don't need a mobile media query guard. */
 .summary {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -74,7 +76,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-primary);
   white-space: nowrap;

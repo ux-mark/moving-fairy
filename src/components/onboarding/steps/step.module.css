@@ -174,3 +174,34 @@
   position: relative;
   min-height: 320px;
 }
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .promptAuthor {
+    font-size: 16px;
+  }
+
+  .promptNote {
+    font-size: 16px;
+  }
+
+  .microcopy {
+    font-size: 16px;
+  }
+
+  .subQuestionLabel {
+    font-size: 16px;
+  }
+
+  .wattageUnit {
+    font-size: 16px;
+  }
+
+  .apiKeyNote {
+    font-size: 16px;
+  }
+
+  .errorBanner {
+    font-size: 16px;
+  }
+}

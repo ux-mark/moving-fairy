@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -11,8 +11,10 @@ import {
   Pencil,
   Plane,
   ShoppingBag,
+  Trash2,
 } from "lucide-react";
 import {
+  ConfirmDialog,
   EmptyState,
   Skeleton,
   SkeletonGroup,
@@ -57,31 +59,37 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
     useInventory();
   const [viewMode, setViewMode] = useState<ViewMode>("container");
   const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const isEmpty = assessments.length === 0 && boxes.length === 0;
   const router = useRouter();
 
   return (
     <div className={cn(styles.panel, className)} aria-live="polite">
-      <CostSummary data={costSummary} variant="full" />
-
-      <div className={styles.tabBar}>
-        <button
-          type="button"
-          onClick={() => setViewMode("container")}
-          className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
-        >
-          By container
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode("verdict")}
-          className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
-        >
-          By verdict
-        </button>
-      </div>
-
       <div className={styles.scrollArea}>
+        <CostSummary data={costSummary} variant="full" />
+
+        <div className={styles.tabBar}>
+          <button
+            type="button"
+            onClick={() => setViewMode("container")}
+            className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
+          >
+            By container
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("verdict")}
+            className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
+          >
+            By verdict
+          </button>
+        </div>
         {isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
@@ -97,10 +105,10 @@ export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps)
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={viewMode}
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+              initial={prefersReducedMotion ? false : isMobile ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={isMobile ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: isMobile ? 0.1 : 0.15 }}
             >
               {viewMode === "container" ? (
                 <ContainerView
@@ -332,7 +340,9 @@ function ContainerView({
         </Section>
       )}
 
-      {notShipping.length > 0 && <NotShippingSection items={notShipping} />}
+      {notShipping.length > 0 && (
+        <NotShippingSection items={notShipping} onRefresh={onRefresh} />
+      )}
     </div>
   );
 }
@@ -487,6 +497,12 @@ function ItemRow({
     [item.id, onRefresh]
   );
 
+  const handleDeleteItem = useCallback(async () => {
+    await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+    setIsEditOpen(false);
+    onRefresh();
+  }, [item.id, onRefresh]);
+
   const handleSelectBox = useCallback(
     (box: Box) => {
       onAssignToBox?.(box.id, item.id);
@@ -554,13 +570,20 @@ function ItemRow({
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleItemSave}
+        onDelete={handleDeleteItem}
         onBackToChat={onBackToChat}
       />
     </>
   );
 }
 
-function NotShippingSection({ items }: { items: ItemAssessment[] }) {
+function NotShippingSection({
+  items,
+  onRefresh,
+}: {
+  items: ItemAssessment[];
+  onRefresh: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -578,14 +601,66 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <div key={item.id} className={styles.notShippingItem}>
-              <span className={styles.notShippingItemName}>{item.item_name}</span>
-              <VerdictBadge verdict={item.verdict} />
-            </div>
+            <NotShippingItemRow key={item.id} item={item} onRefresh={onRefresh} />
           ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function NotShippingItemRow({
+  item,
+  onRefresh,
+}: {
+  item: ItemAssessment;
+  onRefresh: () => void;
+}) {
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      alert("Failed to delete item. Please try again.");
+    }
+  }, [item.id, onRefresh]);
+
+  return (
+    <>
+      <div className={styles.notShippingItem}>
+        <span className={styles.notShippingItemName}>{item.item_name}</span>
+        <VerdictBadge verdict={item.verdict} />
+        <button
+          ref={deleteButtonRef}
+          type="button"
+          className={styles.notShippingDeleteButton}
+          onClick={() => setIsDeleteOpen(true)}
+          aria-label={`Delete ${item.item_name}`}
+          aria-haspopup="dialog"
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Delete this item?"
+        description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        variant="danger"
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          handleDelete();
+        }}
+        triggerRef={deleteButtonRef}
+      />
+    </>
   );
 }
 

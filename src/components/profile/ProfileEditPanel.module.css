@@ -90,7 +90,7 @@
   border: 1px solid var(--color-border-input);
   background: var(--color-bg-card);
   padding: 0 12px;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-primary);
   transition: border-color var(--transition-fast);
 }
@@ -148,4 +148,35 @@
 .saveButton {
   height: 44px;
   width: 100%;
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .label {
+    font-size: 16px;
+  }
+
+  .optionButton {
+    font-size: 16px;
+  }
+
+  .inputLabel {
+    font-size: 16px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .wattageUnit {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .successText {
+    font-size: 16px;
+  }
 }

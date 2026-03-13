@@ -4,12 +4,20 @@
   display: flex;
   height: 100%;
   flex-direction: column;
+  /* min-height: 0 is critical in a nested flex column chain —
+     without it the panel grows to fit its content instead of
+     constraining .scrollArea, so everything scrolls together
+     instead of only the scroll area scrolling. */
+  min-height: 0;
+  overflow: hidden;
   background: var(--color-bg-page);
 }
 
 .tabBar {
   display: flex;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   border-bottom: 1px solid var(--color-border-default);
   background: var(--color-bg-card);
 }
@@ -31,6 +39,11 @@
   color: var(--color-text-primary);
 }
 
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .tabActive {
   border-bottom: 2px solid var(--color-primary, #16a34a);
   color: var(--color-primary, #16a34a);
@@ -39,6 +52,8 @@
 .scrollArea {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 /* Content views */
@@ -58,7 +73,7 @@
 }
 
 .sectionTitle {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   /* no text-transform */
   letter-spacing: 0.06em;
@@ -92,7 +107,7 @@
 }
 
 .singleItemSubLabel {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
@@ -155,13 +170,12 @@
 }
 
 .itemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   min-width: 0;
   flex: 1;
   font-size: 14px;
   color: var(--color-text-primary);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
 }
 
 /* Edit button on ItemRow — compact secondary style */
@@ -173,7 +187,7 @@
   height: 28px;
   padding: 0 8px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text-muted);
   background: transparent;
@@ -196,9 +210,6 @@
 /* Keep old classes for any remaining references */
 .itemNameButton {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: left;
   font-size: 14px;
   color: var(--color-text-primary);
@@ -206,6 +217,8 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
 }
 
 .itemNameButton:hover {
@@ -235,7 +248,7 @@
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-card);
   padding: 0 6px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--color-text-primary);
   outline: none;
@@ -263,6 +276,11 @@
   background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
 }
 
+.verdictTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .verdictTriggerLeft {
   display: flex;
   align-items: center;
@@ -270,7 +288,7 @@
 }
 
 .verdictCount {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
@@ -300,6 +318,11 @@
   background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
 }
 
+.notShippingTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .notShippingLabel {
   font-size: 14px;
   font-weight: 600;
@@ -310,24 +333,53 @@
   border-radius: 9999px;
   background: var(--color-bg-subtle);
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
 .notShippingItem {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   border-radius: var(--radius-sm);
   padding: 4px 8px;
 }
 
 .notShippingItemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--color-text-muted);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
+}
+
+/* Trash icon button on not-shipping items */
+.notShippingDeleteButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.notShippingDeleteButton:hover {
+  color: var(--color-error, #dc2626);
+  background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
+.notShippingDeleteButton:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
 }
 
 /* Empty state */
@@ -413,7 +465,7 @@
   flex-shrink: 0;
   min-height: 28px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-primary, #16a34a);
   background: none;
@@ -437,6 +489,14 @@
 /* BoxPicker positioned below the ItemRow */
 .boxPickerWrap {
   margin: 0 8px;
+}
+
+/* Skeleton loading state */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
 }
 
 /* ---- Mobile touch target and sizing fixes ---- */
@@ -499,6 +559,12 @@
     font-size: 16px;
   }
 
+  /* Not-shipping delete button — 44px touch target on mobile */
+  .notShippingDeleteButton {
+    width: 44px;
+    height: 44px;
+  }
+
   /* Section header spacing */
   .sectionHeader {
     padding: 14px 16px;
@@ -508,10 +574,66 @@
     font-size: 13px;
   }
 
+  /* Mobile font-size bumps — prevent tiny text on small screens */
+  .itemName {
+    font-size: 16px;
+  }
+
+  .singleItemSubLabel {
+    font-size: 14px;
+  }
+
+  .itemEditButton {
+    font-size: 14px;
+  }
+
+  .verdictCount {
+    font-size: 14px;
+  }
+
+  .notShippingCount {
+    font-size: 14px;
+  }
+
+  .assignBoxButton {
+    font-size: 14px;
+  }
+
+  .emptyBody {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .retryButton {
+    font-size: 16px;
+  }
+
   /* View stack spacing */
   .viewStack {
     padding-bottom: 80px; /* Extra space for the floating "Back to Aisling" button */
     gap: 6px;
+  }
+
+  /* Item name — 16px minimum on mobile for readability */
+  .itemName {
+    font-size: 16px;
+  }
+
+  /* Edit button — 44px touch target on mobile */
+  .itemEditButton {
+    min-height: 44px;
+    height: auto;
+    padding: 4px 10px;
+  }
+
+  /* Assign box button — 44px touch target on mobile */
+  .assignBoxButton {
+    min-height: 44px;
+    padding: 4px 10px;
+    font-size: 14px;
   }
 
   /* Item thumbnails — slightly larger on mobile for tap recognition */

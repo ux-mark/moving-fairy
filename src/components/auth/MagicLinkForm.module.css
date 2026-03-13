@@ -131,3 +131,22 @@
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .label {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .sentEmail {
+    font-size: 16px;
+  }
+
+  .sentNote {
+    font-size: 16px;
+  }
+}

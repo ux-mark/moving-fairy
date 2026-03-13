@@ -22,6 +22,17 @@
 }
 
 .label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 767px) {
+  .label {
+    font-size: 14px;
+  }
+
+  .wrapper {
+    padding: 8px 12px;
+  }
 }

@@ -51,7 +51,7 @@
 }
 
 .confirmPrompt {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-warning-text-muted, #b45309);
 }
 

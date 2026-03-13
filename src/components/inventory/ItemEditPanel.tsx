@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronRight, MessageCircle, X } from "lucide-react";
-import { Spinner } from "@thefairies/design-system/components";
+import { ChevronRight, MessageCircle, Trash2, X } from "lucide-react";
+import { ConfirmDialog, Spinner } from "@thefairies/design-system/components";
 import { Verdict } from "@/lib/constants";
 import type { Box, ItemAssessment } from "@/types";
 import styles from "./ItemEditPanel.module.css";
@@ -18,6 +18,8 @@ export interface ItemEditPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updates: Partial<ItemAssessment>) => Promise<void>;
+  /** Called when the user confirms deletion of this item */
+  onDelete?: () => void;
   /** Reference to the source card element for the desktop slide-from-card animation */
   sourceCardRef?: React.RefObject<HTMLElement | null>;
   /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
@@ -100,16 +102,19 @@ export function ItemEditPanel({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   sourceCardRef,
   onBackToChat,
 }: ItemEditPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   // Form state — initialised from item, reset when item or panel open state changes
   const [itemName, setItemName] = useState(item.item_name);
@@ -447,6 +452,25 @@ export function ItemEditPanel({
                   )}
                 </button>
 
+                {/* Delete item — destructive action, separated visually */}
+                {onDelete && (
+                  <>
+                    <hr className={styles.deleteSeparator} />
+                    <button
+                      ref={deleteButtonRef}
+                      type="button"
+                      className={styles.deleteButton}
+                      onClick={() => setIsDeleteOpen(true)}
+                      disabled={isSaving}
+                      aria-label={`Delete ${item.item_name}`}
+                      aria-haspopup="dialog"
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      Delete item
+                    </button>
+                  </>
+                )}
+
                 {/* Mobile: "Back to Aisling" link — always accessible even from the edit panel */}
                 {isMobile && onBackToChat && (
                   <button
@@ -462,6 +486,24 @@ export function ItemEditPanel({
             </div>
           </motion.div>
         </>
+      )}
+
+      {/* Delete confirmation dialog — rendered outside the AnimatePresence panel */}
+      {onDelete && (
+        <ConfirmDialog
+          isOpen={isDeleteOpen}
+          onClose={() => setIsDeleteOpen(false)}
+          title="Delete this item?"
+          description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
+          confirmLabel="Delete"
+          cancelLabel="Keep it"
+          variant="danger"
+          onConfirm={() => {
+            setIsDeleteOpen(false);
+            onDelete();
+          }}
+          triggerRef={deleteButtonRef}
+        />
       )}
     </AnimatePresence>
   );

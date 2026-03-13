@@ -9,8 +9,10 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.card:hover {
-  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+@media (hover: hover) {
+  .card:hover {
+    box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.12));
+  }
 }
 
 .cardShipped {
@@ -46,9 +48,8 @@
   font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Allow box labels to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
 }
 
 .headerMeta {
@@ -105,10 +106,10 @@
 }
 
 .itemName {
+  min-width: 0;
   color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
 }
 
 .itemQty {
@@ -130,12 +131,12 @@
 
 .addItemInput {
   flex: 1;
-  height: 36px;
+  height: 44px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-default);
   background: transparent;
-  padding: 0 10px;
-  font-size: 14px;
+  padding: 0 12px;
+  font-size: 16px;
   color: var(--color-text-primary);
   outline: none;
 }
@@ -227,10 +228,13 @@
 .comboboxOptionName {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--color-text-primary);
+  line-height: 1.4;
+  /* 2-line clamp in dropdowns — keeps the list scannable while showing enough of the name */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* "Add [text]" create-new option */
@@ -243,9 +247,12 @@
 .comboboxCreateLabel {
   flex: 1;
   min-width: 0;
+  line-height: 1.4;
+  /* 2-line clamp in dropdowns — keeps the list scannable while showing enough of the name */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ============================================================
@@ -297,7 +304,7 @@
   padding: 0 4px;
   outline: none;
   min-width: 80px;
-  max-width: 200px;
+  max-width: 100%;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
@@ -412,7 +419,7 @@
 .sizePickerCbm {
   flex: 1;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* Dimension disclosure */
@@ -424,18 +431,35 @@
 }
 
 .dimensionText {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .dimensionNote {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
 /* ---- Mobile touch targets and sizing ---- */
 @media (max-width: 767px) {
+  /* Prevent header badges from wrapping to a new line, which causes layout shifts */
+  .headerTopRow {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  /* Contain the card so absolute-positioned dropdowns don't extend past the viewport */
+  .card {
+    overflow-x: hidden;
+  }
+
+  /* Right-align the size picker dropdown so it doesn't overflow the card on narrow screens */
+  .sizePickerDropdown {
+    left: auto;
+    right: 0;
+  }
+
   /* Box card header — 44px min touch target, comfortable tap area */
   .header {
     min-height: 56px;
@@ -452,13 +476,6 @@
 
   .itemName {
     font-size: 16px;
-  }
-
-  /* Add item input — larger for mobile */
-  .addItemInput {
-    height: 44px;
-    font-size: 16px;
-    padding: 0 12px;
   }
 
   /* Combobox options — 44px touch target */
@@ -483,5 +500,26 @@
   /* Mark as packed button — 44px */
   .markPackedRow {
     margin-top: 16px;
+  }
+
+  /* Font-size bumps */
+  .headerMeta {
+    font-size: 16px;
+  }
+
+  .emptyMessage {
+    font-size: 16px;
+  }
+
+  .sizePickerCbm {
+    font-size: 14px;
+  }
+
+  .dimensionText {
+    font-size: 14px;
+  }
+
+  .dimensionNote {
+    font-size: 13px;
   }
 }

@@ -210,3 +210,28 @@
   flex-shrink: 0;
   color: var(--color-text-muted);
 }
+
+/* ---- Mobile touch targets and font-size bumps ---- */
+@media (max-width: 767px) {
+  .sm .primaryZone {
+    font-size: 15px;
+  }
+
+  .md .primaryZone {
+    min-height: 44px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  .md .chevronZone {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px;
+  }
+
+  .dropdownItem {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+}

@@ -48,11 +48,11 @@
 }
 
 .itemName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
   font-size: 14px;
   color: var(--color-text-primary);
+  /* Allow item names to wrap — user-generated content should never be truncated */
+  overflow-wrap: break-word;
 }
 
 /* Dropdown */
@@ -68,7 +68,7 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-default);
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text-muted);
   background: none;
@@ -79,6 +79,11 @@
 .dropdownTrigger:hover {
   background: var(--color-bg-subtle);
   color: var(--color-text-primary);
+}
+
+.dropdownTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .backdrop {
@@ -125,6 +130,11 @@
   background: var(--color-bg-subtle);
 }
 
+.dropdownItemButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 /* All boxed state */
 .allBoxed {
   border-radius: var(--radius-lg);
@@ -138,4 +148,31 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary);
+}
+
+/* ---- Mobile touch targets ---- */
+@media (max-width: 767px) {
+  .heading {
+    font-size: 16px;
+  }
+
+  .itemName {
+    font-size: 16px;
+  }
+
+  .dropdownTrigger {
+    font-size: 14px;
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+
+  .dropdownItemButton {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .allBoxedText {
+    font-size: 16px;
+  }
 }
