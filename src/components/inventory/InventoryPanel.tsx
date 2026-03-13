@@ -417,7 +417,7 @@ function VerdictGroup({
       <CollapsibleContent>
         <div className={styles.collapsibleItems}>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} />
+            <ItemRow key={item.id} item={item} boxes={boxes} onRefresh={onRefresh} onBackToChat={onBackToChat} showVerdict={false} />
           ))}
         </div>
       </CollapsibleContent>
@@ -461,6 +461,8 @@ interface ItemRowProps {
   onAssignToBox?: (boxId: string, assessmentId: string) => void;
   /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
   onBackToChat?: (() => void) | undefined;
+  /** Whether to show the verdict badge inline in the row (default true). Pass false inside VerdictGroup where the badge is already in the group header. */
+  showVerdict?: boolean;
 }
 
 function ItemRow({
@@ -471,6 +473,7 @@ function ItemRow({
   boxItemCounts,
   onAssignToBox,
   onBackToChat,
+  showVerdict = true,
 }: ItemRowProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPickingBox, setIsPickingBox] = useState(false);
@@ -513,8 +516,8 @@ function ItemRow({
 
   return (
     <>
-      <div className={styles.itemRowOuter}>
-        <div className={styles.itemRow} data-verdict={item.verdict}>
+      <div className={styles.itemRowOuter} data-verdict={item.verdict}>
+        <div className={styles.itemRow}>
           {item.image_url ? (
             <img
               src={`/api/img?url=${encodeURIComponent(item.image_url)}`}
@@ -529,27 +532,31 @@ function ItemRow({
 
           <span className={styles.itemName}>{item.item_name}</span>
 
-          {canQuickAssign && (
+          <div className={styles.itemRowActions}>
+            {showVerdict && <VerdictBadge verdict={item.verdict} />}
+
+            {canQuickAssign && (
+              <button
+                type="button"
+                className={styles.assignBoxButton}
+                onClick={() => setIsPickingBox((prev) => !prev)}
+                aria-expanded={isPickingBox}
+                aria-label={`Assign ${item.item_name} to a box`}
+              >
+                Assign to box
+              </button>
+            )}
+
             <button
               type="button"
-              className={styles.assignBoxButton}
-              onClick={() => setIsPickingBox((prev) => !prev)}
-              aria-expanded={isPickingBox}
-              aria-label={`Assign ${item.item_name} to a box`}
+              onClick={() => setIsEditOpen(true)}
+              className={styles.itemEditButton}
+              aria-label={`Edit ${item.item_name}`}
             >
-              Assign to box
+              <Pencil size={13} aria-hidden="true" />
+              Edit
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsEditOpen(true)}
-            className={styles.itemEditButton}
-            aria-label={`Edit ${item.item_name}`}
-          >
-            <Pencil size={13} aria-hidden="true" />
-            Edit
-          </button>
+          </div>
         </div>
 
         {isPickingBox && packingBoxes && (

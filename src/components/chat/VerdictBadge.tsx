@@ -41,7 +41,7 @@ export function VerdictBadge({ verdict, className }: VerdictBadgeProps) {
       label={VERDICT_LABELS[verdict]}
       bgColor={VERDICT_BG[verdict]}
       fgColor={VERDICT_FG[verdict]}
-      size="sm"
+      size="md"
       className={combined}
     />
   );

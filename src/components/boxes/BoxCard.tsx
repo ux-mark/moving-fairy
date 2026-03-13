@@ -753,6 +753,15 @@ export function BoxCard({
                       return (
                         <li key={item.id} className={styles.itemRow}>
                           <div className={styles.itemRowLeft}>
+                            <span
+                              className={styles.verdictDot}
+                              style={{
+                                background: assessment
+                                  ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
+                                  : "var(--color-border-default)",
+                              }}
+                              aria-hidden="true"
+                            />
                             <span className={styles.itemName}>{item.item_name}</span>
                             {item.quantity > 1 && (
                               <span className={styles.itemQty}>x{item.quantity}</span>

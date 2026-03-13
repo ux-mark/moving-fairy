@@ -158,6 +158,7 @@ export function ItemEditPanel({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (isDeleteOpen) return; // Let ConfirmDialog handle its own Escape
         onClose();
         return;
       }
@@ -186,7 +187,7 @@ export function ItemEditPanel({
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, isDeleteOpen, onClose]);
 
   // Restore focus when panel closes
   useEffect(() => {
@@ -271,6 +272,7 @@ export function ItemEditPanel({
     : prefersReducedMotion ? desktopVariantsReduced : desktopVariants;
 
   return (
+  <>
     <AnimatePresence>
       {isOpen && (
         <>
@@ -433,24 +435,26 @@ export function ItemEditPanel({
                   </div>
                 )}
 
-                {/* Save button */}
-                <button
-                  type="button"
-                  className={styles.saveButton}
-                  onClick={handleSave}
-                  disabled={isSaving || success}
-                >
-                  {isSaving ? (
-                    <span className={styles.saveButtonInner}>
-                      <Spinner size="sm" />
-                      Saving...
-                    </span>
-                  ) : success ? (
-                    "Saved"
-                  ) : (
-                    "Save changes"
-                  )}
-                </button>
+                {/* Save button — desktop only (mobile puts it in sticky footer) */}
+                {!isMobile && (
+                  <button
+                    type="button"
+                    className={styles.saveButton}
+                    onClick={handleSave}
+                    disabled={isSaving || success}
+                  >
+                    {isSaving ? (
+                      <span className={styles.saveButtonInner}>
+                        <Spinner size="sm" />
+                        Saving...
+                      </span>
+                    ) : success ? (
+                      "Saved"
+                    ) : (
+                      "Save changes"
+                    )}
+                  </button>
+                )}
 
                 {/* Delete item — destructive action, separated visually */}
                 {onDelete && (
@@ -471,8 +475,30 @@ export function ItemEditPanel({
                   </>
                 )}
 
-                {/* Mobile: "Back to Aisling" link — always accessible even from the edit panel */}
-                {isMobile && onBackToChat && (
+              </div>
+            </div>
+
+            {/* Sticky footer — always visible on mobile with Save + back link */}
+            {isMobile && (
+              <div className={styles.stickyFooter}>
+                <button
+                  type="button"
+                  className={styles.saveButton}
+                  onClick={handleSave}
+                  disabled={isSaving || success}
+                >
+                  {isSaving ? (
+                    <span className={styles.saveButtonInner}>
+                      <Spinner size="sm" />
+                      Saving...
+                    </span>
+                  ) : success ? (
+                    "Saved"
+                  ) : (
+                    "Save changes"
+                  )}
+                </button>
+                {onBackToChat && (
                   <button
                     type="button"
                     className={styles.backToChat}
@@ -483,28 +509,29 @@ export function ItemEditPanel({
                   </button>
                 )}
               </div>
-            </div>
+            )}
           </motion.div>
         </>
       )}
-
-      {/* Delete confirmation dialog — rendered outside the AnimatePresence panel */}
-      {onDelete && (
-        <ConfirmDialog
-          isOpen={isDeleteOpen}
-          onClose={() => setIsDeleteOpen(false)}
-          title="Delete this item?"
-          description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
-          confirmLabel="Delete"
-          cancelLabel="Keep it"
-          variant="danger"
-          onConfirm={() => {
-            setIsDeleteOpen(false);
-            onDelete();
-          }}
-          triggerRef={deleteButtonRef}
-        />
-      )}
     </AnimatePresence>
+
+    {/* Delete confirmation dialog — rendered completely outside AnimatePresence */}
+    {onDelete && (
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Delete this item?"
+        description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        variant="danger"
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          onDelete();
+        }}
+        triggerRef={deleteButtonRef}
+      />
+    )}
+  </>
   );
 }
