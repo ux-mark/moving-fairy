@@ -948,8 +948,12 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             created_at: new Date().toISOString(),
           })
 
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
-          controller.close()
+          try {
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+            controller.close()
+          } catch {
+            // Client already disconnected — stream closed, nothing to do
+          }
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Streaming error'
           const isAuthError =
@@ -963,12 +967,16 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           const retryHint = isAuthError && !cliMode
             ? ' (API key refreshed from keychain — please retry your message)'
             : ''
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: {"error":"${errMsg.replace(/"/g, '\\"')}${retryHint}"}\n\n`
+          try {
+            controller.enqueue(
+              new TextEncoder().encode(
+                `data: {"error":"${errMsg.replace(/"/g, '\\"')}${retryHint}"}\n\n`
+              )
             )
-          )
-          controller.close()
+            controller.close()
+          } catch {
+            // Client already disconnected
+          }
         }
       },
     })

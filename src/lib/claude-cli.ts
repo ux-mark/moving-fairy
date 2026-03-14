@@ -76,6 +76,20 @@ export async function runCliAgentLoop(
   const encoder = new TextEncoder()
   let fullAssistantText = ''
 
+  // Guard against writing to a closed stream. The client may disconnect
+  // while the CLI subprocess is still running. Without this guard, the
+  // enqueue() throws "Controller is already closed" as an uncaughtException,
+  // crashing the Next.js dev server and triggering a full page reload.
+  let streamClosed = false
+  function safeEnqueue(data: string) {
+    if (streamClosed) return
+    try {
+      controller.enqueue(encoder.encode(data))
+    } catch {
+      streamClosed = true
+    }
+  }
+
   // Append tool instructions to system prompt
   const toolInstructions = buildToolInstructions(tools)
   const fullSystemPrompt = systemPrompt + '\n\n' + toolInstructions
@@ -92,9 +106,7 @@ export async function runCliAgentLoop(
     const responseText = await spawnCliStreaming(cmd, prompt, (chunk) => {
       roundText += chunk
       fullAssistantText += chunk
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
-      )
+      safeEnqueue(`data: ${JSON.stringify(chunk)}\n\n`)
     })
 
     // Check for tool calls in the full response (they appear as <tool_call> XML)
@@ -114,12 +126,12 @@ export async function runCliAgentLoop(
         name: tc.name,
         input: tc.input,
       })
-      controller.enqueue(encoder.encode(`data: ${toolCallPayload}\n\n`))
+      safeEnqueue(`data: ${toolCallPayload}\n\n`)
 
       // Emit card data for render_assessment_card (same as SDK path)
       if (tc.name === 'render_assessment_card') {
         const cardPayload = JSON.stringify({ __type: 'card', ...tc.input })
-        controller.enqueue(encoder.encode(`data: ${cardPayload}\n\n`))
+        safeEnqueue(`data: ${cardPayload}\n\n`)
       }
 
       const result = await executeTool(tc.name, tc.input)
@@ -136,7 +148,7 @@ export async function runCliAgentLoop(
         name: tc.name,
         result: parsedResult,
       })
-      controller.enqueue(encoder.encode(`data: ${toolResultPayload}\n\n`))
+      safeEnqueue(`data: ${toolResultPayload}\n\n`)
 
       toolResults.push({ tool: tc.name, result: parsedResult })
     }
@@ -165,17 +177,48 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
     cmd.push('--system-prompt', systemPrompt)
   }
 
+  // Block dangerous tools that could write to the project directory
+  // and trigger Turbopack file watcher restarts. The custom app tools
+  // (render_assessment_card etc.) use <tool_call> XML in the text output,
+  // not the CLI's native tool system.
+  cmd.push('--disallowed-tools', 'Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit')
+
   if (allowedTools && allowedTools.length > 0) {
+    // Auto-allow specified tools (e.g., Read for image viewing)
     cmd.push('--allowedTools', ...allowedTools)
   }
 
   return cmd
 }
 
-function cleanEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env }
-  delete env.CLAUDECODE
-  delete env.CLAUDE_CODE_ENTRYPOINT
+function cleanEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {}
+
+  // Allowlist: only pass env vars the CLI genuinely needs.
+  // Everything else is stripped to prevent the CLI from discovering
+  // the Next.js project directory and writing files that trigger
+  // Turbopack's file watcher (which causes a full dev server restart).
+  const SAFE_PREFIXES = [
+    'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM',
+    'LANG', 'LC_', 'SSH_AUTH_SOCK', 'TMPDIR', 'XDG_',
+    'ANTHROPIC_', 'CLAUDE_',
+  ]
+  const BLOCKED = new Set([
+    'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_PROJECT_DIR',
+  ])
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (BLOCKED.has(key)) continue
+    if (SAFE_PREFIXES.some((p) => key.startsWith(p))) {
+      env[key] = value
+    }
+  }
+
+  // Force CWD-related vars to /tmp so the CLI doesn't resolve
+  // back to the Next.js project root
+  env.PWD = '/tmp'
+
   return env
 }
 
@@ -193,9 +236,14 @@ function spawnCliStreaming(
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
-    // Run in /tmp so the CLI doesn't write files to the project dir
-    // (which would trigger Next.js dev server restarts mid-stream)
-    const proc = nodeSpawn(command, commandArgs, { env, cwd: '/tmp' })
+    console.log(`[claude-cli] Spawning: ${command} ${commandArgs.join(' ').slice(0, 200)}...`)
+    console.log(`[claude-cli] cwd=/tmp, tools=${commandArgs.includes('--tools') ? commandArgs[commandArgs.indexOf('--tools') + 1] || '(none)' : '(default)'}`)
+    // Run in /tmp with a sanitised env so the CLI doesn't write files
+    // to the project dir (which would trigger Next.js dev server restarts)
+    const proc = nodeSpawn(command, commandArgs, {
+      env: env as NodeJS.ProcessEnv,
+      cwd: '/tmp',
+    })
 
     let fullText = ''
     let lineBuffer = ''
@@ -276,7 +324,10 @@ function spawnCliStreaming(
 
     if (proc.stderr) {
       proc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        const chunk = data.toString()
+        stderr += chunk
+        // Log stderr in real-time so we see CLI warnings/errors in the terminal
+        if (chunk.trim()) console.warn(`[claude-cli stderr] ${chunk.trim()}`)
       })
     }
 
@@ -284,6 +335,7 @@ function spawnCliStreaming(
       // Process any remaining buffered line
       if (lineBuffer.trim()) processLine(lineBuffer)
 
+      console.log(`[claude-cli] Process exited with code ${code}, output length: ${fullText.length}`)
       if (code !== 0) {
         reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
         return
@@ -316,9 +368,12 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
-    // Run in /tmp so the CLI doesn't write files to the project dir
-    // (which would trigger Next.js dev server restarts mid-stream)
-    const proc = nodeSpawn(command, commandArgs, { env, cwd: '/tmp' })
+    // Run in /tmp with a sanitised env so the CLI doesn't write files
+    // to the project dir (which would trigger Next.js dev server restarts)
+    const proc = nodeSpawn(command, commandArgs, {
+      env: env as NodeJS.ProcessEnv,
+      cwd: '/tmp',
+    })
 
     let stdout = ''
     let stderr = ''

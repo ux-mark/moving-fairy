@@ -39,10 +39,16 @@ const NAV_SECONDARY_ITEMS = [
  * a full-screen top-down overlay (mobile).
  */
 export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef, decisionsTabActive = false }: AppLayoutProps) {
-  const [inventoryOpen, setInventoryOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.innerWidth > 768;
-  });
+  // Start with the server-side default (true), then adjust on mount.
+  // Using window.innerWidth in the initialiser causes a hydration mismatch
+  // because the server always returns true while the client may return false.
+  const [inventoryOpen, setInventoryOpen] = useState(true);
+
+  useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setInventoryOpen(false);
+    }
+  }, []);
   const [inventoryWidth, setInventoryWidth] = useState(380);
   const [activeSection, setActiveSection] = useState("chat");
   const [profileOpen, setProfileOpen] = useState(false);
