@@ -63,22 +63,27 @@
 }
 
 .imageStrip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
   margin-bottom: 8px;
 }
 
 .submittedImage {
-  max-width: 280px;
-  border-radius: var(--radius-lg, 8px);
-  object-fit: contain;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md, 6px);
+  object-fit: cover;
 }
 
-@media (min-width: 640px) {
-  .submittedImage {
-    max-width: 400px;
-  }
+/* Single image — full width, natural aspect ratio */
+.imageStrip:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+
+.imageStrip:has(> :only-child) .submittedImage {
+  aspect-ratio: auto;
+  max-height: 300px;
 }
 
 .userText {

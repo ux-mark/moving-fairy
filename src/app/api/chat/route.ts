@@ -610,7 +610,9 @@ export async function POST(req: NextRequest) {
   try {
     const profile = authProfile
 
-    const cliMode = useCliMode()
+    // CLI mode can't handle image content blocks — fall back to SDK when images are present
+    const hasImages = allImageUrls.length > 0
+    const cliMode = useCliMode() && !hasImages
 
     const apiKey = cliMode
       ? '' // CLI mode doesn't need an API key
