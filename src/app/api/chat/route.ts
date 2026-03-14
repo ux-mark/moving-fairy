@@ -610,9 +610,7 @@ export async function POST(req: NextRequest) {
   try {
     const profile = authProfile
 
-    // CLI mode can't handle image content blocks — fall back to SDK when images are present
-    const hasImages = allImageUrls.length > 0
-    const cliMode = useCliMode() && !hasImages
+    const cliMode = useCliMode()
 
     const apiKey = cliMode
       ? '' // CLI mode doesn't need an API key
@@ -763,6 +761,8 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 
     // Build current user message with optional images
     const userContent: Anthropic.Messages.ContentBlockParam[] = []
+    // In CLI mode, save images as temp files for the CLI's Read tool
+    const cliImagePaths: string[] = []
 
     for (const url of allImageUrls) {
       try {
@@ -772,16 +772,24 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           continue
         }
         const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
-        const imgBase64 = imgBuffer.toString('base64')
-        const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
-          | 'image/jpeg'
-          | 'image/png'
-          | 'image/gif'
-          | 'image/webp'
-        userContent.push({
-          type: 'image',
-          source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
-        } as Anthropic.Messages.ImageBlockParam)
+
+        if (cliMode) {
+          // Save to temp file for CLI's Read tool to pick up
+          const tmpPath = path.join('/tmp', `aisling-img-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`)
+          fs.writeFileSync(tmpPath, imgBuffer)
+          cliImagePaths.push(tmpPath)
+        } else {
+          const imgBase64 = imgBuffer.toString('base64')
+          const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
+            | 'image/jpeg'
+            | 'image/png'
+            | 'image/gif'
+            | 'image/webp'
+          userContent.push({
+            type: 'image',
+            source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
+          } as Anthropic.Messages.ImageBlockParam)
+        }
       } catch (imgErr) {
         console.error(`[chat] Error fetching image ${url}:`, imgErr)
       }
@@ -874,14 +882,32 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                     : '',
             }))
 
+            // If there are images, append file paths to the last user message
+            // so the CLI's Read tool can view them
+            if (cliImagePaths.length > 0 && cliMessages.length > 0) {
+              const lastMsg = cliMessages[cliMessages.length - 1]
+              if (lastMsg && lastMsg.role === 'user') {
+                const imageInstructions = cliImagePaths.map(
+                  (p, i) => `[Image ${i + 1}: ${p}]`
+                ).join('\n')
+                lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded ${cliImagePaths.length} photo(s). View each image file below using your Read tool to see what items are shown, then assess each item you can identify.\n${imageInstructions}`
+              }
+            }
+
             assistantText = await runCliAgentLoop(
               systemParts,
               cliMessages,
               AISLING_TOOLS as unknown as ToolDefinition[],
               model,
               controller,
-              cliToolExecutor
+              cliToolExecutor,
+              cliImagePaths.length > 0 ? ['Read'] : undefined
             )
+
+            // Clean up temp image files
+            for (const tmpPath of cliImagePaths) {
+              try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
+            }
           } else {
             // ── SDK mode: direct Anthropic API ──
             const anthropic = apiKey.startsWith('sk-ant-oat')

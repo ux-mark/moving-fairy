@@ -70,7 +70,8 @@ export async function runCliAgentLoop(
   tools: ToolDefinition[],
   model: string,
   controller: ReadableStreamDefaultController,
-  executeTool: (name: string, input: Record<string, unknown>) => Promise<string>
+  executeTool: (name: string, input: Record<string, unknown>) => Promise<string>,
+  extraAllowedTools?: string[]
 ): Promise<string> {
   const encoder = new TextEncoder()
   let fullAssistantText = ''
@@ -83,7 +84,7 @@ export async function runCliAgentLoop(
   let prompt = buildCliPrompt(messages)
 
   for (let round = 0; round < 10; round++) {
-    const cmd = buildCliArgs(fullSystemPrompt, model)
+    const cmd = buildCliArgs(fullSystemPrompt, model, extraAllowedTools)
 
     // Stream text deltas to the client as they arrive, while also
     // collecting the full response text for tool call extraction.
@@ -149,7 +150,7 @@ export async function runCliAgentLoop(
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function buildCliArgs(systemPrompt: string | null, model: string): string[] {
+function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[]): string[] {
   const cmd = [
     'claude',
     '--print',
@@ -162,6 +163,10 @@ function buildCliArgs(systemPrompt: string | null, model: string): string[] {
 
   if (systemPrompt) {
     cmd.push('--system-prompt', systemPrompt)
+  }
+
+  if (allowedTools && allowedTools.length > 0) {
+    cmd.push('--allowedTools', ...allowedTools)
   }
 
   return cmd
