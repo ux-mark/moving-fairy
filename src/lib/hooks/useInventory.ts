@@ -3,7 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { CostSummaryData } from "@/components/inventory/CostSummary";
-import { registerInventoryRefresh } from "@/hooks/useInventoryData";
+
+// Module-level registry so external callers (e.g. ChatInterface after AI tool
+// calls) can trigger a refresh of all mounted useInventory instances.
+let externalRefreshCallbacks: Array<() => void> = [];
+
+export function registerInventoryRefresh(cb: () => void): () => void {
+  externalRefreshCallbacks.push(cb);
+  return () => {
+    externalRefreshCallbacks = externalRefreshCallbacks.filter((fn) => fn !== cb);
+  };
+}
+
+export function triggerInventoryRefresh() {
+  externalRefreshCallbacks.forEach((cb) => cb());
+}
+
+// Re-export so consumers can import CostSummaryData from one place.
+export type { CostSummaryData };
 
 interface InventoryState {
   assessments: ItemAssessment[];

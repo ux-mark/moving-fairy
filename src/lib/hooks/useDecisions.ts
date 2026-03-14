@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemAssessment } from '@/types'
-import { registerInventoryRefresh } from '@/hooks/useInventoryData'
+import { registerInventoryRefresh } from '@/lib/hooks/useInventory'
 
 interface DecisionsState {
   decisions: ItemAssessment[]

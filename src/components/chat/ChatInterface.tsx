@@ -7,7 +7,7 @@ import { InputBar } from "@/components/chat/InputBar";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import type { LogicEvent } from "@/components/chat/AILogicPanel";
-import { triggerInventoryRefresh } from "@/hooks/useInventoryData";
+import { triggerInventoryRefresh } from "@/lib/hooks/useInventory";
 import styles from "./ChatInterface.module.css";
 
 interface ChatMessage {
