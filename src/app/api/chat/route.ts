@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { NextRequest } from 'next/server'
+import sharp from 'sharp'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   appendMessage,
@@ -47,6 +48,59 @@ function readAislingPersona(): string {
     console.warn('[chat] Could not read aisling.md persona file')
     return ''
   }
+}
+
+/**
+ * Combine multiple images into a single grid montage.
+ * This avoids the CLI model issuing many parallel Read tool calls (which
+ * triggers a 400 "tool use concurrency" error from the API).
+ */
+async function createImageMontage(imagePaths: string[]): Promise<string> {
+  const CELL_SIZE = 512
+  const cols = Math.min(imagePaths.length, 4)
+  const rows = Math.ceil(imagePaths.length / cols)
+
+  // Resize each image to fit within a cell
+  const resized = await Promise.all(
+    imagePaths.map((p) =>
+      sharp(p)
+        .resize(CELL_SIZE, CELL_SIZE, { fit: 'inside', background: '#ffffff' })
+        .extend({
+          top: 0, bottom: 0, left: 0, right: 0,
+          background: '#ffffff',
+        })
+        .toBuffer({ resolveWithObject: true })
+    )
+  )
+
+  // Create composite inputs with positioning
+  const composites = resized.map((img, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    // Centre the image within its cell
+    const xOffset = Math.floor((CELL_SIZE - img.info.width) / 2)
+    const yOffset = Math.floor((CELL_SIZE - img.info.height) / 2)
+    return {
+      input: img.data,
+      left: col * CELL_SIZE + xOffset,
+      top: row * CELL_SIZE + yOffset,
+    }
+  })
+
+  const montagePath = path.join('/tmp', `aisling-montage-${Date.now()}.webp`)
+  await sharp({
+    create: {
+      width: cols * CELL_SIZE,
+      height: rows * CELL_SIZE,
+      channels: 3,
+      background: '#ffffff',
+    },
+  })
+    .composite(composites)
+    .webp({ quality: 85 })
+    .toFile(montagePath)
+
+  return montagePath
 }
 
 function countryToModuleCode(country: string): string {
@@ -883,15 +937,21 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                     : '',
             }))
 
-            // If there are images, append local file paths to the last user message
-            // so the CLI's Read tool can view them (CLI can't access network URLs)
+            // If there are images, create a single montage to avoid the CLI
+            // model issuing many parallel Read tool calls (which triggers a
+            // 400 "tool use concurrency" error from the Anthropic API).
+            let montagePath: string | null = null
             if (cliImagePaths.length > 0 && cliMessages.length > 0) {
               const lastMsg = cliMessages[cliMessages.length - 1]
               if (lastMsg && lastMsg.role === 'user') {
-                const imageList = cliImagePaths.map(
-                  (p, i) => `[Image ${i + 1}: ${p}]`
-                ).join('\n')
-                lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded ${cliImagePaths.length} photo(s). Read each image file path below to see what items are shown, then assess each item you can identify.\n${imageList}`
+                if (cliImagePaths.length === 1) {
+                  // Single image — no montage needed
+                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]`
+                } else {
+                  // Multiple images — create a grid montage
+                  montagePath = await createImageMontage(cliImagePaths)
+                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded ${cliImagePaths.length} photo(s), combined into a single grid image. Read the grid image to see all items, then assess each item you can identify. Each cell in the grid is a separate photo.\n[Grid image: ${montagePath}]`
+                }
               }
             }
 
@@ -908,6 +968,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             // Clean up temp image files
             for (const tmpPath of cliImagePaths) {
               try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
+            }
+            if (montagePath) {
+              try { fs.unlinkSync(montagePath) } catch { /* ignore */ }
             }
           } else {
             // ── SDK mode: direct Anthropic API ──
