@@ -46,10 +46,17 @@ interface ChatInterfaceProps {
   onStreamingChange?: (isStreaming: boolean) => void;
 }
 
-// Module-level flag — survives hot reloads and component remounts within the
-// same page lifecycle. Prevents the session init / welcome-back flow from
-// re-firing when Next.js HMR remounts the component during a long CLI call.
-let sessionInitialized = false;
+// HMR-safe session init guard. Module-level variables reset when Next.js HMR
+// re-evaluates the module, but window properties persist. This prevents the
+// session check / welcome-back flow from re-firing during long CLI calls.
+function isSessionInitialized(): boolean {
+  return typeof window !== "undefined" && !!(window as unknown as Record<string, unknown>).__aislingSessionInit;
+}
+function markSessionInitialized(): void {
+  if (typeof window !== "undefined") {
+    (window as unknown as Record<string, unknown>).__aislingSessionInit = true;
+  }
+}
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
   function ChatInterface({ onLogicEvent, onStreamingChange }, ref) {
@@ -81,8 +88,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   );
 
   useEffect(() => {
-    if (sessionInitialized) return;
-    sessionInitialized = true;
+    if (isSessionInitialized()) return;
+    markSessionInitialized();
 
     fetch("/api/session")
       .then((res) => res.json())
