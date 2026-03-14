@@ -889,8 +889,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             )
           }
 
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
-          controller.close()
+          // Persist messages BEFORE closing the stream so that any subsequent
+          // /api/session call sees has_history: true and does not fire __welcome_back__
+          // (fixes MF-ISSUE-011: chat resets after image upload)
 
           // Don't persist internal triggers as user messages
           if (!isOpeningTrigger && !isWelcomeBack) {
@@ -909,6 +910,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             content: assistantText,
             created_at: new Date().toISOString(),
           })
+
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+          controller.close()
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Streaming error'
           const isAuthError =
