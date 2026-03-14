@@ -170,6 +170,7 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
     model,
     '--output-format',
     'stream-json',
+    '--include-partial-messages',
     '--no-session-persistence',
   ]
 
@@ -177,10 +178,11 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
     cmd.push('--system-prompt', systemPrompt)
   }
 
-  // Block dangerous tools that could write to the project directory
-  // and trigger Turbopack file watcher restarts. The custom app tools
-  // (render_assessment_card etc.) use <tool_call> XML in the text output,
-  // not the CLI's native tool system.
+  // Block native CLI tools that could write to the project directory and
+  // trigger Turbopack file watcher restarts. Keep the rest available so the
+  // model stays in "tool mode" and follows <tool_call> XML instructions.
+  // IMPORTANT: blocking too many tools causes the model to ignore our custom
+  // tool instructions and output plain text instead of <tool_call> XML.
   cmd.push('--disallowed-tools', 'Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit')
 
   if (allowedTools && allowedTools.length > 0) {
@@ -251,42 +253,42 @@ function spawnCliStreaming(
     // Track whether we're inside a <tool_call> block to suppress streaming it
     let insideToolCall = false
 
-    function processLine(line: string) {
-      const trimmed = line.trim()
-      if (!trimmed) return
+    function processTextDelta(text: string) {
+      fullText += text
 
-      let event: Record<string, unknown>
-      try {
-        event = JSON.parse(trimmed)
-      } catch {
+      // Buffer tool_call XML — don't stream it to the client
+      if (text.includes('<tool_call>')) {
+        insideToolCall = true
+        // Emit any text before the tag
+        const before = text.split('<tool_call>')[0]
+        if (before) onTextDelta(before)
+      } else if (insideToolCall) {
+        if (text.includes('</tool_call>')) {
+          insideToolCall = false
+          // Emit any text after the closing tag
+          const after = text.split('</tool_call>').slice(1).join('')
+          if (after) onTextDelta(after)
+        }
+        // else: inside tool call, suppress
+      } else {
+        onTextDelta(text)
+      }
+    }
+
+    function processEvent(event: Record<string, unknown>) {
+      const eventType = event.type as string
+
+      // With --include-partial-messages, events are wrapped in stream_event
+      if (eventType === 'stream_event') {
+        const inner = event.event as Record<string, unknown> | undefined
+        if (inner) processEvent(inner)
         return
       }
-
-      const eventType = event.type as string
 
       if (eventType === 'content_block_delta') {
         const delta = event.delta as Record<string, unknown> | undefined
         if (delta?.type === 'text_delta') {
-          const text = delta.text as string
-          fullText += text
-
-          // Buffer tool_call XML — don't stream it to the client
-          if (text.includes('<tool_call>')) {
-            insideToolCall = true
-            // Emit any text before the tag
-            const before = text.split('<tool_call>')[0]
-            if (before) onTextDelta(before)
-          } else if (insideToolCall) {
-            if (text.includes('</tool_call>')) {
-              insideToolCall = false
-              // Emit any text after the closing tag
-              const after = text.split('</tool_call>').slice(1).join('')
-              if (after) onTextDelta(after)
-            }
-            // else: inside tool call, suppress
-          } else {
-            onTextDelta(text)
-          }
+          processTextDelta(delta.text as string)
         }
       } else if (eventType === 'assistant') {
         const message = event.message as Record<string, unknown> | undefined
@@ -308,6 +310,20 @@ function spawnCliStreaming(
           onTextDelta(resultText)
         }
       }
+    }
+
+    function processLine(line: string) {
+      const trimmed = line.trim()
+      if (!trimmed) return
+
+      let event: Record<string, unknown>
+      try {
+        event = JSON.parse(trimmed)
+      } catch {
+        return
+      }
+
+      processEvent(event)
     }
 
     if (proc.stdout) {
