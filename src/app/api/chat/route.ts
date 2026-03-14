@@ -765,6 +765,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     // CLI mode: save to temp files for the CLI's Read tool (it can't access network URLs)
     // SDK mode: send as base64 content blocks to the Anthropic API
     const cliImagePaths: string[] = []
+    // Map temp file paths back to original Supabase URLs so assessments
+    // store the real URL, not the ephemeral /tmp path.
+    const tmpToSupabaseUrl = new Map<string, string>()
 
     for (const url of allImageUrls) {
       try {
@@ -779,6 +782,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           const tmpPath = path.join('/tmp', `aisling-img-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`)
           fs.writeFileSync(tmpPath, imgBuffer)
           cliImagePaths.push(tmpPath)
+          tmpToSupabaseUrl.set(tmpPath, url)
         } else {
           const imgBase64 = imgBuffer.toString('base64')
           const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
@@ -810,12 +814,29 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const userProfileId = session.user_profile_id
 
     // ── Tool executor for CLI mode (handles render_assessment_card auto-save) ──
+    // Track which image is currently being processed so we can attach the
+    // correct Supabase URL even if the model doesn't include image_url.
+    let currentCliImageUrl: string | null = null
+
     const cliToolExecutor = async (
       toolName: string,
       toolInput: Record<string, unknown>
     ): Promise<string> => {
       if (toolName === 'render_assessment_card') {
-        const cardInput = toolInput
+        const cardInput = { ...toolInput }
+
+        // Replace /tmp paths with real Supabase URLs
+        const rawUrl = cardInput.image_url as string | undefined
+        if (rawUrl && rawUrl.startsWith('/tmp')) {
+          const realUrl = tmpToSupabaseUrl.get(rawUrl)
+          if (realUrl) cardInput.image_url = realUrl
+          else delete cardInput.image_url // don't save broken tmp paths
+        }
+
+        // If model didn't include image_url, use the current image being processed
+        if (!cardInput.image_url && currentCliImageUrl) {
+          cardInput.image_url = currentCliImageUrl
+        }
         let autoSaveResult: { assessment_id?: string } = {}
         try {
           const existingId = cardInput.assessment_id as string | undefined
@@ -900,6 +921,9 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                 const imgNum = imgIdx + 1
                 const imgTotal = cliImagePaths.length
 
+                // Set current image URL so cliToolExecutor can attach it
+                currentCliImageUrl = tmpToSupabaseUrl.get(imgPath) ?? null
+
                 // Build per-image messages (only include text prompt on first)
                 const imgMessages = imgIdx === 0
                   ? cliMessages.map((m, i) => {
@@ -932,6 +956,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
               }
             } else if (cliImagePaths.length === 1) {
               // Single image — straightforward
+              currentCliImageUrl = tmpToSupabaseUrl.get(cliImagePaths[0]!) ?? null
               if (cliMessages.length > 0) {
                 const lastMsg = cliMessages[cliMessages.length - 1]
                 if (lastMsg && lastMsg.role === 'user') {
