@@ -222,6 +222,16 @@ function AssessmentCard({
 
   return (
     <div className={styles.assessmentCardWrapper}>
+      {card.image_url && (
+        <div className={styles.assessmentCardImage}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/img?url=${encodeURIComponent(card.image_url)}`}
+            alt={card.item}
+            className={styles.assessmentCardImg}
+          />
+        </div>
+      )}
       <RecommendationCard
         title={card.item}
         rationale={card.rationale}
@@ -238,6 +248,14 @@ function AssessmentCard({
       />
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Tool call block filtering
+// ---------------------------------------------------------------------------
+
+function stripToolCallBlocks(text: string): string {
+  return text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +305,13 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
   }
 
   // ---- Case B: Assistant prose message — soft bubble, left-aligned ----
+  const assistantContent = stripToolCallBlocks(message.content);
+
+  // Don't render an empty bubble if all content was tool call blocks
+  if (assistantContent === "") {
+    return null;
+  }
+
   return (
     <div
       className={`${styles.messageRow} ${styles.messageRowAssistant}`}
@@ -294,7 +319,7 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
     >
       <div className={styles.bubbleAssistant}>
         <div className={styles.assistantText}>
-          {renderInlineFormatting(message.content)}
+          {renderInlineFormatting(assistantContent)}
         </div>
       </div>
     </div>
