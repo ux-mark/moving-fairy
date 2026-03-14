@@ -193,7 +193,9 @@ function spawnCliStreaming(
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
-    const proc = nodeSpawn(command, commandArgs, { env })
+    // Run in /tmp so the CLI doesn't write files to the project dir
+    // (which would trigger Next.js dev server restarts mid-stream)
+    const proc = nodeSpawn(command, commandArgs, { env, cwd: '/tmp' })
 
     let fullText = ''
     let lineBuffer = ''
@@ -314,7 +316,9 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
-    const proc = nodeSpawn(command, commandArgs, { env })
+    // Run in /tmp so the CLI doesn't write files to the project dir
+    // (which would trigger Next.js dev server restarts mid-stream)
+    const proc = nodeSpawn(command, commandArgs, { env, cwd: '/tmp' })
 
     let stdout = ''
     let stderr = ''
