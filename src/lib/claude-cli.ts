@@ -90,9 +90,12 @@ export async function runCliAgentLoop(
     }
   }
 
-  // Append tool instructions to system prompt
+  // Prepend tool instructions so they get priority attention from the model.
+  // With long system prompts (persona + country modules + shipping economics),
+  // instructions at the end get lost — the model outputs plain text instead
+  // of <tool_call> XML blocks.
   const toolInstructions = buildToolInstructions(tools)
-  const fullSystemPrompt = systemPrompt + '\n\n' + toolInstructions
+  const fullSystemPrompt = toolInstructions + '\n\n' + systemPrompt
 
   // Build initial prompt from message history
   let prompt = buildCliPrompt(messages)
@@ -489,14 +492,15 @@ function buildCliPrompt(
  */
 function buildToolInstructions(tools: ToolDefinition[]): string {
   let instructions =
-    '\n\n--- TOOL USE INSTRUCTIONS ---\n' +
-    'You have access to the following tools. To call a tool, output a JSON block ' +
-    'wrapped in <tool_call> tags:\n\n' +
+    '\n\n--- TOOL USE INSTRUCTIONS (MANDATORY) ---\n' +
+    'CRITICAL: You MUST call tools using <tool_call> XML tags. NEVER output tool ' +
+    'data as plain text, markdown tables, or inline descriptions.\n\n' +
+    'Format — wrap a JSON object in <tool_call> tags:\n\n' +
     '<tool_call>\n' +
     '{"name": "tool_name", "input": {"param1": "value1"}}\n' +
     '</tool_call>\n\n' +
-    'You may call multiple tools by using multiple <tool_call> blocks.\n' +
-    'After outputting tool calls, STOP and wait for the results.\n\n' +
+    'You may output multiple <tool_call> blocks. After outputting tool calls, ' +
+    'STOP and wait for the results.\n\n' +
     'Available tools:\n\n'
 
   for (const t of tools) {

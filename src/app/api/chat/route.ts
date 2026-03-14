@@ -56,7 +56,7 @@ function readAislingPersona(): string {
  * triggers a 400 "tool use concurrency" error from the API).
  */
 async function createImageMontage(imagePaths: string[]): Promise<string> {
-  const CELL_SIZE = 512
+  const CELL_SIZE = 768
   const cols = Math.min(imagePaths.length, 4)
   const rows = Math.ceil(imagePaths.length / cols)
 
@@ -944,13 +944,15 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             if (cliImagePaths.length > 0 && cliMessages.length > 0) {
               const lastMsg = cliMessages[cliMessages.length - 1]
               if (lastMsg && lastMsg.role === 'user') {
+                const toolReminder = '\n\nIMPORTANT: For EVERY item you identify, you MUST output a <tool_call> block calling render_assessment_card. Do NOT describe assessments as plain text — use <tool_call> tags. Output all your <tool_call> blocks, then STOP and wait for results.'
+
                 if (cliImagePaths.length === 1) {
                   // Single image — no montage needed
-                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]`
+                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]${toolReminder}`
                 } else {
                   // Multiple images — create a grid montage
                   montagePath = await createImageMontage(cliImagePaths)
-                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded ${cliImagePaths.length} photo(s), combined into a single grid image. Read the grid image to see all items, then assess each item you can identify. Each cell in the grid is a separate photo.\n[Grid image: ${montagePath}]`
+                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded ${cliImagePaths.length} photo(s), combined into a single grid image. Read the grid image to see all items, then assess each item you can identify. Each cell in the grid is a separate photo.\n[Grid image: ${montagePath}]${toolReminder}`
                 }
               }
             }
