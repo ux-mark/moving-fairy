@@ -13,6 +13,18 @@ function isPrivateHostname(hostname: string): boolean {
   return PRIVATE_IP_PATTERN.test(hostname)
 }
 
+/** Check if a URL belongs to our Supabase instance (trusted origin) */
+function isSupabaseUrl(parsed: URL): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return false
+  try {
+    const supabase = new URL(supabaseUrl)
+    return parsed.hostname === supabase.hostname && parsed.port === supabase.port
+  } catch {
+    return false
+  }
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url')
 
@@ -27,13 +39,16 @@ export async function GET(req: NextRequest) {
     return new Response('Invalid url', { status: 400 })
   }
 
-  // Only allow HTTPS — reject http, data:, blob:, etc.
-  if (parsed.protocol !== 'https:') {
+  // Allow Supabase storage URLs (trusted origin — may be HTTP in local dev)
+  const trusted = isSupabaseUrl(parsed)
+
+  // Only allow HTTPS — reject http, data:, blob:, etc. (Supabase URLs exempt)
+  if (!trusted && parsed.protocol !== 'https:') {
     return new Response('Only HTTPS URLs are allowed', { status: 400 })
   }
 
-  // Block private/loopback IP ranges (SSRF protection)
-  if (isPrivateHostname(parsed.hostname)) {
+  // Block private/loopback IP ranges — SSRF protection (Supabase URLs exempt)
+  if (!trusted && isPrivateHostname(parsed.hostname)) {
     return new Response('Forbidden', { status: 403 })
   }
 

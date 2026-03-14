@@ -763,18 +763,26 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const userContent: Anthropic.Messages.ContentBlockParam[] = []
 
     for (const url of allImageUrls) {
-      const imgRes = await fetch(url)
-      const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
-      const imgBase64 = imgBuffer.toString('base64')
-      const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
-        | 'image/jpeg'
-        | 'image/png'
-        | 'image/gif'
-        | 'image/webp'
-      userContent.push({
-        type: 'image',
-        source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
-      } as Anthropic.Messages.ImageBlockParam)
+      try {
+        const imgRes = await fetch(url)
+        if (!imgRes.ok) {
+          console.error(`[chat] Failed to fetch image ${url}: ${imgRes.status}`)
+          continue
+        }
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
+        const imgBase64 = imgBuffer.toString('base64')
+        const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
+          | 'image/jpeg'
+          | 'image/png'
+          | 'image/gif'
+          | 'image/webp'
+        userContent.push({
+          type: 'image',
+          source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
+        } as Anthropic.Messages.ImageBlockParam)
+      } catch (imgErr) {
+        console.error(`[chat] Error fetching image ${url}:`, imgErr)
+      }
     }
 
     if (effectiveMessage) userContent.push({ type: 'text', text: effectiveMessage })
