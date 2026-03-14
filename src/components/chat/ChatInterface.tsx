@@ -46,6 +46,11 @@ interface ChatInterfaceProps {
   onStreamingChange?: (isStreaming: boolean) => void;
 }
 
+// Module-level flag — survives hot reloads and component remounts within the
+// same page lifecycle. Prevents the session init / welcome-back flow from
+// re-firing when Next.js HMR remounts the component during a long CLI call.
+let sessionInitialized = false;
+
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
   function ChatInterface({ onLogicEvent, onStreamingChange }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -56,7 +61,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const openingTriggeredRef = useRef(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced inventory refresh — collapses rapid-fire card events into one refresh
@@ -77,8 +81,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   );
 
   useEffect(() => {
-    if (openingTriggeredRef.current) return;
-    openingTriggeredRef.current = true;
+    if (sessionInitialized) return;
+    sessionInitialized = true;
 
     fetch("/api/session")
       .then((res) => res.json())
