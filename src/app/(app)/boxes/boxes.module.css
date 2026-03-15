@@ -1,8 +1,9 @@
 /* Boxes page — DS tokens */
 
-.page {
-  min-height: 100svh;
-  background: var(--color-bg-page);
+.pageContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .header {
@@ -33,6 +34,8 @@
 
 .main {
   margin: 0 auto;
+  width: 100%;
   max-width: 672px;
   padding: 24px 16px;
+  box-sizing: border-box;
 }

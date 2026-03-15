@@ -214,7 +214,8 @@ export function ItemEditPanel({
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   // Form state — initialised from item, reset when item or panel open state changes
-  const [verdict, setVerdict] = useState<Verdict>(item.verdict);
+  // Default to REVISIT when verdict is null (pending/processing items)
+  const [verdict, setVerdict] = useState<Verdict>(item.verdict ?? "REVISIT");
   const [itemName, setItemName] = useState(item.item_name);
   const [estimatedValue, setEstimatedValue] = useState<string>(
     item.estimated_replace_cost != null
@@ -227,7 +228,7 @@ export function ItemEditPanel({
   // Reset form when panel opens or item changes
   useEffect(() => {
     if (!isOpen) return;
-    setVerdict(item.verdict);
+    setVerdict(item.verdict ?? "REVISIT");
     setItemName(item.item_name);
     setEstimatedValue(
       item.estimated_replace_cost != null
@@ -462,7 +463,7 @@ export function ItemEditPanel({
                   />
                   {/* Inline note when changing away from ship/carry */}
                   {!SHIPPING_VERDICTS.includes(verdict) &&
-                    SHIPPING_VERDICTS.includes(item.verdict) && (
+                    item.verdict != null && SHIPPING_VERDICTS.includes(item.verdict) && (
                       <p className={styles.verdictChangeNote} role="note">
                         Changing to{" "}
                         {

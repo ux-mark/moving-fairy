@@ -1,5 +1,5 @@
-import { ChatWithInventory } from "@/components/layout/ChatWithInventory";
+import { redirect } from 'next/navigation'
 
 export default function InventoryPage() {
-  return <ChatWithInventory />;
+  redirect('/decisions')
 }

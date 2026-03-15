@@ -30,11 +30,12 @@ const VERDICT_LABELS: Record<Verdict, string> = {
 };
 
 interface VerdictBadgeProps {
-  verdict: Verdict;
+  verdict: Verdict | null | undefined;
   className?: string;
 }
 
 export function VerdictBadge({ verdict, className }: VerdictBadgeProps) {
+  if (!verdict) return null;
   const combined = [styles.badge, className].filter(Boolean).join(" ");
   return (
     <Badge

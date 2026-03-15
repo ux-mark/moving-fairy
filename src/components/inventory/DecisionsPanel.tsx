@@ -97,7 +97,7 @@ function DecisionCard({
   onBackToChat,
 }: DecisionCardProps) {
   const [actionState, setActionState] = useState<ActionState>("idle");
-  const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict);
+  const [localVerdict, setLocalVerdict] = useState<string>(assessment.verdict ?? "");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
