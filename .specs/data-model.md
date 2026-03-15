@@ -112,46 +112,21 @@ New equipment types are added as new JSONB keys — no migration required.
 
 ---
 
-## 6. Session Table
+## 6. Session Table — DROPPED
 
-| Column            | Type              | Nullable | Notes |
-|-------------------|-------------------|----------|-------|
-| `id`              | UUID              | No       | Primary key. |
-| `created_at`      | Timestamp with TZ | No       | Session start time. |
-| `updated_at`      | Timestamp with TZ | No       | Updated on every change to the session. |
-| `user_profile_id` | UUID (FK)         | No       | References `UserProfile.id`. |
-
-**Index**: `user_profile_id`.
-
-Images are NOT stored on Session. Each image URL lives on the `ItemAssessment` record.
+> The `session` and `message` tables were dropped as part of the item-centric overhaul (2026-03-15). Global chat has been retired. Per-item conversations (Phase 2) use new `item_conversation` and `item_conversation_message` tables.
 
 ---
 
-## 7. Message Table
+## 7. Message Table — DROPPED
 
-Stores chat messages as individual rows. Each message belongs to a session.
-
-| Column      | Type              | Nullable | Notes |
-|-------------|-------------------|----------|-------|
-| `id`        | TEXT              | No       | Message ID (e.g. `msg_1710000000000_user`). Part of composite PK. |
-| `session_id`| UUID (FK)         | No       | References `Session.id`. Part of composite PK. |
-| `role`      | TEXT              | No       | `user` or `assistant`. Enforced by CHECK constraint. |
-| `content`   | TEXT              | No       | Markdown permitted. |
-| `created_at`| Timestamp with TZ | No       | Defaults to NOW(). |
-
-**Primary Key**: `(session_id, id)` — message IDs are unique within a session, not globally.
-
-**Indexes:**
-- `(session_id)` — retrieve all messages for a session
-- `(session_id, created_at)` — ordered retrieval for chat history
-
-**RLS**: Enabled. Policies to be added alongside other tables (see MF-ISSUE-005).
+> See section 6.
 
 ---
 
 ## 8. ItemAssessment Table
 
-One record per assessed item. All writes go through the MCP — Aisling never writes directly. The record type (full vs lightweight) depends on the verdict.
+One record per item. Created immediately when the user adds an item (via photo upload or text). The LLM assessment runs in the background and updates the record when complete. All writes go through the MCP layer.
 
 **Freight costs are CBM-based (cubic metres), not weight-based. Sea freight for household moves is quoted per CBM.**
 
@@ -159,19 +134,22 @@ One record per assessed item. All writes go through the MCP — Aisling never wr
 |------------------------------|-------------------|----------|---------------|-------|
 | `id`                         | UUID              | No       | All           | Primary key. |
 | `user_profile_id`            | UUID (FK)         | No       | All           | References `UserProfile.id`. |
-| `session_id`                 | UUID (FK)         | Yes      | All           | References `Session.id`. Nullable. |
-| `item_name`                  | text              | No       | All           | Canonical name as understood by Aisling. |
-| `item_description`           | text              | Yes      | All           | User's original description. |
-| `verdict`                    | Verdict enum      | No       | All           | The disposition decision. |
-| `advice_text`                | text              | Yes      | All           | Aisling's plain-language reasoning, stored for display. |
+| `item_name`                  | text              | No       | All           | Canonical name. Set by user on add; may be updated by Aisling after assessment (e.g. identifying item from photo). |
+| `item_description`           | text              | Yes      | All           | User's original description or Aisling's description. |
+| `verdict`                    | Verdict enum      | Yes      | Completed     | The disposition decision. **Nullable** — null while `processing_status` is `pending` or `processing`. |
+| `advice_text`                | text              | Yes      | Completed     | Aisling's plain-language reasoning (rationale + action + import note), stored for display and for per-item chat context (Phase 2). |
 | `image_url`                  | text              | Yes      | SHIP, CARRY   | URL of optimised WebP in object storage. Null for SELL/DONATE/DISCARD. |
 | `voltage_compatible`         | boolean           | Yes      | SHIP, CARRY   | True = works at arrival voltage without modification. Null = not electrical. |
 | `needs_transformer`          | boolean           | Yes      | SHIP, CARRY   | True = works with user's transformer. Null = not applicable. |
-| `estimated_ship_cost`        | decimal           | Yes      | SHIP, CARRY   | Estimated freight cost in the departure country's currency, computed from item CBM × sea freight rate. Null for non-SHIP verdicts. |
-| `currency`                   | text              | Yes      | SHIP, CARRY   | ISO 4217 code for `estimated_ship_cost` (e.g. "USD", "EUR", "AUD"). Derived from departure country at time of assessment. |
-| `estimated_replace_cost`     | decimal           | Yes      | SHIP, CARRY   | Cost to replace at the arrival destination, in the arrival country's currency. Used in ship-vs-buy decision. |
-| `replace_currency`           | text              | Yes      | SHIP, CARRY   | ISO 4217 code for `estimated_replace_cost` (e.g. "EUR", "AUD"). Derived from arrival country at time of assessment. |
+| `estimated_ship_cost`        | decimal           | Yes      | SHIP, CARRY   | Estimated freight cost in the departure country's currency, computed from item CBM × sea freight rate. |
+| `currency`                   | text              | Yes      | SHIP, CARRY   | ISO 4217 code for `estimated_ship_cost` (e.g. "USD", "EUR", "AUD"). |
+| `estimated_replace_cost`     | decimal           | Yes      | SHIP, CARRY   | Cost to replace at the arrival destination, in the arrival country's currency. |
+| `replace_currency`           | text              | Yes      | SHIP, CARRY   | ISO 4217 code for `estimated_replace_cost` (e.g. "EUR", "AUD"). |
 | `user_confirmed`             | boolean           | No       | All           | Default false. True when user explicitly accepts the assessment. |
+| `processing_status`          | text              | No       | All           | Default `completed`. One of: `pending`, `processing`, `completed`, `failed`. CHECK constraint enforced. |
+| `confidence`                 | integer           | Yes      | Completed     | 0–100 confidence score from Aisling. Null while pending/processing or if assessment failed. |
+| `needs_clarification`        | boolean           | No       | All           | Default false. True when Aisling's confidence is below 60 or when the LLM couldn't produce a full assessment. |
+| `source`                     | text              | No       | All           | Default `manual`. One of: `photo_upload`, `text_add`, `sticker_scan`, `manual`. CHECK constraint enforced. |
 | `created_at`                 | Timestamp with TZ | No       | All           | Set on insert. |
 | `updated_at`                 | Timestamp with TZ | No       | All           | Set on every update. |
 
@@ -345,11 +323,8 @@ The MCP server enforces the record type rules: it never stores `image_url` or co
 ## 16. Relationships
 
 ```
-UserProfile    (1) ──── (many) Session
 UserProfile    (1) ──── (many) ItemAssessment
 UserProfile    (1) ──── (many) Box
-Session        (1) ──── (many) Message
-Session        (1) ──── (many) ItemAssessment  [via session_id FK, nullable]
 Box            (1) ──── (many) BoxItem
 BoxItem        (0..1) ── (1)   ItemAssessment  [via item_assessment_id, nullable]
 ItemAssessment — SHIP/CARRY only → (1) image in object storage  [via image_url]
@@ -367,27 +342,32 @@ User submits onboarding form
   → POST /onboarding
   → Validate form data
   → INSERT UserProfile (departure, arrival, onward, timeline, equipment)
-  → INSERT Session (user_profile_id)
-  → Return session_id to client
+  → Return profile to client
 
-User sends text message
-  → POST /chat { session_id, message }
-  → MCP: get_user_profile(session_id) → UserProfile
-  → Serialise profile → resolve modules → compose system prompt
-  → INSERT into message table (user message)
-  → Call LLM API (system prompt + messages)
-  → INSERT into message table (assistant response)
-  → If verdict is SHIP/CARRY: MCP: save_item_assessment(... full record ...)
-  → If verdict is SELL/DONATE/DISCARD: MCP: save_item_assessment(... lightweight ...)
-  → If verdict is REVISIT: do not save yet
-  → MCP: get_cost_summary(user_profile_id) → updated totals
-  → Return response + cost summary to client
+User adds items via photo upload (batch)
+  → POST /api/upload { image files }
+  → Upload Service: resize → WebP → store → return image_urls
+  → POST /api/items { item_name, image_url, source: 'photo_upload' }
+  → INSERT ItemAssessment (processing_status: 'pending', verdict: null)
+  → Return item record to client → card appears with thumbnail
+  → POST /api/assess/:id (fire-and-forget)
+  → Set processing_status = 'processing'
+  → Compose Aisling system prompt (persona + profile + country modules)
+  → Call LLM with render_assessment_card tool
+  → Parse tool call → UPDATE ItemAssessment (verdict, costs, rationale, etc.)
+  → Set processing_status = 'completed'
+  → Client picks up changes via Supabase Realtime subscription
 
-User sends message with image
-  → POST /upload { image file }
-  → Upload Service: resize → WebP → store → return image_url
-  → POST /chat { session_id, message, image_url }
-  → [same flow as text; image_url passed to LLM API]
-  → If SHIP/CARRY verdict: image_url included in save_item_assessment call
-  → If other verdict: image_url discarded (not stored)
+User adds items via text
+  → POST /api/items { item_name, source: 'text_add' }
+  → INSERT ItemAssessment (processing_status: 'pending', verdict: null)
+  → POST /api/assess/:id (fire-and-forget)
+  → [same LLM assessment flow as above, text-only]
+
+User opens per-item chat (Phase 2)
+  → GET /api/items/:id/chat/messages → conversation history
+  → POST /api/items/:id/chat { message }
+  → Compose system prompt with item assessment context
+  → Stream Aisling response
+  → Aisling can update item_assessment via update_item_assessment tool
 ```

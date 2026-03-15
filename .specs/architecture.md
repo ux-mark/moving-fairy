@@ -13,69 +13,81 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           User (Browser)                                │
 │                                                                         │
-│  ┌─────────────────────┐  ┌──────────────────────────┐  ┌───────────┐  │
-│  │   Onboarding Form   │  │     Chat Interface        │  │  Image    │  │
-│  │  (captures context) │  │  (conversation + upload)  │  │  Upload   │  │
-│  └─────────┬───────────┘  └──────────────┬────────────┘  └─────┬─────┘  │
-└────────────┼─────────────────────────────┼──────────────────────┼──────┘
-             │ POST /onboarding            │ POST /chat           │ POST /upload
-             ▼                             ▼                      ▼
+│  ┌───────────────┐  ┌────────────────────┐  ┌───────────┐  ┌────────┐  │
+│  │  Onboarding   │  │  Decisions List     │  │  Image    │  │ Per-   │  │
+│  │  Form         │  │  (home: /decisions) │  │  Upload   │  │ item   │  │
+│  │               │  │  + text add input   │  │  (batch)  │  │ Chat   │  │
+│  └──────┬────────┘  └────────┬────────────┘  └─────┬─────┘  └───┬────┘  │
+└─────────┼────────────────────┼──────────────────────┼────────────┼──────┘
+          │                    │                      │            │
+          │ POST /onboarding   │ GET /api/items       │ POST       │ POST
+          │                    │ POST /api/items      │ /upload    │ /api/items/:id/chat
+          ▼                    ▼                      ▼            ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                             API Layer                                   │
 │                                                                         │
-│  ┌──────────────────┐  ┌───────────────────────────┐  ┌─────────────┐  │
-│  │  Profile Service │  │    Session/Chat Service    │  │   Upload    │  │
-│  │  (via MCP)       │  │  (manages conversation)    │  │   Service   │  │
-│  └──────────────────┘  └──────────────┬─────────────┘  └──────┬──────┘  │
-│                                        │                        │         │
-│                                        │          ┌─────────────┘         │
-│                                        │          │ Optimise image:       │
-│                                        │          │ WebP, max 1024px,     │
-│                                        │          │ ~80% quality          │
-│                                        │          │ (SHIP/CARRY only)     │
-└────────────────────────────────────────┼──────────┼─────────────────────┘
-                                         │          │
-                                         ▼          ▼
-                         ┌──────────────────────┐   ┌────────────────────┐
-                         │    MCP Server         │   │  Supabase Storage  │
-                         │                       │   │  (Frankfurt, EU)   │
-                         │  get_user_profile     │   │                    │
-                         │  save_item_assessment │   │  Optimised WebP    │
-                         │  update_item_         │   │  images only.      │
-                         │    assessment         │   │  SHIP/CARRY items  │
-                         │  get_cost_summary     │   │  only. Returns URL.│
-                         │  get_item_assessments │   └────────────────────┘
-                         └──────────┬────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │           Database             │
-                    │  UserProfile  Session          │
-                    │  Messages     ItemAssessment   │
-                    └───────────────────────────────┘
-                                    │
-                     ┌──────────────┘
-                     ▼
+│  ┌──────────────────┐  ┌───────────────────────┐  ┌──────────────────┐  │
+│  │  Profile Service │  │  Item Service          │  │  Upload Service  │  │
+│  │  (via MCP)       │  │  CRUD + assess/:id     │  │  WebP optimise   │  │
+│  └──────────────────┘  └──────────┬─────────────┘  └────────┬─────────┘  │
+│                                    │                          │           │
+│                          ┌─────────┘                          │           │
+│                          │ Background:                        │           │
+│                          │ POST /api/assess/:id               │           │
+│                          │ (fire-and-forget)                  │           │
+│                          ▼                                    ▼           │
+│  ┌─────────────────────────────────────────┐  ┌────────────────────┐     │
+│  │  assess-item.ts                         │  │  Supabase Storage  │     │
+│  │  Compose Aisling prompt → call LLM      │  │  (Frankfurt, EU)   │     │
+│  │  Parse render_assessment_card → update  │  │  WebP images       │     │
+│  │  DB via MCP                              │  │  item_assessment   │     │
+│  └──────────────────────┬──────────────────┘  └────────────────────┘     │
+└─────────────────────────┼───────────────────────────────────────────────┘
+                          │
+                          ▼
+                ┌───────────────────────────┐
+                │    MCP Layer (Supabase)    │
+                │                           │
+                │  item_assessment CRUD     │
+                │  user_profile CRUD        │
+                │  box management           │
+                │  cost summary             │
+                └──────────┬────────────────┘
+                           ▼
+             ┌───────────────────────────────┐      ┌─────────────────────┐
+             │           Database             │      │  Supabase Realtime  │
+             │  UserProfile                   │ ────>│  item_assessment    │
+             │  ItemAssessment                │      │  changes pushed     │
+             │  Box / BoxItem                 │      │  to client          │
+             └───────────────────────────────┘      └─────────────────────┘
+```
+
+### Aisling System Prompt Composition (for background assessment)
+
+```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                       Aisling Initialisation                            │
+│  aisling-prompt.ts — composeAssessmentPrompt(profile)                   │
 │                                                                         │
-│  1. Call MCP: get_user_profile(session_id) → UserProfile                │
-│  2. Serialise UserProfile → structured context block                    │
-│  3. Resolve departure country module  (e.g. us-departure)               │
-│  4. Resolve arrival country module    (e.g. ie-arrival)                 │
-│  5. Resolve onward country module     (e.g. au-arrival) if set           │
-│  6. Resolve skill modules  (voltage, shipping-econ)                     │
-│  7. Compose system prompt → inject into LLM context window             │
+│  1. Aisling persona (MCP/Session sections stripped for background mode) │
+│  2. Serialised UserProfile (route, equipment, currency)                 │
+│  3. Departure country module (e.g. us-departure)                       │
+│  4. Arrival country module (e.g. ie-arrival)                           │
+│  5. Onward country module (e.g. au-arrival) if set                     │
+│  6. Voltage skill module                                                │
+│  7. Shipping economics skill module                                     │
+│  8. Background assessment instruction (single-item, tool-only)          │
 └─────────────────────────────────────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                            Aisling                                      │
-│                    (fairy persona / orchestrator)                       │
+│                 Aisling (background assessment mode)                     │
 │                                                                         │
-│  Assesses items from photo, text description, or both:                  │
-│  SELL / DONATE / DISCARD / SHIP / CARRY / DECIDE LATER                  │
-│  Saves each assessment via MCP. Updates running cost tally via MCP.     │
+│  Single-turn LLM call per item:                                         │
+│  - CLI mode (dev): claude subprocess with tool instructions in prompt  │
+│  - SDK mode (prod): Anthropic SDK with native tool_use                  │
+│  - Only tool: render_assessment_card                                    │
+│  - Verdicts: SELL / DONATE / DISCARD / SHIP / CARRY / REVISIT          │
+│  - Result written to DB; client picks up via Supabase Realtime          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
