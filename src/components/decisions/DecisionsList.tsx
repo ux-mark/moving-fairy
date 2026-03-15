@@ -3,6 +3,7 @@
 import {
   EmptyState,
   RecommendationCardSkeleton,
+  Button,
 } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { CostSummary } from '@/components/inventory/CostSummary'
@@ -16,11 +17,14 @@ interface DecisionsListProps {
   items: ItemAssessment[]
   isLoading: boolean
   error: string | null
-  onUploadPhotos: (files: File[]) => void
+  uploadError?: string | null
+  onDismissUploadError?: () => void
+  onUploadPhotos: (files: File[]) => Promise<void>
   onAddByText: (name: string) => void
   onConfirm: (id: string) => void
   onRetry: (id: string) => void
   onItemClick: (id: string) => void
+  onRefresh?: () => void
 }
 
 function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
@@ -48,11 +52,14 @@ export function DecisionsList({
   items,
   isLoading,
   error,
+  uploadError,
+  onDismissUploadError,
   onUploadPhotos,
   onAddByText,
   onConfirm,
   onRetry,
   onItemClick,
+  onRefresh,
 }: DecisionsListProps) {
   const hasItems = items.length > 0
   const costSummary = deriveCostSummary(items)
@@ -69,11 +76,33 @@ export function DecisionsList({
 
   return (
     <div className={styles.root}>
+      {/* Aria-live region for dynamic announcements */}
+      <span className={styles.srOnly} aria-live="polite" role="status">
+        {items.length > 0 ? `${items.length} item${items.length !== 1 ? 's' : ''}` : ''}
+      </span>
+
       {/* Entry points — always visible */}
       <div className={styles.entryBar}>
         <BatchUploadButton onUpload={onUploadPhotos} disabled={isLoading} />
         <TextAddInput onSubmit={onAddByText} disabled={isLoading} />
       </div>
+
+      {/* Upload/add error banner */}
+      {uploadError && (
+        <div className={styles.uploadErrorBanner} role="alert">
+          <p className={styles.uploadErrorText}>{uploadError}</p>
+          {onDismissUploadError && (
+            <button
+              className={styles.uploadErrorDismiss}
+              onClick={onDismissUploadError}
+              aria-label="Dismiss error"
+              type="button"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Cost summary — only when items with completed assessments exist */}
       {hasItems && hasCostData && (
@@ -93,9 +122,16 @@ export function DecisionsList({
         ) : error ? (
           <div className={styles.errorState} role="alert">
             <p className={styles.errorText}>
-              Something went wrong loading your items. Please try again.
+              Something went wrong loading your items.
             </p>
             <p className={styles.errorDetail}>{error}</p>
+            {onRefresh && (
+              <div className={styles.errorActions}>
+                <Button variant="secondary" size="sm" onClick={onRefresh}>
+                  Try again
+                </Button>
+              </div>
+            )}
           </div>
         ) : !hasItems ? (
           <div className={styles.emptyWrap}>
@@ -104,7 +140,7 @@ export function DecisionsList({
               description="Upload photos or describe items to get started. Aisling will assess each one and help you decide what to ship, sell, or leave behind."
               ctaLabel="Upload photos"
               onCtaClick={() => {
-                // Trigger the hidden file input via the BatchUploadButton's own click
+                // Trigger the BatchUploadButton via its id
                 document.getElementById('batch-upload-trigger')?.click()
               }}
             />

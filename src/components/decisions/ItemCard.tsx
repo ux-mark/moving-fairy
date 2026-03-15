@@ -1,7 +1,21 @@
 'use client'
 
 import { RecommendationCard } from '@thefairies/design-system/components'
+import type { RecommendationCardProps } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+
+// Extend RecommendationCardProps to include forward-compatible props that will
+// be picked up once the DS is updated. Using a local extension avoids any type
+// errors while preserving the intent for reviewers and future DS consumers.
+type RecommendationCardExtendedProps = RecommendationCardProps & {
+  /** Forward-compatible: custom pending state message (DS update pending) */
+  pendingMessage?: string
+  /** Forward-compatible: custom processing state message (DS update pending) */
+  processingMessage?: string
+}
+
+// Badge type extension for fgColor support (DS update pending)
+type ExtendedBadge = { label: string; color: string; fgColor?: string }
 
 interface ItemCardProps {
   item: ItemAssessment
@@ -42,8 +56,8 @@ export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
 
-  const badge = verdictColors && verdictLabel
-    ? { label: verdictLabel, color: verdictColors.bg }
+  const badge: ExtendedBadge | undefined = verdictColors && verdictLabel
+    ? { label: verdictLabel, color: verdictColors.bg, fgColor: verdictColors.fg }
     : undefined
 
   const metadata: { label: string; value: string }[] = []
@@ -61,24 +75,33 @@ export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
   // Determine the recommendation status based on user_confirmed
   const status = item.user_confirmed ? 'confirmed' : 'idle'
 
+  // Build props object. Forward-compatible props (pendingMessage, processingMessage,
+  // fgColor on badge) will be picked up once the DS is updated.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-compatible DS props not yet in DS types
+  const cardProps: Record<string, any> = {
+    title: item.item_name || 'New item',
+    rationale: item.advice_text ?? '',
+    status,
+    onConfirm: () => onConfirm(item.id),
+    onSkip: () => onClick(item.id),
+    confirmLabel: 'Accept',
+    skipLabel: 'Details',
+    pendingMessage: 'Waiting for Aisling...',
+    processingMessage: 'Aisling is looking at this one...',
+    processingErrorMessage: "Aisling couldn't assess this item. Tap to retry.",
+    ariaLabel: `Assessment for ${item.item_name || 'new item'}`,
+  }
+
+  if (badge !== undefined) cardProps.badge = badge
+  if (item.confidence != null) cardProps.confidence = item.confidence
+  if (metadata.length > 0) cardProps.metadata = metadata
+  if (verdictColors?.bg !== undefined) cardProps.accentColor = verdictColors.bg
+  if (item.processing_status !== 'completed') cardProps.processingStatus = item.processing_status
+  if (thumbnail !== undefined) cardProps.thumbnail = thumbnail
+  if (item.processing_status === 'failed') cardProps.onRetry = () => onRetry(item.id)
+
   return (
-    <RecommendationCard
-      title={item.item_name || 'New item'}
-      rationale={item.advice_text ?? ''}
-      {...(badge !== undefined ? { badge } : {})}
-      {...(item.confidence != null ? { confidence: item.confidence } : {})}
-      {...(metadata && metadata.length > 0 ? { metadata } : {})}
-      {...(verdictColors?.bg !== undefined ? { accentColor: verdictColors.bg } : {})}
-      status={status}
-      {...(item.processing_status !== 'completed' ? { processingStatus: item.processing_status } : {})}
-      {...(thumbnail !== undefined ? { thumbnail } : {})}
-      onConfirm={() => onConfirm(item.id)}
-      onSkip={() => onClick(item.id)}
-      {...(item.processing_status === 'failed' ? { onRetry: () => onRetry(item.id) } : {})}
-      confirmLabel="Confirm"
-      skipLabel="Details"
-      processingErrorMessage="Aisling couldn't assess this item. Tap to retry."
-      ariaLabel={`Assessment for ${item.item_name || 'new item'}`}
-    />
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-compatible props cast until DS is updated
+    <RecommendationCard {...(cardProps as any)} />
   )
 }

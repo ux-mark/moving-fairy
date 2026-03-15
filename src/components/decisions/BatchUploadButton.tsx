@@ -5,7 +5,7 @@ import { Camera } from 'lucide-react'
 import { Button } from '@thefairies/design-system/components'
 
 interface BatchUploadButtonProps {
-  onUpload: (files: File[]) => void
+  onUpload: (files: File[]) => Promise<void>
   disabled?: boolean
 }
 
@@ -23,7 +23,9 @@ export function BatchUploadButton({ onUpload, disabled }: BatchUploadButtonProps
 
     setIsUploading(true)
     try {
-      onUpload(files)
+      await onUpload(files)
+    } catch {
+      // Error handling is done by the parent
     } finally {
       setIsUploading(false)
       // Reset the input so the same file(s) can be re-selected if needed
@@ -41,13 +43,13 @@ export function BatchUploadButton({ onUpload, disabled }: BatchUploadButtonProps
         type="file"
         accept="image/*"
         multiple
-        capture="environment"
         onChange={handleChange}
         style={{ display: 'none' }}
         aria-hidden="true"
         tabIndex={-1}
       />
       <Button
+        id="batch-upload-trigger"
         variant="secondary"
         size="sm"
         onClick={handleClick}

@@ -16,7 +16,7 @@ interface UseItemsReturn {
   retryAssessment: (id: string) => Promise<void>
 }
 
-export function useItems(): UseItemsReturn {
+export function useItems(profileId?: string): UseItemsReturn {
   const [items, setItems] = useState<ItemAssessment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +72,7 @@ export function useItems(): UseItemsReturn {
           event: '*',
           schema: 'public',
           table: 'item_assessment',
+          ...(profileId ? { filter: `user_profile_id=eq.${profileId}` } : {}),
         },
         (payload) => {
           if (!isMountedRef.current) return
@@ -105,8 +106,8 @@ export function useItems(): UseItemsReturn {
       supabase.removeChannel(channel)
       channelRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase client is stable
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase client is stable; profileId intentionally omitted to avoid re-subscribing mid-session
+  }, [profileId])
 
   const addItemByPhoto = useCallback(async (imageUrl: string): Promise<ItemAssessment> => {
     // Create the item record

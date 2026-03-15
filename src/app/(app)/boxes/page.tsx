@@ -33,13 +33,13 @@ export default async function BoxesPage() {
           </div>
         </header>
 
-        <main className={styles.main}>
+        <section className={styles.main}>
           <BoxManagement
             initialBoxes={boxes}
             initialBoxItems={boxItems}
             initialAssessments={relevantAssessments}
           />
-        </main>
+        </section>
       </div>
     </AppLayout>
   )
