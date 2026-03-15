@@ -277,6 +277,13 @@ const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
   },
 ]
 
+// Subset of tools for image assessment CLI calls — only render_assessment_card.
+// Passing all 11 tools as text in the system prompt buries the Aisling persona
+// and degrades assessment quality (the model focuses on tool formatting over content).
+const IMAGE_ASSESSMENT_TOOLS: Anthropic.Messages.Tool[] = AISLING_TOOLS.filter(
+  (t) => t.name === 'render_assessment_card'
+)
+
 // ─── Tool executor ──────────────────────────────────────────────────────────
 
 async function executeTool(
@@ -761,20 +768,43 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
 
     // Build current user message with optional images
     const userContent: Anthropic.Messages.ContentBlockParam[] = []
+    // Fetch images server-side (the server can reach local Supabase)
+    // CLI mode: save to temp files for the CLI's Read tool (it can't access network URLs)
+    // SDK mode: send as base64 content blocks to the Anthropic API
+    const cliImagePaths: string[] = []
+    // Map temp file paths back to original Supabase URLs so assessments
+    // store the real URL, not the ephemeral /tmp path.
+    const tmpToSupabaseUrl = new Map<string, string>()
 
     for (const url of allImageUrls) {
-      const imgRes = await fetch(url)
-      const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
-      const imgBase64 = imgBuffer.toString('base64')
-      const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
-        | 'image/jpeg'
-        | 'image/png'
-        | 'image/gif'
-        | 'image/webp'
-      userContent.push({
-        type: 'image',
-        source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
-      } as Anthropic.Messages.ImageBlockParam)
+      try {
+        const imgRes = await fetch(url)
+        if (!imgRes.ok) {
+          console.error(`[chat] Failed to fetch image ${url}: ${imgRes.status}`)
+          continue
+        }
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
+
+        if (cliMode) {
+          const tmpPath = path.join('/tmp', `aisling-img-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`)
+          fs.writeFileSync(tmpPath, imgBuffer)
+          cliImagePaths.push(tmpPath)
+          tmpToSupabaseUrl.set(tmpPath, url)
+        } else {
+          const imgBase64 = imgBuffer.toString('base64')
+          const imgMediaType = (imgRes.headers.get('content-type') || 'image/webp') as
+            | 'image/jpeg'
+            | 'image/png'
+            | 'image/gif'
+            | 'image/webp'
+          userContent.push({
+            type: 'image',
+            source: { type: 'base64', media_type: imgMediaType, data: imgBase64 },
+          } as Anthropic.Messages.ImageBlockParam)
+        }
+      } catch (imgErr) {
+        console.error(`[chat] Error fetching image ${url}:`, imgErr)
+      }
     }
 
     if (effectiveMessage) userContent.push({ type: 'text', text: effectiveMessage })
@@ -791,12 +821,29 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const userProfileId = session.user_profile_id
 
     // ── Tool executor for CLI mode (handles render_assessment_card auto-save) ──
+    // Track which image is currently being processed so we can attach the
+    // correct Supabase URL even if the model doesn't include image_url.
+    let currentCliImageUrl: string | null = null
+
     const cliToolExecutor = async (
       toolName: string,
       toolInput: Record<string, unknown>
     ): Promise<string> => {
       if (toolName === 'render_assessment_card') {
-        const cardInput = toolInput
+        const cardInput = { ...toolInput }
+
+        // Replace /tmp paths with real Supabase URLs
+        const rawUrl = cardInput.image_url as string | undefined
+        if (rawUrl && rawUrl.startsWith('/tmp')) {
+          const realUrl = tmpToSupabaseUrl.get(rawUrl)
+          if (realUrl) cardInput.image_url = realUrl
+          else delete cardInput.image_url // don't save broken tmp paths
+        }
+
+        // If model didn't include image_url, use the current image being processed
+        if (!cardInput.image_url && currentCliImageUrl) {
+          cardInput.image_url = currentCliImageUrl
+        }
         let autoSaveResult: { assessment_id?: string } = {}
         try {
           const existingId = cardInput.assessment_id as string | undefined
@@ -847,7 +894,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let assistantText: string
+          let assistantText = ''
 
           if (cliMode) {
             // ── CLI mode: use claude subprocess ──
@@ -864,33 +911,122 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                     : '',
             }))
 
-            assistantText = await runCliAgentLoop(
-              systemParts,
-              cliMessages,
-              AISLING_TOOLS as unknown as ToolDefinition[],
-              model,
-              controller,
-              cliToolExecutor
-            )
+            // Process images one at a time to avoid the "tool use concurrency"
+            // 400 error (the CLI model tries to Read all images in parallel).
+            // Each image gets its own CLI call at full resolution.
+            const toolReminder = '\n\nIMPORTANT: For EVERY item you identify, you MUST output a <tool_call> block calling render_assessment_card. Do NOT describe assessments as plain text — use <tool_call> tags. Output all your <tool_call> blocks, then STOP and wait for results.'
+
+            if (cliImagePaths.length > 1) {
+              // Multiple images: process each individually, stream all to same controller
+              assistantText = ''
+              const baseContent = cliMessages.length > 0
+                ? cliMessages[cliMessages.length - 1]?.content ?? ''
+                : ''
+
+              for (let imgIdx = 0; imgIdx < cliImagePaths.length; imgIdx++) {
+                const imgPath = cliImagePaths[imgIdx]!
+                const imgNum = imgIdx + 1
+                const imgTotal = cliImagePaths.length
+
+                // Set current image URL so cliToolExecutor can attach it
+                currentCliImageUrl = tmpToSupabaseUrl.get(imgPath) ?? null
+
+                // Build per-image messages — only the current user message, no history
+                // (sending full conversation history causes the model to re-assess
+                // items from previous sessions that appear in old messages)
+                const imgMessages = imgIdx === 0
+                  ? [{
+                      role: 'user' as const,
+                      content: `${baseContent}\n\nThe user has uploaded ${imgTotal} photo(s). I will show you each photo one at a time. This is photo ${imgNum} of ${imgTotal}. Read the image file to see what item(s) are shown, then assess each item.\n[Image ${imgNum}: ${imgPath}]${toolReminder}`,
+                    }]
+                  : [{
+                      role: 'user' as const,
+                      content: `Continuing the assessment. This is photo ${imgNum} of ${imgTotal}. Read the image file and assess each item you can identify.\n[Image ${imgNum}: ${imgPath}]${toolReminder}`,
+                    }]
+
+                const imgText = await runCliAgentLoop(
+                  systemParts,
+                  imgMessages,
+                  IMAGE_ASSESSMENT_TOOLS as unknown as ToolDefinition[],
+                  model,
+                  controller,
+                  cliToolExecutor,
+                  ['Read']
+                )
+                assistantText += imgText
+
+                // Clean up this temp file immediately
+                try { fs.unlinkSync(imgPath) } catch { /* ignore */ }
+              }
+            } else if (cliImagePaths.length === 1) {
+              // Single image — no history, just the current user message
+              currentCliImageUrl = tmpToSupabaseUrl.get(cliImagePaths[0]!) ?? null
+              const lastUserContent = cliMessages.length > 0
+                ? cliMessages[cliMessages.length - 1]?.content ?? ''
+                : ''
+              const singleImgMessages = [{
+                role: 'user' as const,
+                content: `${lastUserContent}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]${toolReminder}`,
+              }]
+
+              assistantText = await runCliAgentLoop(
+                systemParts,
+                singleImgMessages,
+                IMAGE_ASSESSMENT_TOOLS as unknown as ToolDefinition[],
+                model,
+                controller,
+                cliToolExecutor,
+                ['Read']
+              )
+
+              try { fs.unlinkSync(cliImagePaths[0]!) } catch { /* ignore */ }
+            } else {
+              // No images — text only
+              assistantText = await runCliAgentLoop(
+                systemParts,
+                cliMessages,
+                AISLING_TOOLS as unknown as ToolDefinition[],
+                model,
+                controller,
+                cliToolExecutor
+              )
+            }
           } else {
             // ── SDK mode: direct Anthropic API ──
-            const anthropic = apiKey.startsWith('sk-ant-oat')
-              ? new Anthropic({ authToken: apiKey })
-              : new Anthropic({ apiKey })
+            // Retry once on 401 (stale OAuth token from keychain)
+            let sdkKey = apiKey
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const anthropic = sdkKey.startsWith('sk-ant-oat')
+                  ? new Anthropic({ authToken: sdkKey })
+                  : new Anthropic({ apiKey: sdkKey })
 
-            assistantText = await runAislingLoop(
-              anthropic,
-              model,
-              systemParts,
-              anthropicMessages,
-              controller,
-              userProfileId,
-              sessionId
-            )
+                assistantText = await runAislingLoop(
+                  anthropic,
+                  model,
+                  systemParts,
+                  anthropicMessages,
+                  controller,
+                  userProfileId,
+                  sessionId
+                )
+                break // success
+              } catch (sdkErr) {
+                const msg = sdkErr instanceof Error ? sdkErr.message : ''
+                const is401 = msg.includes('401') || msg.includes('authentication_error') || msg.includes('invalid x-api-key')
+                if (is401 && attempt === 0) {
+                  sdkKey = refreshAnthropicApiKey()
+                  if (!sdkKey) throw sdkErr // no fresh token available
+                  continue // retry with refreshed token
+                }
+                throw sdkErr // non-auth error or second attempt failed
+              }
+            }
           }
 
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
-          controller.close()
+          // Persist messages BEFORE closing the stream so that any subsequent
+          // /api/session call sees has_history: true and does not fire __welcome_back__
+          // (fixes MF-ISSUE-011: chat resets after image upload)
 
           // Don't persist internal triggers as user messages
           if (!isOpeningTrigger && !isWelcomeBack) {
@@ -909,6 +1045,13 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             content: assistantText,
             created_at: new Date().toISOString(),
           })
+
+          try {
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+            controller.close()
+          } catch {
+            // Client already disconnected — stream closed, nothing to do
+          }
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Streaming error'
           const isAuthError =
@@ -922,12 +1065,16 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
           const retryHint = isAuthError && !cliMode
             ? ' (API key refreshed from keychain — please retry your message)'
             : ''
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: {"error":"${errMsg.replace(/"/g, '\\"')}${retryHint}"}\n\n`
+          try {
+            controller.enqueue(
+              new TextEncoder().encode(
+                `data: {"error":"${errMsg.replace(/"/g, '\\"')}${retryHint}"}\n\n`
+              )
             )
-          )
-          controller.close()
+            controller.close()
+          } catch {
+            // Client already disconnected
+          }
         }
       },
     })

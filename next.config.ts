@@ -4,7 +4,7 @@ const lanIp = process.env.LAN_IP;
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@thefairies/design-system'],
-  ...(lanIp ? { allowedDevOrigins: [`http://${lanIp}:3333`] } : {}),
+  ...(lanIp ? { allowedDevOrigins: [lanIp] } : {}),
   turbopack: {
     root: process.cwd(),
   },

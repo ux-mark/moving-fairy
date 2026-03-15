@@ -7,7 +7,7 @@ import { InputBar } from "@/components/chat/InputBar";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import type { LogicEvent } from "@/components/chat/AILogicPanel";
-import { triggerInventoryRefresh } from "@/hooks/useInventoryData";
+import { triggerInventoryRefresh } from "@/lib/hooks/useInventory";
 import styles from "./ChatInterface.module.css";
 
 interface ChatMessage {
@@ -46,6 +46,35 @@ interface ChatInterfaceProps {
   onStreamingChange?: (isStreaming: boolean) => void;
 }
 
+// Session init guard that survives FULL page reloads (not just HMR).
+// Uses localStorage so the flag persists even if the dev server restarts
+// and triggers a full reload mid-stream (e.g., during CLI image processing).
+const SESSION_INIT_KEY = "aisling_session_active";
+const SESSION_ACTIVITY_KEY = "aisling_last_activity";
+// If the user was active within this window, treat a reload as a resume
+// (restore messages silently) rather than a fresh welcome-back.
+const ACTIVE_SESSION_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+
+function isSessionInitialized(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(SESSION_INIT_KEY) === "true";
+}
+function markSessionInitialized(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(SESSION_INIT_KEY, "true");
+  localStorage.setItem(SESSION_ACTIVITY_KEY, Date.now().toString());
+}
+function updateActivityTimestamp(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SESSION_ACTIVITY_KEY, Date.now().toString());
+}
+function isRecentlyActive(): boolean {
+  if (typeof window === "undefined") return false;
+  const ts = localStorage.getItem(SESSION_ACTIVITY_KEY);
+  if (!ts) return false;
+  return Date.now() - parseInt(ts, 10) < ACTIVE_SESSION_WINDOW_MS;
+}
+
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
   function ChatInterface({ onLogicEvent, onStreamingChange }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -56,7 +85,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const openingTriggeredRef = useRef(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced inventory refresh — collapses rapid-fire card events into one refresh
@@ -77,8 +105,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   );
 
   useEffect(() => {
-    if (openingTriggeredRef.current) return;
-    openingTriggeredRef.current = true;
+    if (isSessionInitialized()) return;
+    markSessionInitialized();
+
+    // Check if this is a reload during an active conversation (e.g.,
+    // triggered by a dev server restart during CLI image processing).
+    // If so, restore messages silently — no welcome-back greeting.
+    const reloadDuringActive = isRecentlyActive();
 
     fetch("/api/session")
       .then((res) => res.json())
@@ -97,6 +130,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             })
           );
           setMessages(restored);
+
+          if (reloadDuringActive) {
+            // Reload during active conversation — just restore messages,
+            // don't interrupt with a welcome-back greeting.
+            return;
+          }
+
           sendMessage("__welcome_back__", []);
         } else {
           sendMessage("__opening__", []);
@@ -130,6 +170,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       const isOpeningTrigger = text === "__opening__";
       const isWelcomeBack = text === "__welcome_back__";
       const isInternalTrigger = isOpeningTrigger || isWelcomeBack;
+
+      // Track activity so reloads during active conversation are detected
+      if (!isInternalTrigger) {
+        updateActivityTimestamp();
+      }
 
       if (!isInternalTrigger) {
         const userMsg: ChatMessage = {

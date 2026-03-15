@@ -414,9 +414,23 @@ export async function getCostSummary(userProfileId: string): Promise<{
 }> {
   const supabase = getAdminClient()
 
+  // Get departure country to determine authoritative currency
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('departure_country')
+    .eq('id', userProfileId)
+    .single()
+
+  const currencyMap: Record<string, string> = {
+    US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
+  }
+  const departureCurrency = profile?.departure_country
+    ? currencyMap[profile.departure_country.toUpperCase()] ?? 'USD'
+    : 'USD'
+
   const { data, error } = await supabase
     .from('item_assessment')
-    .select('verdict, estimated_ship_cost, currency')
+    .select('verdict, estimated_ship_cost')
     .eq('user_profile_id', userProfileId)
 
   if (error) throw new Error(error.message)
@@ -424,17 +438,15 @@ export async function getCostSummary(userProfileId: string): Promise<{
   const records = data ?? []
   const counts_by_verdict: Record<string, number> = {}
   let total_estimated_ship_cost = 0
-  let currency = 'USD'
 
   for (const r of records) {
     counts_by_verdict[r.verdict] = (counts_by_verdict[r.verdict] ?? 0) + 1
     if (r.estimated_ship_cost) {
       total_estimated_ship_cost += r.estimated_ship_cost
-      if (r.currency) currency = r.currency
     }
   }
 
-  return { counts_by_verdict, total_estimated_ship_cost, currency }
+  return { counts_by_verdict, total_estimated_ship_cost, currency: departureCurrency }
 }
 
 // ─── Box ───────────────────────────────────────────────────────────────────
