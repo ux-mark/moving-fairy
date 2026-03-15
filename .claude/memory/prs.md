@@ -2,12 +2,15 @@
 
 ## Open
 
-None.
+| PR | Title | Branch | Date | Status |
+|----|-------|--------|------|--------|
+| [#30](https://github.com/ux-mark/moving-fairy/pull/30) | Add item-centric UX overhaul plan and agent brief | `feature/item-centric-plan` | 2026-03-15 | open |
 
 ## Merged
 
 | PR | Title | Branch | Merged | Branch deleted |
 |----|-------|--------|--------|----------------|
+| [#29](https://github.com/ux-mark/moving-fairy/pull/29) | Fix 5 issues: welcome-back race, tool_call XML, card images, currency, hook consolidation | `fix/batch-issue-fixes` | 2026-03-15 | yes |
 | [#27](https://github.com/ux-mark/moving-fairy/pull/27) | Include pending decisions in welcome-back prompt | `fix/welcome-back-pending-decisions` | 2026-03-13 | yes |
 | [#26](https://github.com/ux-mark/moving-fairy/pull/26) | Fix welcome-back message: live box counts, no history echo | `fix/welcome-back-box-counts` | 2026-03-13 | yes |
 | [#25](https://github.com/ux-mark/moving-fairy/pull/25) | Fix Aisling reporting wrong box item count | `fix/get-boxes-item-count` | 2026-03-13 | yes |

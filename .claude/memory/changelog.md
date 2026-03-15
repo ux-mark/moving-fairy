@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-15 -- Fix CLI image assessment quality + plan item-centric overhaul
+
+- **What**: Fixed CLI image assessment quality (filtered tools to only `render_assessment_card`, stripped conversation history from image calls, added SDK 401 retry). Created comprehensive plan for item-centric UX overhaul — shifting from chat-centric to decisions-as-home with background processing, per-item chat, and box sticker scanning.
+- **Files**: `src/app/api/chat/route.ts`, `.specs/item-centric-overhaul.md`, `.specs/item-centric-agent-brief.md`
+- **Why**: Image assessments were poor quality (model making things up) due to system prompt noise from 11 tool definitions and conversation history leaking old items. The broader architectural issue is that chat-centric UX doesn't scale — background processing with Supabase Realtime is the right model.
+- **PRs**: #29 (merged), #30 (open — plan only)
+- **Decision**: `DECIDE_LATER` → `REVISIT` rename approved for Phase 1.
+
 ## 2026-03-13 -- Remove denormalised item_name from box_item
 
 - **What**: Made `box_item.item_name` nullable — only used for unassessed items from handwritten lists. For assessed items, the canonical name now always comes from `item_assessment.item_name`. Added server-side name resolution in `getBox()`, frontend resolution in `BoxCard` via the assessments map, and synced assessment state in `BoxManagement` when light assessments create new items. Light assessment API responses now include the full assessment object.
