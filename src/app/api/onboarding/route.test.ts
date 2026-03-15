@@ -2,10 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ─── Hoisted mocks (these run before imports) ──────────────────────────────
 
-const { mockGetAuthenticatedProfile, mockCreateUserProfile, mockCreateSession } = vi.hoisted(() => ({
+const { mockGetAuthenticatedProfile, mockCreateUserProfile } = vi.hoisted(() => ({
   mockGetAuthenticatedProfile: vi.fn(),
   mockCreateUserProfile: vi.fn(),
-  mockCreateSession: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -14,7 +13,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/mcp', () => ({
   createUserProfile: (...args: unknown[]) => mockCreateUserProfile(...args),
-  createSession: (...args: unknown[]) => mockCreateSession(...args),
 }))
 
 // Import after mocks
@@ -103,7 +101,6 @@ describe('POST /api/onboarding — onward move validation', () => {
   beforeEach(() => {
     mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
-    mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
 
   it('rejects invalid onward_country code', async () => {
@@ -167,7 +164,6 @@ describe('POST /api/onboarding — equipment fields', () => {
     vi.clearAllMocks()
     mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
-    mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
 
   it('builds equipment from transformer fields when has_transformer is true', async () => {
@@ -230,15 +226,14 @@ describe('POST /api/onboarding — success', () => {
     vi.clearAllMocks()
     mockGetAuthenticatedProfile.mockResolvedValue({ user: MOCK_USER, profile: null })
     mockCreateUserProfile.mockResolvedValue({ id: 'profile-1' })
-    mockCreateSession.mockResolvedValue({ id: 'session-1' })
   })
 
-  it('returns 201 with session_id on valid input', async () => {
+  it('returns 201 with profile_id on valid input', async () => {
     const res = await POST(makeRequest({ departure_country: 'US', arrival_country: 'IE' }))
     expect(res.status).toBe(201)
     const json = await res.json()
     expect(json.ok).toBe(true)
-    expect(json.session_id).toBe('session-1')
+    expect(json.profile_id).toBe('profile-1')
   })
 
   it('passes auth_user_id to createUserProfile', async () => {

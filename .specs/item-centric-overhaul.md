@@ -382,4 +382,4 @@ System prompt composition (~8k tokens total, much lighter than the current 15k+)
 
 ## Resolved Decisions
 
-- **Rename `DECIDE_LATER` → `REVISIT`**: Across the entire codebase — DB enum, constants, components, Aisling's persona, verdict colours in PROJECT_SPEC. `REVISIT` communicates action ("you'll come back to this") rather than indecision.
+- **Rename verdict to `REVISIT`**: Across the entire codebase — DB enum, constants, components, Aisling's persona, verdict colours in PROJECT_SPEC. `REVISIT` communicates action ("you'll come back to this") rather than indecision.

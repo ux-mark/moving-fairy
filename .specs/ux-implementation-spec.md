@@ -615,7 +615,7 @@ For verdict-specific cards, use the verdict colour as the top border:
 - SHIP/CARRY: `var(--verdict-ship)` (green)
 - SELL: `var(--verdict-sell)` (amber)
 - DONATE/DISCARD: `var(--verdict-donate)` (grey)
-- DECIDE_LATER: `var(--verdict-decide-later)` (blue)
+- REVISIT: `var(--verdict-revisit)` (blue)
 
 ### B. Status Indicators Should Use DS StatusPill
 

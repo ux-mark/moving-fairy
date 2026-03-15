@@ -126,7 +126,9 @@ function deriveCostSummary(assessments: ItemAssessment[]): CostSummaryData {
   let totalShipCost = 0;
 
   for (const a of assessments) {
-    counts_by_verdict[a.verdict] = (counts_by_verdict[a.verdict] ?? 0) + 1;
+    if (a.verdict) {
+      counts_by_verdict[a.verdict] = (counts_by_verdict[a.verdict] ?? 0) + 1;
+    }
     if (a.verdict === "SHIP" && a.estimated_ship_cost !== null) {
       totalShipCost += a.estimated_ship_cost;
     }

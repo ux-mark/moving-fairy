@@ -462,7 +462,7 @@
 .itemRowOuter[data-verdict="SELL"] { --row-accent: var(--verdict-sell); }
 .itemRowOuter[data-verdict="DONATE"],
 .itemRowOuter[data-verdict="DISCARD"] { --row-accent: var(--verdict-donate); }
-.itemRowOuter[data-verdict="DECIDE_LATER"] { --row-accent: var(--verdict-decide-later); }
+.itemRowOuter[data-verdict="REVISIT"] { --row-accent: var(--verdict-decide-later); }
 
 /* Current box label on ItemRow — shows which box an item is assigned to */
 .currentBoxLabel {

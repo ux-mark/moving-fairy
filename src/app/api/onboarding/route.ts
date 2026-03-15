@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createUserProfile, createSession } from '@/mcp'
+import { createUserProfile } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { Country, OnwardTimeline } from '@/lib/constants'
 import type { Equipment } from '@/types/database'
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       ? raw.anthropic_api_key.trim()
       : null
 
-  // ── Create profile + session ─────────────────────────────────────────────
+  // ── Create profile ───────────────────────────────────────────────────────
 
   try {
     const profile = await createUserProfile({
@@ -103,11 +103,9 @@ export async function POST(request: Request) {
       anthropic_api_key,
     })
 
-    const session = await createSession(profile.id)
-
-    return NextResponse.json({ ok: true, session_id: session.id }, { status: 201 })
+    return NextResponse.json({ ok: true, profile_id: profile.id }, { status: 201 })
   } catch (err) {
-    console.error('[onboarding] failed to create profile/session:', err)
+    console.error('[onboarding] failed to create profile:', err)
     return Response.json(
       { error: err instanceof Error ? err.message : 'Failed to set up your profile' },
       { status: 500 }

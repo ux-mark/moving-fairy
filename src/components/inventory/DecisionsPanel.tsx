@@ -46,7 +46,7 @@ const VERDICT_PILL_OPTIONS: EditablePillOption[] = [
   { value: Verdict.SELL,         label: "Sell",         color: "var(--verdict-sell-bg)",         textColor: "var(--verdict-sell-fg)" },
   { value: Verdict.DONATE,       label: "Donate",       color: "var(--verdict-donate-bg)",       textColor: "var(--verdict-donate-fg)" },
   { value: Verdict.DISCARD,      label: "Discard",      color: "var(--verdict-discard-bg)",      textColor: "var(--verdict-discard-fg)" },
-  { value: Verdict.DECIDE_LATER, label: "Decide later", color: "var(--verdict-decide-later-bg)", textColor: "var(--verdict-decide-later-fg)" },
+  { value: Verdict.REVISIT, label: "Decide later", color: "var(--verdict-decide-later-bg)", textColor: "var(--verdict-decide-later-fg)" },
 ];
 
 // ---------------------------------------------------------------------------

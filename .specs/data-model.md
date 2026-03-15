@@ -45,7 +45,7 @@ Nullable. If null, no two-leg strategy advice is given (appropriate when `onward
 ## 3. Verdict Enum
 
 ```
-Verdict = SELL | DONATE | DISCARD | SHIP | CARRY | DECIDE_LATER
+Verdict = SELL | DONATE | DISCARD | SHIP | CARRY | REVISIT
 ```
 
 | Value          | Meaning | Record type | Image stored? |
@@ -55,7 +55,7 @@ Verdict = SELL | DONATE | DISCARD | SHIP | CARRY | DECIDE_LATER
 | `SELL`         | Sell before departing | Lightweight | No |
 | `DONATE`       | Donate before departing | Lightweight | No |
 | `DISCARD`      | Dispose of the item | Lightweight | No |
-| `DECIDE_LATER` | Insufficient info — revisit | Pending (not saved yet) | Yes — saved immediately to storage as reference; deleted if resolved to SELL/DONATE/DISCARD or session ends unresolved |
+| `REVISIT` | Insufficient info — revisit | Pending (not saved yet) | Yes — saved immediately to storage as reference; deleted if resolved to SELL/DONATE/DISCARD or session ends unresolved |
 
 **Full records** store all ItemAssessment fields including image URL, cost estimates, and notes.
 **Lightweight records** store only: `item_name`, `verdict`, `advice_text`. No image, no cost fields.
@@ -185,9 +185,9 @@ One record per assessed item. All writes go through the MCP — Aisling never wr
 - Optimised images are stored in Supabase Storage (Frankfurt). The DB stores the URL only.
 - `image_url` is populated only when `verdict` is `SHIP` or `CARRY`. For all other verdicts, no image is stored and the field is null.
 
-### Record lifecycle for DECIDE_LATER
+### Record lifecycle for REVISIT
 
-DECIDE_LATER items are not written to the database immediately. However, **if the user provided a photo, the image is saved to Supabase Storage immediately** (same WebP/1024px pipeline as SHIP/CARRY items) and the URL is retained in session state as a reference for the user during the session.
+REVISIT items are not written to the database immediately. However, **if the user provided a photo, the image is saved to Supabase Storage immediately** (same WebP/1024px pipeline as SHIP/CARRY items) and the URL is retained in session state as a reference for the user during the session.
 
 When the user later resolves the verdict:
 - Resolved to SHIP or CARRY → full record created, image URL included from the already-stored image.
@@ -379,7 +379,7 @@ User sends text message
   → INSERT into message table (assistant response)
   → If verdict is SHIP/CARRY: MCP: save_item_assessment(... full record ...)
   → If verdict is SELL/DONATE/DISCARD: MCP: save_item_assessment(... lightweight ...)
-  → If verdict is DECIDE_LATER: do not save yet
+  → If verdict is REVISIT: do not save yet
   → MCP: get_cost_summary(user_profile_id) → updated totals
   → Return response + cost summary to client
 

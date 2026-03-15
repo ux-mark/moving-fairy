@@ -49,7 +49,7 @@ const VERDICT_ORDER: Verdict[] = [
   "SELL",
   "DONATE",
   "DISCARD",
-  "DECIDE_LATER",
+  "REVISIT",
 ];
 
 interface InventoryPanelProps {

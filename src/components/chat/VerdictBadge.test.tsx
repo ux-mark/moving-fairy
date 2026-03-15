@@ -6,32 +6,32 @@ import { Verdict } from '@/lib/constants'
 describe('VerdictBadge', () => {
   it('renders SHIP label', () => {
     render(<VerdictBadge verdict={Verdict.SHIP} />)
-    expect(screen.getByText('SHIP')).toBeInTheDocument()
+    expect(screen.getByText('Ship')).toBeInTheDocument()
   })
 
   it('renders SELL label', () => {
     render(<VerdictBadge verdict={Verdict.SELL} />)
-    expect(screen.getByText('SELL')).toBeInTheDocument()
+    expect(screen.getByText('Sell')).toBeInTheDocument()
   })
 
   it('renders DONATE label', () => {
     render(<VerdictBadge verdict={Verdict.DONATE} />)
-    expect(screen.getByText('DONATE')).toBeInTheDocument()
+    expect(screen.getByText('Donate')).toBeInTheDocument()
   })
 
   it('renders DISCARD label', () => {
     render(<VerdictBadge verdict={Verdict.DISCARD} />)
-    expect(screen.getByText('DISCARD')).toBeInTheDocument()
+    expect(screen.getByText('Discard')).toBeInTheDocument()
   })
 
   it('renders CARRY label', () => {
     render(<VerdictBadge verdict={Verdict.CARRY} />)
-    expect(screen.getByText('CARRY')).toBeInTheDocument()
+    expect(screen.getByText('Carry')).toBeInTheDocument()
   })
 
-  it('renders DECIDE_LATER as "DECIDE LATER" (with a space)', () => {
-    render(<VerdictBadge verdict={Verdict.DECIDE_LATER} />)
-    expect(screen.getByText('DECIDE LATER')).toBeInTheDocument()
+  it('renders REVISIT as "Decide later"', () => {
+    render(<VerdictBadge verdict={Verdict.REVISIT} />)
+    expect(screen.getByText('Decide later')).toBeInTheDocument()
   })
 
   it('SHIP badge passes green verdict colours to Badge', () => {
@@ -69,8 +69,8 @@ describe('VerdictBadge', () => {
     expect(badge.style.color).toBe('var(--verdict-carry-fg)')
   })
 
-  it('DECIDE_LATER badge passes blue verdict colours to Badge', () => {
-    const { container } = render(<VerdictBadge verdict={Verdict.DECIDE_LATER} />)
+  it('REVISIT badge passes blue verdict colours to Badge', () => {
+    const { container } = render(<VerdictBadge verdict={Verdict.REVISIT} />)
     const badge = container.firstChild as HTMLElement
     expect(badge.style.backgroundColor).toBe('var(--verdict-decide-later-bg)')
     expect(badge.style.color).toBe('var(--verdict-decide-later-fg)')

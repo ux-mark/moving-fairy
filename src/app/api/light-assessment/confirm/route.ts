@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { saveItemAssessment, addItemToBox, findOrCreateSession } from '@/mcp'
+import { saveItemAssessment, addItemToBox } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { Verdict } from '@/lib/constants'
 
@@ -46,12 +46,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const session = await findOrCreateSession(profile.id)
     const mcpVerdict = verdict === 'CARRY' ? Verdict.CARRY : Verdict.SHIP
 
     const saved = await saveItemAssessment({
       user_profile_id: profile.id,
-      session_id: session.id,
       item_name: item_name.trim(),
       verdict: mcpVerdict,
       advice_text: advice_text ?? (flags.length > 0 ? `Flags: ${flags.join(', ')}` : null),

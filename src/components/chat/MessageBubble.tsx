@@ -47,7 +47,7 @@ interface MessageBubbleProps {
 // ---------------------------------------------------------------------------
 
 const VERDICT_PATTERN =
-  /\b(SHIP|CARRY|SELL|DONATE|DISCARD|DECIDE[_ ]LATER)\b/g;
+  /\b(SHIP|CARRY|SELL|DONATE|DISCARD|REVISIT)\b/g;
 
 function renderInlineFormatting(text: string) {
   const parts: (string | { type: "verdict"; value: Verdict })[] = [];
@@ -113,7 +113,7 @@ const VERDICT_ACCENT: Record<string, string> = {
   SELL: "var(--verdict-sell)",
   DONATE: "var(--verdict-donate)",
   DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
+  REVISIT: "var(--verdict-decide-later)",
 };
 
 // Verdict → DS badge colour (solid bg for RecommendationCard badge)
@@ -123,7 +123,7 @@ const VERDICT_BADGE_COLOR: Record<string, string> = {
   SELL: "var(--verdict-sell)",
   DONATE: "var(--verdict-donate)",
   DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
+  REVISIT: "var(--verdict-decide-later)",
 };
 
 // ---------------------------------------------------------------------------

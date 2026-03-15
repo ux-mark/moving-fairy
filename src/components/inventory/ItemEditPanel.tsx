@@ -23,7 +23,7 @@ const VERDICT_OPTIONS: VerdictOption[] = [
   { value: Verdict.SELL, label: "Sell" },
   { value: Verdict.DONATE, label: "Donate" },
   { value: Verdict.DISCARD, label: "Discard" },
-  { value: Verdict.DECIDE_LATER, label: "Decide later" },
+  { value: Verdict.REVISIT, label: "Decide later" },
 ];
 
 // CSS variable key fragment per verdict (matches moving-fairy-tokens.css naming)
@@ -33,7 +33,7 @@ const VERDICT_CSS_KEY: Record<Verdict, string> = {
   [Verdict.SELL]: "sell",
   [Verdict.DONATE]: "donate",
   [Verdict.DISCARD]: "discard",
-  [Verdict.DECIDE_LATER]: "decide-later",
+  [Verdict.REVISIT]: "decide-later",
 };
 
 export interface ItemEditPanelProps {
