@@ -277,6 +277,13 @@ const AISLING_TOOLS: Anthropic.Messages.Tool[] = [
   },
 ]
 
+// Subset of tools for image assessment CLI calls — only render_assessment_card.
+// Passing all 11 tools as text in the system prompt buries the Aisling persona
+// and degrades assessment quality (the model focuses on tool formatting over content).
+const IMAGE_ASSESSMENT_TOOLS: Anthropic.Messages.Tool[] = AISLING_TOOLS.filter(
+  (t) => t.name === 'render_assessment_card'
+)
+
 // ─── Tool executor ──────────────────────────────────────────────────────────
 
 async function executeTool(
@@ -887,7 +894,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let assistantText: string
+          let assistantText = ''
 
           if (cliMode) {
             // ── CLI mode: use claude subprocess ──
@@ -924,17 +931,14 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                 // Set current image URL so cliToolExecutor can attach it
                 currentCliImageUrl = tmpToSupabaseUrl.get(imgPath) ?? null
 
-                // Build per-image messages (only include text prompt on first)
+                // Build per-image messages — only the current user message, no history
+                // (sending full conversation history causes the model to re-assess
+                // items from previous sessions that appear in old messages)
                 const imgMessages = imgIdx === 0
-                  ? cliMessages.map((m, i) => {
-                      if (i === cliMessages.length - 1 && m.role === 'user') {
-                        return {
-                          ...m,
-                          content: `${m.content}\n\nThe user has uploaded ${imgTotal} photo(s). I will show you each photo one at a time. This is photo ${imgNum} of ${imgTotal}. Read the image file to see what item(s) are shown, then assess each item.\n[Image ${imgNum}: ${imgPath}]${toolReminder}`,
-                        }
-                      }
-                      return m
-                    })
+                  ? [{
+                      role: 'user' as const,
+                      content: `${baseContent}\n\nThe user has uploaded ${imgTotal} photo(s). I will show you each photo one at a time. This is photo ${imgNum} of ${imgTotal}. Read the image file to see what item(s) are shown, then assess each item.\n[Image ${imgNum}: ${imgPath}]${toolReminder}`,
+                    }]
                   : [{
                       role: 'user' as const,
                       content: `Continuing the assessment. This is photo ${imgNum} of ${imgTotal}. Read the image file and assess each item you can identify.\n[Image ${imgNum}: ${imgPath}]${toolReminder}`,
@@ -943,7 +947,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                 const imgText = await runCliAgentLoop(
                   systemParts,
                   imgMessages,
-                  AISLING_TOOLS as unknown as ToolDefinition[],
+                  IMAGE_ASSESSMENT_TOOLS as unknown as ToolDefinition[],
                   model,
                   controller,
                   cliToolExecutor,
@@ -955,19 +959,20 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
                 try { fs.unlinkSync(imgPath) } catch { /* ignore */ }
               }
             } else if (cliImagePaths.length === 1) {
-              // Single image — straightforward
+              // Single image — no history, just the current user message
               currentCliImageUrl = tmpToSupabaseUrl.get(cliImagePaths[0]!) ?? null
-              if (cliMessages.length > 0) {
-                const lastMsg = cliMessages[cliMessages.length - 1]
-                if (lastMsg && lastMsg.role === 'user') {
-                  lastMsg.content = `${lastMsg.content}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]${toolReminder}`
-                }
-              }
+              const lastUserContent = cliMessages.length > 0
+                ? cliMessages[cliMessages.length - 1]?.content ?? ''
+                : ''
+              const singleImgMessages = [{
+                role: 'user' as const,
+                content: `${lastUserContent}\n\nThe user has uploaded a photo. Read the image file to see what item(s) are shown, then assess each item you can identify.\n[Image: ${cliImagePaths[0]}]${toolReminder}`,
+              }]
 
               assistantText = await runCliAgentLoop(
                 systemParts,
-                cliMessages,
-                AISLING_TOOLS as unknown as ToolDefinition[],
+                singleImgMessages,
+                IMAGE_ASSESSMENT_TOOLS as unknown as ToolDefinition[],
                 model,
                 controller,
                 cliToolExecutor,
@@ -988,19 +993,35 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
             }
           } else {
             // ── SDK mode: direct Anthropic API ──
-            const anthropic = apiKey.startsWith('sk-ant-oat')
-              ? new Anthropic({ authToken: apiKey })
-              : new Anthropic({ apiKey })
+            // Retry once on 401 (stale OAuth token from keychain)
+            let sdkKey = apiKey
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const anthropic = sdkKey.startsWith('sk-ant-oat')
+                  ? new Anthropic({ authToken: sdkKey })
+                  : new Anthropic({ apiKey: sdkKey })
 
-            assistantText = await runAislingLoop(
-              anthropic,
-              model,
-              systemParts,
-              anthropicMessages,
-              controller,
-              userProfileId,
-              sessionId
-            )
+                assistantText = await runAislingLoop(
+                  anthropic,
+                  model,
+                  systemParts,
+                  anthropicMessages,
+                  controller,
+                  userProfileId,
+                  sessionId
+                )
+                break // success
+              } catch (sdkErr) {
+                const msg = sdkErr instanceof Error ? sdkErr.message : ''
+                const is401 = msg.includes('401') || msg.includes('authentication_error') || msg.includes('invalid x-api-key')
+                if (is401 && attempt === 0) {
+                  sdkKey = refreshAnthropicApiKey()
+                  if (!sdkKey) throw sdkErr // no fresh token available
+                  continue // retry with refreshed token
+                }
+                throw sdkErr // non-auth error or second attempt failed
+              }
+            }
           }
 
           // Persist messages BEFORE closing the stream so that any subsequent
