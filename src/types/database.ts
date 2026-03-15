@@ -71,3 +71,18 @@ export interface BoxItem {
   needs_assessment: boolean
   created_at: string
 }
+
+export interface ItemConversation {
+  id: string
+  item_assessment_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ItemConversationMessage {
+  id: string
+  item_conversation_id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
