@@ -1,0 +1,134 @@
+/* ItemDetailView */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  gap: 24px;
+  box-sizing: border-box;
+  min-height: 100%;
+}
+
+/* ---- Back navigation ---- */
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: none;
+  padding: 8px 0;
+  min-height: 44px;
+  transition: color 0.15s ease;
+}
+
+.backLink:hover {
+  color: var(--color-text-primary, #111827);
+}
+
+.backLink:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Clarification notice ---- */
+
+.clarificationNotice {
+  padding: 14px 16px;
+  background: var(--color-bg-accent, #fffbeb);
+  border: 1px solid var(--color-border-accent, #fcd34d);
+  border-radius: var(--radius-md, 8px);
+}
+
+.clarificationTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.clarificationText {
+  font-size: 14px;
+  color: var(--color-text-secondary, #374151);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---- Processing status states ---- */
+
+.processingState {
+  padding: 32px 24px;
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.processingTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  margin: 0;
+}
+
+.processingText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---- Item image ---- */
+
+.itemImage {
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.itemImg {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
+/* ---- Card section ---- */
+
+.cardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ---- Chat section ---- */
+
+.chatSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 480px;
+}
+
+/* ---- Desktop: more breathing room ---- */
+
+@media (min-width: 768px) {
+  .root {
+    padding: 24px 24px 48px;
+  }
+
+  .chatSection {
+    min-height: 520px;
+  }
+}
