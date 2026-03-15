@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
 import { useItems } from '@/lib/hooks/useItems'
 
 export default function DecisionsPage() {
+  const router = useRouter()
   const [profileId, setProfileId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -73,9 +75,7 @@ export default function DecisionsPage() {
         onConfirm={handleConfirm}
         onRetry={handleRetry}
         onRefresh={refresh}
-        onItemClick={() => {
-          // Phase 2: navigate to /decisions/:id
-        }}
+        onItemClick={(id) => router.push(`/decisions/${id}`)}
       />
     </AppLayout>
   )
