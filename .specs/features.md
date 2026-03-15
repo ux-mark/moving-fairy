@@ -8,8 +8,8 @@
 ## Onboarding Form
 
 **Added**: 2026-03-08
-**Updated**: 2026-03-09
-**Status**: planned
+**Updated**: 2026-03-15
+**Status**: available
 
 What you can do now: Before chatting with Aisling, you fill out a short stepped form that tells her about your move. This takes about 30 seconds and means Aisling's advice is tailored to your specific route, timeline, and equipment from the very first message. The form supports any combination of currently available departure, arrival, and onward countries — so whether you are moving from the US to Ireland, Ireland to Australia, or any other supported route, the experience adapts to you.
 
@@ -34,40 +34,30 @@ What you can do now: Before chatting with Aisling, you fill out a short stepped 
 
 ---
 
-## Item Advice Chat
+## Item Assessment (background)
 
-**Added**: 2026-03-08
-**Updated**: 2026-03-09
-**Status**: planned
+**Added**: 2026-03-15
+**Status**: available
 
-What you can do now: You tell Aisling about an item you own — by name, by category, by pasting a list, or by photographing it — and she tells you exactly what to do with it: **SELL**, **SHIP**, **CARRY**, **DONATE**, **DISCARD**, or **DECIDE LATER**. Every verdict comes with a clear reason and a concrete next step. Photo assessment is a primary interaction, not a nice-to-have: you can snap a picture of something while standing in the room with it, and Aisling identifies the item and assesses it on the spot.
+What you can do now: add items by batch photo upload or text description. Aisling assesses each one in the background — no waiting, no conversation needed. Every item gets a verdict, rationale, and cost estimate delivered to a card on your decisions list.
 
 ### How it works
 
-1. After onboarding, Aisling opens the chat by confirming your move details and inviting you to ask about your first item.
-2. You can interact in any of these ways:
-   - **Photograph an item**: Tap the camera button in the chat input. On mobile, choose "Take a photo" (opens your rear camera) or "Choose from library" (opens your photo picker). On desktop, the camera button opens a standard file dialog. You can attach up to 3 photos per message. Each appears as a thumbnail preview in the input bar before you send, with an X to remove any of them.
-   - **Type a single item**: "KitchenAid stand mixer" or "my Dyson vacuum."
-   - **Name a category**: "kitchen appliances" or "power tools."
-   - **Paste a list**: "Here's what's in my garage: lawn mower, leaf blower, Dewalt drill set, workbench, extension cords."
-   - **Photo plus text**: Attach a photo and add typed context — "it's the 600W professional model" or "this is about 15 years old."
-3. Aisling responds with a verdict for each item. Every response includes: the item name, the verdict (prominently displayed and colour-coded), the reasoning (voltage, customs, cost comparison, shipping practicality), and a specific action to take.
-4. When you send a photo, Aisling identifies what she sees and states her confidence. If she recognises it clearly, she gives the verdict immediately. If she is mostly sure but wants to confirm a detail, she asks one clarifying question and then gives the verdict. If the image is unclear, she asks you to try another photo or describe the item instead — she never guesses wildly.
-5. For lists, Aisling addresses each item in sequence within a single response, so you can scan quickly.
-6. If Aisling does not have enough information to give you a confident verdict, she marks the item as **DECIDE LATER** and explains what she would need to make a firm call. DECIDE LATER items are saved to your inventory but flagged as tentative — no cost estimate, no box assignment. Aisling will gently remind you about pending DECIDE LATER items during natural pauses in conversation, and you can revisit them any time.
-7. You can ask follow-up questions about any item ("What about the attachments?" or "What if I get a transformer?") and Aisling remembers the full conversation context.
+1. From the decisions list (home), tap the upload button and select photos — as many as you like.
+2. Each photo creates a card with the image and "Aisling is looking at this one..."
+3. Aisling identifies and assesses each item independently in the background using her full knowledge of voltage, shipping economics, and import restrictions for your route.
+4. Cards update in place as assessments complete — item name, verdict badge, rationale, and costs appear smoothly. No interruptions to what you're doing.
+5. Alternatively, type an item name in the quick-add input — same assessment flow, no photo needed.
+6. If Aisling isn't confident enough to give a firm verdict, she marks the item as "Revisit" and explains what she needs.
+7. If an assessment fails (network error, etc.), the card shows a retry button.
 
 ### What to know
 
-- You can type a single item, a category, paste a full list, or snap a photo — Aisling handles all of them. Photo and text can be combined in a single message.
-- Up to 3 photos per message. If you try to add a fourth, you will see a brief inline note: "Up to 3 photos per message."
-- Verdicts account for your specific route, onward plans, timeline, and transformer ownership. Two users asking about the same item may get different advice.
-- DECIDE LATER is not a dead end — it is a holding space. You can come back to those items when you have the information Aisling needs, or she may prompt you about them later.
-- The conversation scrolls naturally. You can scroll up to revisit earlier advice at any time.
-- If Aisling is thinking, you will see a typing indicator. For photo assessments, the indicator says "Aisling is looking at your photo..." to set expectations. You can type your next question while she is responding — it will queue.
-- If something goes wrong (connection issue, AI error), your message and any attached photos are preserved in the input field and you can retry with one tap.
-- The chat input works well on mobile with one hand — it is fixed to the bottom of the screen and stays above the keyboard.
-- Relevant for the Straight-Line Emigrant persona: the photo flow is designed for the person standing in a room with their phone in hand, sorting through belongings. Point, snap, get an answer.
+- Assessments run independently per item — one slow item doesn't block the others.
+- You can close the app and come back later. Completed assessments will be there.
+- Aisling uses your full profile context: route, transformer ownership, onward plans, and timeline.
+- Per-item chat (coming in Phase 2) will let you discuss any assessment with Aisling, picking up from where she left off.
+- The old global chat interface has been retired. Items are the centre of the experience now.
 
 ---
 
@@ -99,9 +89,10 @@ What you can do now: If you are planning an onward move after your initial desti
 ## Inventory Panel
 
 **Added**: 2026-03-09
-**Status**: planned
+**Updated**: 2026-03-15
+**Status**: deprecated — replaced by Decisions list
 
-What you can do now: As Aisling assesses your items, everything builds into a persistent inventory panel that gives you the full picture of your move at a glance. On desktop, this is a split-screen left panel alongside the chat. On mobile, it is an "Inventory" tab alongside the "Chat" tab, always one tap away. You can see every assessed item, every box, your running costs, and make changes directly in the panel without switching back to the conversation.
+What you can do now: the inventory panel has been replaced by the decisions list as the home view. Items are now managed directly from the decisions list, and box management lives at `/boxes`.
 
 ### How it works
 
@@ -225,7 +216,8 @@ What you can do now: When the movers arrive and collect everything, you can mark
 ## Returning User Sessions
 
 **Added**: 2026-03-09
-**Status**: planned
+**Updated**: 2026-03-15
+**Status**: deprecated — replaced by item-centric model
 
 What you can do now: Packing for a move is not a single sitting. You come back to Moving Fairy over days or weeks — maybe you sort the kitchen on Saturday, the garage on Tuesday, and the bedroom next weekend. Every time you return, Aisling greets you with a clear summary of where things stand, and your full inventory is there waiting. You pick up exactly where you left off.
 
