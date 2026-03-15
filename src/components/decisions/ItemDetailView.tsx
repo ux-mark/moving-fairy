@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Spinner } from '@thefairies/design-system/components'
+import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { ItemCard } from './ItemCard'
 import { PerItemChat } from './PerItemChat'
@@ -14,13 +14,15 @@ import styles from './ItemDetailView.module.css'
 
 interface ItemDetailViewProps {
   item: ItemAssessment
+  onConfirm: (itemId: string) => Promise<void>
+  onRetry: (itemId: string) => Promise<void>
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ItemDetailView({ item }: ItemDetailViewProps) {
+export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps) {
   const isCompleted = item.processing_status === 'completed'
   const isPending = item.processing_status === 'pending'
   const isProcessing = item.processing_status === 'processing'
@@ -83,22 +85,21 @@ export function ItemDetailView({ item }: ItemDetailViewProps) {
           <div className={styles.processingState} role="alert">
             <p className={styles.processingTitle}>Assessment failed</p>
             <p className={styles.processingText}>
-              Something went wrong assessing this item. Go back to your decisions list and tap "Retry" to try again.
+              Something went wrong assessing this item. Tap below to try again.
             </p>
+            <Button variant="secondary" size="sm" onClick={() => onRetry(item.id)}>
+              Retry assessment
+            </Button>
           </div>
         )}
 
         {isCompleted && (
           <ItemCard
             item={item}
-            onConfirm={() => {
-              // Confirm is available on the list view; detail view is read-only for the card
-            }}
-            onRetry={() => {
-              // Retry navigates back; triggered from list
-            }}
+            onConfirm={() => onConfirm(item.id)}
+            onRetry={() => onRetry(item.id)}
             onClick={() => {
-              // Already on detail view
+              // Already on detail view — no-op
             }}
           />
         )}

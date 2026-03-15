@@ -4,10 +4,11 @@ import { useState } from "react";
 import { RecommendationCard, type RecommendationStatus } from "@thefairies/design-system/components";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { Verdict } from "@/lib/constants";
+import type { ChatMessage } from "@/types/chat";
 import styles from "./MessageBubble.module.css";
 
 // ---------------------------------------------------------------------------
-// Types
+// Internal types (CardData kept local — not needed outside this file)
 // ---------------------------------------------------------------------------
 
 interface CardData {
@@ -26,15 +27,6 @@ interface CardData {
   currency?: string;
   estimated_replace_cost_usd?: number;
   replace_currency?: string;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  imageUrls?: string[];
-  type?: "text" | "card";
-  card?: CardData;
 }
 
 interface MessageBubbleProps {

@@ -1,40 +1,16 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemConversationMessage } from '@/types/database'
+import type { ChatMessage } from '@/types/chat'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface CardData {
-  item: string
-  verdict: string
-  confidence: number
-  rationale: string
-  action: string
-  import_note?: string
-  item_description?: string
-  image_url?: string
-  voltage_compatible?: boolean
-  needs_transformer?: boolean
-  estimated_ship_cost_usd?: number
-  currency?: string
-  estimated_replace_cost_usd?: number
-  replace_currency?: string
-}
-
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  type: 'text' | 'card'
-  card?: CardData
-}
+// Re-export for convenience so existing imports still resolve
+export type { ChatMessage }
 
 interface UsePerItemChatReturn {
   messages: ChatMessage[]
   isStreaming: boolean
+  isLoadingHistory: boolean
   error: string | null
   loadHistory: (itemId: string) => Promise<void>
   sendMessage: (itemId: string, text: string) => Promise<void>
@@ -48,10 +24,23 @@ interface UsePerItemChatReturn {
 export function usePerItemChat(): UsePerItemChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Ref-based streaming guard — prevents stale closure issues and avoids
+  // making sendMessage recreate on every isStreaming change.
+  const isStreamingRef = useRef(false)
+
+  // Cleanup: abort any in-flight stream on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
+
   const loadHistory = useCallback(async (itemId: string) => {
+    setIsLoadingHistory(true)
     try {
       const res = await fetch(`/api/items/${itemId}/chat/messages`)
       if (!res.ok) {
@@ -68,11 +57,15 @@ export function usePerItemChat(): UsePerItemChatReturn {
       setMessages(transformed)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load conversation history')
+    } finally {
+      setIsLoadingHistory(false)
     }
   }, [])
 
+  // sendMessage does NOT include isStreaming in its dep array — we read the ref
+  // instead to avoid stale closures and unnecessary re-renders.
   const sendMessage = useCallback(async (itemId: string, text: string) => {
-    if (!text.trim() || isStreaming) return
+    if (!text.trim() || isStreamingRef.current) return
 
     // Abort any in-flight request
     abortControllerRef.current?.abort()
@@ -88,6 +81,8 @@ export function usePerItemChat(): UsePerItemChatReturn {
       type: 'text',
     }
     setMessages((prev) => [...prev, userMessage])
+
+    isStreamingRef.current = true
     setIsStreaming(true)
     setError(null)
 
@@ -116,8 +111,9 @@ export function usePerItemChat(): UsePerItemChatReturn {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let streamDone = false
 
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read()
         if (done) break
 
@@ -133,6 +129,7 @@ export function usePerItemChat(): UsePerItemChatReturn {
           const raw = dataLine.slice('data: '.length)
 
           if (raw === '[DONE]') {
+            streamDone = true
             break
           }
 
@@ -160,7 +157,7 @@ export function usePerItemChat(): UsePerItemChatReturn {
 
           // Card event — render inline assessment card
           if (obj.__type === 'card') {
-            const card: CardData = {
+            const card = {
               item: String(obj.item ?? ''),
               verdict: String(obj.verdict ?? ''),
               confidence: Number(obj.confidence ?? 0),
@@ -192,6 +189,11 @@ export function usePerItemChat(): UsePerItemChatReturn {
           // tool_call and tool_result are observability events — skip
         }
       }
+
+      // Cancel reader if we broke out of the while loop on [DONE]
+      if (streamDone) {
+        reader.cancel().catch(() => undefined)
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
 
@@ -207,16 +209,18 @@ export function usePerItemChat(): UsePerItemChatReturn {
         return prev
       })
     } finally {
+      isStreamingRef.current = false
       setIsStreaming(false)
       abortControllerRef.current = null
     }
-  }, [isStreaming])
+  }, [])
 
   const clearError = useCallback(() => setError(null), [])
 
   return {
     messages,
     isStreaming,
+    isLoadingHistory,
     error,
     loadHistory,
     sendMessage,
