@@ -799,7 +799,7 @@ export function BoxCard({
                             <span
                               className={styles.verdictDot}
                               style={{
-                                background: assessment
+                                background: assessment?.verdict
                                   ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
                                   : "var(--color-border-default)",
                               }}

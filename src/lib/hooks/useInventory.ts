@@ -57,7 +57,7 @@ export function useInventory() {
 
     try {
       const [assessRes, boxesRes, costRes] = await Promise.allSettled([
-        fetch("/api/assessments"),
+        fetch("/api/items"),
         fetch("/api/boxes"),
         fetch("/api/cost-summary"),
       ]);

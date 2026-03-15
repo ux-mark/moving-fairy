@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
-import { Button } from '@thefairies/design-system/components'
 
 import { getBoxes, getItemAssessments } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { BoxManagement } from '@/components/boxes/BoxManagement'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { Verdict } from '@/lib/constants'
 
 import styles from './boxes.module.css'
@@ -27,26 +25,22 @@ export default async function BoxesPage() {
   )
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <h1 className={styles.pageTitle}>Your Boxes</h1>
-          <Link href="/inventory">
-            <Button variant="ghost" size="sm">
-              <MessageCircle style={{ width: 16, height: 16 }} />
-              Chat
-            </Button>
-          </Link>
-        </div>
-      </header>
+    <AppLayout>
+      <div className={styles.pageContent}>
+        <header className={styles.header}>
+          <div className={styles.headerInner}>
+            <h1 className={styles.pageTitle}>Your boxes</h1>
+          </div>
+        </header>
 
-      <main className={styles.main}>
-        <BoxManagement
-          initialBoxes={boxes}
-          initialBoxItems={boxItems}
-          initialAssessments={relevantAssessments}
-        />
-      </main>
-    </div>
+        <main className={styles.main}>
+          <BoxManagement
+            initialBoxes={boxes}
+            initialBoxItems={boxItems}
+            initialAssessments={relevantAssessments}
+          />
+        </main>
+      </div>
+    </AppLayout>
   )
 }
