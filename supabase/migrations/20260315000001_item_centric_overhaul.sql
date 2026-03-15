@@ -28,6 +28,8 @@ ALTER TABLE item_assessment ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAUL
 
 -- RLS Policies for item_assessment (required for Supabase Realtime)
 -- These use auth.uid() to match the user_profile.auth_user_id
+-- Drop first to avoid conflicts with policies created in earlier migrations
+DROP POLICY IF EXISTS "Users can view own assessments" ON item_assessment;
 CREATE POLICY "Users can view own assessments"
   ON item_assessment FOR SELECT
   USING (
@@ -36,6 +38,7 @@ CREATE POLICY "Users can view own assessments"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert own assessments" ON item_assessment;
 CREATE POLICY "Users can insert own assessments"
   ON item_assessment FOR INSERT
   WITH CHECK (
@@ -44,6 +47,7 @@ CREATE POLICY "Users can insert own assessments"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update own assessments" ON item_assessment;
 CREATE POLICY "Users can update own assessments"
   ON item_assessment FOR UPDATE
   USING (
@@ -52,6 +56,7 @@ CREATE POLICY "Users can update own assessments"
     )
   );
 
+DROP POLICY IF EXISTS "Users can delete own assessments" ON item_assessment;
 CREATE POLICY "Users can delete own assessments"
   ON item_assessment FOR DELETE
   USING (
@@ -61,15 +66,18 @@ CREATE POLICY "Users can delete own assessments"
   );
 
 -- Also add RLS policies for user_profile
+DROP POLICY IF EXISTS "Users can view own profile" ON user_profile;
 CREATE POLICY "Users can view own profile"
   ON user_profile FOR SELECT
   USING (auth_user_id = auth.uid()::text);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profile;
 CREATE POLICY "Users can update own profile"
   ON user_profile FOR UPDATE
   USING (auth_user_id = auth.uid()::text);
 
 -- RLS policies for box
+DROP POLICY IF EXISTS "Users can view own boxes" ON box;
 CREATE POLICY "Users can view own boxes"
   ON box FOR SELECT
   USING (
@@ -78,6 +86,7 @@ CREATE POLICY "Users can view own boxes"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert own boxes" ON box;
 CREATE POLICY "Users can insert own boxes"
   ON box FOR INSERT
   WITH CHECK (
@@ -86,6 +95,7 @@ CREATE POLICY "Users can insert own boxes"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update own boxes" ON box;
 CREATE POLICY "Users can update own boxes"
   ON box FOR UPDATE
   USING (
@@ -94,6 +104,7 @@ CREATE POLICY "Users can update own boxes"
     )
   );
 
+DROP POLICY IF EXISTS "Users can delete own boxes" ON box;
 CREATE POLICY "Users can delete own boxes"
   ON box FOR DELETE
   USING (
@@ -103,6 +114,7 @@ CREATE POLICY "Users can delete own boxes"
   );
 
 -- RLS policies for box_item
+DROP POLICY IF EXISTS "Users can view own box items" ON box_item;
 CREATE POLICY "Users can view own box items"
   ON box_item FOR SELECT
   USING (
@@ -113,6 +125,7 @@ CREATE POLICY "Users can view own box items"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert own box items" ON box_item;
 CREATE POLICY "Users can insert own box items"
   ON box_item FOR INSERT
   WITH CHECK (
@@ -123,6 +136,7 @@ CREATE POLICY "Users can insert own box items"
     )
   );
 
+DROP POLICY IF EXISTS "Users can delete own box items" ON box_item;
 CREATE POLICY "Users can delete own box items"
   ON box_item FOR DELETE
   USING (

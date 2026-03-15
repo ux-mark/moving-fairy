@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { deleteItemAssessment, getItemAssessments, updateItemAssessment } from '@/mcp'
+import { deleteItemAssessment, getItemAssessment, updateItemAssessment } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import type { Verdict } from '@/lib/constants'
 import { ProcessingStatus } from '@/lib/constants'
@@ -18,9 +18,7 @@ export async function GET(
   const { id } = await params
 
   try {
-    // Fetch all items and find the matching one — ensures ownership check
-    const items = await getItemAssessments(profile.id)
-    const item = items.find((a) => a.id === id)
+    const item = await getItemAssessment(id, profile.id)
     if (!item) {
       return Response.json({ ok: false, error: 'Item not found' }, { status: 404 })
     }

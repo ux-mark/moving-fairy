@@ -31,7 +31,7 @@ This is a multi-phase build. You will lead a team of builder, reviewer, and plan
 
 ## Key Decisions (already made)
 
-- **`DECIDE_LATER` → `REVISIT`**: Rename across the entire codebase as part of Phase 1. DB enum, constants, components, Aisling persona, verdict colours, spec files.
+- **Rename verdict to `REVISIT`**: Completed for Phase 1. DB enum, constants, components, Aisling persona, verdict colours, spec files.
 - **No data migration**: There are zero users. Wipe the DB and start fresh. Drop the `session` and `message` tables entirely.
 - **Everything uses Nos DS**: No exceptions. If a DS component needs extending (e.g. `RecommendationCard` needs processing status props), extend the DS first, then consume in the app. Keep DS extensions agnostic and reusable. Ensure mobile works perfectly.
 - **Supabase Realtime**: Used for live card updates as assessments complete. RLS policies (MF-ISSUE-005) must be set up first — this is a prerequisite, not optional.
@@ -49,7 +49,7 @@ This is a multi-phase build. You will lead a team of builder, reviewer, and plan
 
 Key tasks:
 1. Set up RLS policies on `item_assessment` (prerequisite for Realtime)
-2. DB migration: new columns (`processing_status`, `confidence`, `needs_clarification`, `source`), nullable `verdict`, rename `DECIDE_LATER` → `REVISIT`, drop `session`/`message` tables
+2. DB migration: new columns (`processing_status`, `confidence`, `needs_clarification`, `source`), nullable `verdict`, rename verdict to `REVISIT`, drop `session`/`message` tables
 3. Extend `RecommendationCard` in the Nos DS with processing status props
 4. New API routes: `/api/items`, `/api/assess/:id`
 5. New components: `DecisionsList`, `ItemCard`, `BatchUploadButton`, `TextAddInput`, `ProcessingIndicator`

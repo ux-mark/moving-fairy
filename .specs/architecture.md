@@ -204,11 +204,11 @@ Aisling can assess items from three input modes:
 | SELL | No | Lightweight record | item_name, verdict, advice_text only |
 | DONATE | No | Lightweight record | item_name, verdict, advice_text only |
 | DISCARD | No | Lightweight record | item_name, verdict, advice_text only |
-| DECIDE_LATER | Yes — stored immediately; deleted if resolved to SELL/DONATE/DISCARD or session ends unresolved | Pending | No record saved until verdict is resolved |
+| REVISIT | Yes — stored immediately; deleted if resolved to SELL/DONATE/DISCARD or session ends unresolved | Pending | No record saved until verdict is resolved |
 
-When a DECIDE_LATER verdict is later resolved to SHIP or CARRY, a full record is created at that point (including image if one was provided and is still available in the session). If resolved to SELL/DONATE/DISCARD, a lightweight record is created.
+When a REVISIT verdict is later resolved to SHIP or CARRY, a full record is created at that point (including image if one was provided and is still available in the session). If resolved to SELL/DONATE/DISCARD, a lightweight record is created.
 
-**DECIDE_LATER image handling**: If a user uploads an image for a DECIDE_LATER item, the Upload Service processes and stores it immediately (same WebP/1024px pipeline). The URL is held in session state. If the verdict is later resolved to SHIP/CARRY, the URL is included in the `save_item_assessment` call. If resolved to SELL/DONATE/DISCARD, or the session ends without resolution, the Upload Service deletes the stored image. No orphaned images remain in storage.
+**REVISIT image handling**: If a user uploads an image for a REVISIT item, the Upload Service processes and stores it immediately (same WebP/1024px pipeline). The URL is held in session state. If the verdict is later resolved to SHIP/CARRY, the URL is included in the `save_item_assessment` call. If resolved to SELL/DONATE/DISCARD, or the session ends without resolution, the Upload Service deletes the stored image. No orphaned images remain in storage.
 
 ### 2.5 Country Knowledge Modules
 

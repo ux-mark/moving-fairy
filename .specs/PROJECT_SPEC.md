@@ -133,7 +133,7 @@ Design tokens come from `@thefairies/design-system/styles/tokens.css` and are CS
 - Primary: warm, confident green (clover, not corporate teal)
 - Accent: warm amber
 - Neutral: warm greys
-- Verdict colours: green (SHIP/CARRY), amber (SELL), warm grey (DONATE/DISCARD), soft blue (DECIDE_LATER)
+- Verdict colours: green (SHIP/CARRY), amber (SELL), warm grey (DONATE/DISCARD), soft blue (REVISIT)
 - Error: warm red
 - All colours must pass WCAG 2.2 AA contrast (4.5:1 body text, 3:1 UI components)
 

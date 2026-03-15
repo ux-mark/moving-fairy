@@ -6,7 +6,7 @@
 - **Files**: `src/app/api/chat/route.ts`, `.specs/item-centric-overhaul.md`, `.specs/item-centric-agent-brief.md`
 - **Why**: Image assessments were poor quality (model making things up) due to system prompt noise from 11 tool definitions and conversation history leaking old items. The broader architectural issue is that chat-centric UX doesn't scale — background processing with Supabase Realtime is the right model.
 - **PRs**: #29 (merged), #30 (open — plan only)
-- **Decision**: `DECIDE_LATER` → `REVISIT` rename approved for Phase 1.
+- **Decision**: Verdict renamed to `REVISIT` for Phase 1.
 
 ## 2026-03-13 -- Remove denormalised item_name from box_item
 

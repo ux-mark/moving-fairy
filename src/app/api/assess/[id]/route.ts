@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getItemAssessments, updateItemAssessment } from '@/mcp'
+import { getItemAssessment, updateItemAssessment } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { assessItem } from '@/lib/assess-item'
 import { ProcessingStatus } from '@/lib/constants'
@@ -20,22 +20,25 @@ export async function POST(
   const { id } = await params
 
   // Validate item exists and belongs to the authenticated user
-  let items
+  let item
   try {
-    items = await getItemAssessments(profile.id)
+    item = await getItemAssessment(id, profile.id)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return Response.json({ ok: false, error: message }, { status: 500 })
   }
 
-  const item = items.find((a) => a.id === id)
   if (!item) {
     return Response.json({ ok: false, error: 'Item not found' }, { status: 404 })
   }
 
-  // Idempotent — if already completed, return early
+  // Idempotent — if already completed or in-flight, return early
   if (item.processing_status === ProcessingStatus.COMPLETED) {
     return Response.json({ ok: true, status: 'already_completed' })
+  }
+
+  if (item.processing_status === ProcessingStatus.PROCESSING) {
+    return Response.json({ ok: true, status: 'already_processing' })
   }
 
   // Set status to 'processing' immediately so the UI can react

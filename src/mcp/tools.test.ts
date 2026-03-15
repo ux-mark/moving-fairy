@@ -20,38 +20,15 @@ import { saveItemAssessment, computeBoxLabel, getCostSummary, addItemToBox } fro
 // ─── Shared setup helper ─────────────────────────────────────────────────────
 
 function setupInsertChain() {
-  // saveItemAssessment first does a SELECT chain to check for existing records,
-  // then does an INSERT chain. We need to handle both from() calls.
+  // saveItemAssessment does a single INSERT chain: insert().select().single()
+  // The dedup SELECT has been removed (item-centric model creates distinct records).
   //
-  // SELECT chain: select().eq().ilike().eq().order().limit().single()
-  //   — returns { data: null, error: { code: 'PGRST116' } } to simulate "not found"
-  //   so the function proceeds to INSERT.
-  //
-  // INSERT chain: insert().select().single()
-  //   — caller sets up the resolved value via the returned `single` mock.
+  // Caller sets up the resolved value via the returned `single` mock.
   const insertSingle = vi.fn()
   const insertSelect = vi.fn(() => ({ single: insertSingle }))
   const insert = vi.fn(() => ({ select: insertSelect }))
 
-  // SELECT chain for the existence check — always returns "not found"
-  const existsSingle = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-  const existsLimit = vi.fn(() => ({ single: existsSingle }))
-  const existsOrder = vi.fn(() => ({ limit: existsLimit }))
-  const existsEq2 = vi.fn(() => ({ order: existsOrder }))
-  const existsIlike = vi.fn(() => ({ eq: existsEq2 }))
-  const existsEq1 = vi.fn(() => ({ ilike: existsIlike }))
-  const existsSelect = vi.fn(() => ({ eq: existsEq1 }))
-
-  let callCount = 0
-  mockFrom.mockImplementation(() => {
-    callCount++
-    if (callCount === 1) {
-      // First call: SELECT for existence check
-      return { select: existsSelect }
-    }
-    // Second call: INSERT
-    return { insert }
-  })
+  mockFrom.mockImplementation(() => ({ insert }))
 
   return { insert, single: insertSingle }
 }

@@ -1,6 +1,6 @@
 import { getItemAssessments, updateItemAssessment } from '@/mcp'
 import { getUserProfile } from '@/mcp'
-import { ProcessingStatus } from '@/lib/constants'
+import { ProcessingStatus, Verdict } from '@/lib/constants'
 
 /**
  * assessItem — background assessment runner
@@ -47,7 +47,7 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
       itemId,
       {
         processing_status: ProcessingStatus.COMPLETED,
-        verdict: 'REVISIT',
+        verdict: Verdict.REVISIT,
         advice_text: 'Assessment pending LLM integration. Please check back soon.',
         confidence: null,
         needs_clarification: false,

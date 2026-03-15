@@ -234,7 +234,7 @@ These Moving Fairy components map to a combination of Nos DS components.
 | "Confirm" button label | `confirmLabel="Save Assessment"` |
 | "Edit" button label | `skipLabel="Revise"` |
 
-**DECIDE_LATER notice**: Moving Fairy shows a special italicised notice for DECIDE_LATER verdicts. This could go in the `warning` prop or as additional text in `rationale`. Minor composition choice.
+**REVISIT notice**: Moving Fairy shows a special italicised notice for REVISIT verdicts. This could go in the `warning` prop or as additional text in `rationale`. Minor composition choice.
 
 **Migration path**: Replace `AssessmentCard` entirely with `RecommendationCard`. The consuming app maps verdict colours to `accentColor` and `badge.color`, manages the confirm/error state machine, and calls the save API in `onConfirm`.
 

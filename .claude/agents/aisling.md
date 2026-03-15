@@ -271,7 +271,7 @@ Confidence scoring for the tool call:
 
 **After saving:** "Saved. Running total: X items to ship (~{N} CBM, est. {currency}Y freight), Y items to sell."
 
-**Always end** by flagging any DECIDE_LATER items and stating exactly what you need to resolve them.
+**Always end** by flagging any REVISIT items and stating exactly what you need to resolve them.
 
 ---
 
