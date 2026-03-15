@@ -20,20 +20,69 @@ import { saveItemAssessment, computeBoxLabel, getCostSummary, addItemToBox } fro
 // ─── Shared setup helper ─────────────────────────────────────────────────────
 
 function setupInsertChain() {
-  // insert().select().single() chain
-  const single = vi.fn()
-  const select = vi.fn(() => ({ single }))
-  const insert = vi.fn(() => ({ select }))
-  mockFrom.mockReturnValue({ insert })
-  return { insert, single }
+  // saveItemAssessment first does a SELECT chain to check for existing records,
+  // then does an INSERT chain. We need to handle both from() calls.
+  //
+  // SELECT chain: select().eq().ilike().eq().order().limit().single()
+  //   — returns { data: null, error: { code: 'PGRST116' } } to simulate "not found"
+  //   so the function proceeds to INSERT.
+  //
+  // INSERT chain: insert().select().single()
+  //   — caller sets up the resolved value via the returned `single` mock.
+  const insertSingle = vi.fn()
+  const insertSelect = vi.fn(() => ({ single: insertSingle }))
+  const insert = vi.fn(() => ({ select: insertSelect }))
+
+  // SELECT chain for the existence check — always returns "not found"
+  const existsSingle = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
+  const existsLimit = vi.fn(() => ({ single: existsSingle }))
+  const existsOrder = vi.fn(() => ({ limit: existsLimit }))
+  const existsEq2 = vi.fn(() => ({ order: existsOrder }))
+  const existsIlike = vi.fn(() => ({ eq: existsEq2 }))
+  const existsEq1 = vi.fn(() => ({ ilike: existsIlike }))
+  const existsSelect = vi.fn(() => ({ eq: existsEq1 }))
+
+  let callCount = 0
+  mockFrom.mockImplementation(() => {
+    callCount++
+    if (callCount === 1) {
+      // First call: SELECT for existence check
+      return { select: existsSelect }
+    }
+    // Second call: INSERT
+    return { insert }
+  })
+
+  return { insert, single: insertSingle }
 }
 
 function setupSelectEqChain() {
-  // select().eq() chain — for getCostSummary
-  const eq = vi.fn()
-  const select = vi.fn(() => ({ eq }))
-  mockFrom.mockReturnValue({ select })
-  return { eq }
+  // getCostSummary makes two DB calls:
+  // 1. user_profile: select('departure_country').eq('id', ...).single()
+  //    — returns { data: null, error: null } so departureCurrency defaults to 'USD'
+  // 2. item_assessment: select('verdict, estimated_ship_cost').eq('user_profile_id', ...).eq('processing_status', ...)
+  //    — caller sets up the resolved value via the returned `eq` mock
+
+  // Profile query: select().eq().single() — returns no profile (defaults to USD)
+  const profileSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+  const profileEq = vi.fn(() => ({ single: profileSingle }))
+  const profileSelect = vi.fn(() => ({ eq: profileEq }))
+
+  // Item assessment query: select().eq().eq() — caller sets mockResolvedValueOnce on eq2
+  const eq2 = vi.fn()
+  const eq1 = vi.fn(() => ({ eq: eq2 }))
+  const itemSelect = vi.fn(() => ({ eq: eq1 }))
+
+  let callCount = 0
+  mockFrom.mockImplementation(() => {
+    callCount++
+    if (callCount === 1) {
+      return { select: profileSelect }
+    }
+    return { select: itemSelect }
+  })
+
+  return { eq: eq2 }
 }
 
 // ─── computeBoxLabel ────────────────────────────────────────────────────────
@@ -76,7 +125,6 @@ describe('saveItemAssessment()', () => {
     const fakeRecord = {
       id: 'abc-123',
       user_profile_id: 'user-1',
-      session_id: 'sess-1',
       item_name: 'KitchenAid',
       item_description: 'Stand mixer',
       verdict: Verdict.SHIP,
@@ -96,7 +144,6 @@ describe('saveItemAssessment()', () => {
 
     const result = await saveItemAssessment({
       user_profile_id: 'user-1',
-      session_id: 'sess-1',
       item_name: 'KitchenAid',
       verdict: Verdict.SHIP,
       item_description: 'Stand mixer',
@@ -355,14 +402,14 @@ describe('addItemToBox()', () => {
     ).rejects.toThrow('Cannot add item with verdict SELL')
   })
 
-  it('rejects DECIDE_LATER verdict items', async () => {
+  it('rejects REVISIT verdict items', async () => {
     setupAddItemChains({
-      assessment: { verdict: 'DECIDE_LATER' },
+      assessment: { verdict: 'REVISIT' },
     })
 
     await expect(
       addItemToBox('box-1', { itemAssessmentId: 'assess-1' })
-    ).rejects.toThrow('Cannot add item with verdict DECIDE_LATER')
+    ).rejects.toThrow('Cannot add item with verdict REVISIT')
   })
 
   it('returns existing record when item is already in the same box (idempotent)', async () => {

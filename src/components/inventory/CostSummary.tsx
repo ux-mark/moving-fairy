@@ -27,7 +27,7 @@ const VERDICT_COLORS: Record<string, { bgColor: string; fgColor: string }> = {
   SELL: { bgColor: "var(--verdict-sell-bg, #fef3c7)", fgColor: "var(--verdict-sell-fg, #92400e)" },
   DONATE: { bgColor: "var(--verdict-donate-bg, #f3f4f6)", fgColor: "var(--verdict-donate-fg, #374151)" },
   DISCARD: { bgColor: "var(--verdict-discard-bg, #f3f4f6)", fgColor: "var(--verdict-discard-fg, #374151)" },
-  DECIDE_LATER: { bgColor: "var(--verdict-decide-later-bg, #dbeafe)", fgColor: "var(--verdict-decide-later-fg, #1e40af)" },
+  REVISIT: { bgColor: "var(--verdict-decide-later-bg, #dbeafe)", fgColor: "var(--verdict-decide-later-fg, #1e40af)" },
 };
 
 function AnimatedNumber({

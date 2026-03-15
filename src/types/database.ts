@@ -1,4 +1,4 @@
-import type { BoxSize, BoxStatus, BoxType, Country, OnwardTimeline, Verdict } from '@/lib/constants'
+import type { BoxSize, BoxStatus, BoxType, Country, ItemSource, OnwardTimeline, ProcessingStatus, Verdict } from '@/lib/constants'
 
 export interface TransformerEquipment {
   owned: boolean
@@ -23,28 +23,12 @@ export interface UserProfile {
   anthropic_api_key: string | null
 }
 
-export interface Message {
-  id: string
-  session_id: string
-  role: 'user' | 'assistant'
-  content: string
-  created_at: string
-}
-
-export interface Session {
-  id: string
-  created_at: string
-  updated_at: string
-  user_profile_id: string
-}
-
 export interface ItemAssessment {
   id: string
   user_profile_id: string
-  session_id: string | null
   item_name: string
   item_description: string | null
-  verdict: Verdict
+  verdict: Verdict | null          // nullable while pending/processing
   advice_text: string | null
   image_url: string | null
   voltage_compatible: boolean | null
@@ -54,6 +38,10 @@ export interface ItemAssessment {
   estimated_replace_cost: number | null
   replace_currency: string | null
   user_confirmed: boolean
+  processing_status: ProcessingStatus
+  confidence: number | null
+  needs_clarification: boolean
+  source: ItemSource
   created_at: string
   updated_at: string
 }

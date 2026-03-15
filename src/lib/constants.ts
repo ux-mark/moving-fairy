@@ -22,9 +22,25 @@ export const Verdict = {
   DISCARD: 'DISCARD',
   SHIP: 'SHIP',
   CARRY: 'CARRY',
-  DECIDE_LATER: 'DECIDE_LATER',
+  REVISIT: 'REVISIT',
 } as const
 export type Verdict = (typeof Verdict)[keyof typeof Verdict]
+
+export const ProcessingStatus = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const
+export type ProcessingStatus = (typeof ProcessingStatus)[keyof typeof ProcessingStatus]
+
+export const ItemSource = {
+  PHOTO_UPLOAD: 'photo_upload',
+  TEXT_ADD: 'text_add',
+  STICKER_SCAN: 'sticker_scan',
+  MANUAL: 'manual',
+} as const
+export type ItemSource = (typeof ItemSource)[keyof typeof ItemSource]
 
 export const BoxSize = {
   XS: 'XS',
