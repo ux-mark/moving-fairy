@@ -1,6 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { BOX_SIZE_CBM, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
-import type { Box, BoxItem, ItemAssessment, UserProfile } from '@/types/database'
+import type { Box, BoxItem, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
 // ─── Supabase client helpers ───────────────────────────────────────────────
 
@@ -650,4 +650,96 @@ export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> 
 
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box size')
   return box as Box
+}
+
+// ─── ItemConversation ─────────────────────────────────────────────────────────
+
+/**
+ * Get or create a conversation for an item. Lazy creation — the conversation
+ * record is created on first message, not when the item is assessed.
+ */
+export async function getOrCreateItemConversation(
+  itemAssessmentId: string,
+  userProfileId: string
+): Promise<ItemConversation> {
+  const supabase = getAdminClient()
+
+  // Verify ownership
+  const { data: item } = await supabase
+    .from('item_assessment')
+    .select('id')
+    .eq('id', itemAssessmentId)
+    .eq('user_profile_id', userProfileId)
+    .single()
+
+  if (!item) throw new Error('Item not found or not owned by user')
+
+  // Try to find existing
+  const { data: existing } = await supabase
+    .from('item_conversation')
+    .select('*')
+    .eq('item_assessment_id', itemAssessmentId)
+    .single()
+
+  if (existing) return existing as ItemConversation
+
+  // Create new
+  const { data: created, error } = await supabase
+    .from('item_conversation')
+    .insert({ item_assessment_id: itemAssessmentId })
+    .select()
+    .single()
+
+  if (error || !created) throw new Error(error?.message ?? 'Failed to create conversation')
+  return created as ItemConversation
+}
+
+/**
+ * Get all messages for a conversation, ordered by creation time.
+ */
+export async function getConversationMessages(
+  conversationId: string
+): Promise<ItemConversationMessage[]> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('item_conversation_message')
+    .select('*')
+    .eq('item_conversation_id', conversationId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ItemConversationMessage[]
+}
+
+/**
+ * Append a message to a conversation.
+ */
+export async function appendConversationMessage(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string
+): Promise<ItemConversationMessage> {
+  const supabase = getAdminClient()
+  const id = `msg_${Date.now()}_${role}`
+
+  const { data, error } = await supabase
+    .from('item_conversation_message')
+    .insert({
+      id,
+      item_conversation_id: conversationId,
+      role,
+      content,
+    })
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to append message')
+
+  // Update conversation timestamp
+  await supabase
+    .from('item_conversation')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  return data as ItemConversationMessage
 }
