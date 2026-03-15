@@ -1,4 +1,4 @@
-import { findOrCreateSession, getCostSummary } from '@/mcp'
+import { findOrCreateSession, getCostSummary, getRecentMessages } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 
 export async function GET() {
@@ -41,7 +41,7 @@ export async function GET() {
     // Non-fatal — return empty summary
   }
 
-  const messages = Array.isArray(session.messages) ? session.messages : []
+  const messages = await getRecentMessages(session.id, 20)
   const hasHistory = messages.length > 0
 
   // Strip sensitive fields before returning profile
@@ -58,6 +58,6 @@ export async function GET() {
     profile: safeProfile,
     summary,
     has_history: hasHistory,
-    recent_messages: messages.slice(-20),
+    recent_messages: messages,
   })
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import styles from "./step.module.css";
 
 interface ApiKeyStepProps {
   value: string;
@@ -10,33 +10,35 @@ interface ApiKeyStepProps {
 
 export function ApiKeyStep({ value, onChange }: ApiKeyStepProps) {
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-base leading-relaxed text-foreground">
+    <div className={styles.step}>
+      <div className={styles.prompt}>
+        <p className={styles.promptQuote}>
           &ldquo;Last thing — I need your Anthropic API key so I can get to
           work.&rdquo;
         </p>
-        <p className="mt-1 text-sm text-primary font-medium">— Aisling</p>
+        <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="api-key">Anthropic API key</Label>
-        <Input
+      <div className={styles.inputGroup}>
+        <label htmlFor="api-key" className={styles.inputLabel}>
+          Anthropic API key
+        </label>
+        <input
           id="api-key"
           type="password"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="sk-ant-..."
-          className="h-12 font-mono text-sm"
+          className={cn(styles.input, styles.inputMono)}
           autoComplete="off"
         />
-        <p className="text-sm text-muted-foreground">
+        <p className={styles.apiKeyNote}>
           Get yours free at{" "}
           <a
             href="https://console.anthropic.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            className={styles.apiKeyLink}
           >
             console.anthropic.com
           </a>{" "}

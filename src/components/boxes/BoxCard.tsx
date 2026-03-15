@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -9,63 +9,618 @@ import {
   Luggage,
   Plus,
   X as XIcon,
+  Check,
+  Pencil,
+  Info,
 } from "lucide-react";
+import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { BoxSizeBadge } from "@/components/boxes/BoxSizeBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import { BoxType } from "@/lib/constants";
+import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+import styles from "./BoxCard.module.css";
 
 interface BoxCardProps {
   box: Box;
   items: BoxItem[];
   /** Map of item_assessment_id to ItemAssessment, for showing verdicts */
   assessments?: Record<string, ItemAssessment> | undefined;
+  /** Unboxed SHIP/CARRY items available to assign to this box */
+  unboxedItems?: ItemAssessment[] | undefined;
   onAddItem?: ((boxId: string, itemName: string) => void) | undefined;
+  onAddExistingItem?: ((boxId: string, assessmentId: string) => void) | undefined;
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
+  onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
 }
 
 function BoxIcon({ boxType }: { boxType: Box["box_type"] }) {
-  const className = "size-5 shrink-0 text-muted-foreground";
   switch (boxType) {
     case BoxType.CARRYON:
-      return <Briefcase className={className} />;
+      return <Briefcase className={styles.boxIcon} />;
     case BoxType.CHECKED_LUGGAGE:
-      return <Luggage className={className} />;
+      return <Luggage className={styles.boxIcon} />;
     default:
-      return <Package className={className} />;
+      return <Package className={styles.boxIcon} />;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Unified Combobox — searches existing items + allows creating new ones
+// ---------------------------------------------------------------------------
+
+type ComboboxItem =
+  | { type: "existing"; id: string; name: string; assessment: ItemAssessment }
+  | { type: "create"; id: string; name: string; assessment?: undefined };
+
+function ItemCombobox({
+  unboxedItems,
+  onSelectExisting,
+  onCreateNew,
+  boxLabel,
+}: {
+  unboxedItems: ItemAssessment[];
+  onSelectExisting: (item: ItemAssessment) => void;
+  onCreateNew: (name: string) => void;
+  boxLabel: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  const trimmed = query.trim();
+  const lowerQuery = trimmed.toLowerCase();
+
+  const suggestions = useMemo<ComboboxItem[]>(() => {
+    if (!trimmed) return [];
+
+    const matches: ComboboxItem[] = unboxedItems
+      .filter((item) => item.item_name.toLowerCase().includes(lowerQuery))
+      .sort((a, b) => a.item_name.localeCompare(b.item_name))
+      .map((item) => ({
+        type: "existing" as const,
+        id: item.id,
+        name: item.item_name,
+        assessment: item,
+      }));
+
+    // Check if typed text exactly matches any existing item (case-insensitive)
+    const exactMatch = unboxedItems.some(
+      (item) => item.item_name.toLowerCase() === lowerQuery
+    );
+
+    // If no exact match, add a "create new" option
+    if (!exactMatch && trimmed.length > 0) {
+      matches.push({
+        type: "create",
+        id: "__create__",
+        name: trimmed,
+      });
+    }
+
+    return matches;
+  }, [unboxedItems, trimmed, lowerQuery]);
+
+  const showDropdown = isOpen && trimmed.length > 0 && suggestions.length > 0;
+
+  // Position dropdown using fixed positioning to avoid clipping.
+  // On mobile with the virtual keyboard open, position above the input
+  // if there isn't enough room below.
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    const minMargin = 8;
+    const dropdownMaxHeight = vw < 768 ? 180 : 240;
+
+    // Clamp left so the dropdown never runs off the left edge
+    const rawLeft = rect.left;
+    const clampedLeft = Math.max(minMargin, rawLeft);
+
+    // Clamp width so the dropdown never runs off the right edge
+    const availableWidth = vw - clampedLeft - minMargin;
+    const clampedWidth = Math.min(rect.width, availableWidth);
+
+    const spaceBelow = vh - rect.bottom - minMargin;
+    const spaceAbove = rect.top - minMargin;
+    const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
+    setDropdownStyle({
+      position: "fixed",
+      ...(openAbove
+        ? { bottom: vh - rect.top + 2 }
+        : { top: rect.bottom + 2 }),
+      left: clampedLeft,
+      width: clampedWidth,
+      maxHeight: openAbove ? spaceAbove : Math.min(spaceBelow, dropdownMaxHeight),
+      zIndex: 9999,
+    });
+  }, []);
+
+  // Position dropdown once when it opens; recalculate on window/viewport resize
+  // (viewport resize fires when mobile keyboard opens/closes)
+  useEffect(() => {
+    if (showDropdown) {
+      updateDropdownPosition();
+      window.addEventListener("resize", updateDropdownPosition);
+      window.visualViewport?.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("resize", updateDropdownPosition);
+        window.visualViewport?.removeEventListener("resize", updateDropdownPosition);
+      };
+    }
+  }, [showDropdown, updateDropdownPosition]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!showDropdown) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [showDropdown]);
+
+  const selectItem = useCallback(
+    (item: ComboboxItem) => {
+      if (item.type === "existing" && item.assessment) {
+        onSelectExisting(item.assessment);
+      } else if (item.type === "create") {
+        onCreateNew(item.name);
+      }
+      setQuery("");
+      setIsOpen(false);
+      setActiveIndex(-1);
+      inputRef.current?.focus();
+    },
+    [onSelectExisting, onCreateNew]
+  );
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setQuery(e.target.value);
+      setIsOpen(true);
+      setActiveIndex(-1); // Reset selection when query changes
+    },
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showDropdown) {
+        // If Enter is pressed with text but no dropdown, create the item
+        if (e.key === "Enter" && trimmed) {
+          e.preventDefault();
+          onCreateNew(trimmed);
+          setQuery("");
+          setIsOpen(false);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev < suggestions.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev > 0 ? prev - 1 : suggestions.length - 1
+          );
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (activeIndex >= 0 && suggestions[activeIndex]) {
+            selectItem(suggestions[activeIndex]);
+          } else if (trimmed) {
+            // No active item: create new
+            onCreateNew(trimmed);
+            setQuery("");
+            setIsOpen(false);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          setIsOpen(false);
+          setActiveIndex(-1);
+          break;
+      }
+    },
+    [showDropdown, suggestions, activeIndex, trimmed, selectItem, onCreateNew]
+  );
+
+  // Scroll active option into view
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return;
+    const items = listRef.current.querySelectorAll('[role="option"]');
+    items[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  const listboxId = "box-item-combobox-listbox";
+
+  return (
+    <div ref={containerRef} className={styles.comboboxWrap}>
+      <div className={styles.comboboxInputRow}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            if (trimmed) setIsOpen(true);
+            // On mobile, scroll input into view after keyboard opens
+            if (window.innerWidth < 768) {
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+              }, 300);
+            }
+          }}
+          placeholder="Search or add an item..."
+          className={styles.addItemInput}
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-activedescendant={
+            showDropdown && activeIndex >= 0
+              ? `combobox-option-${activeIndex}`
+              : undefined
+          }
+          aria-label={`Add item to ${boxLabel}`}
+          aria-autocomplete="list"
+          autoComplete="off"
+        />
+      </div>
+
+      {showDropdown && (
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label="Item suggestions"
+          className={styles.comboboxDropdown}
+          style={dropdownStyle}
+        >
+          {suggestions.map((item, index) => (
+            <li
+              key={item.id}
+              id={`combobox-option-${index}`}
+              role="option"
+              aria-selected={index === activeIndex}
+              className={cn(
+                styles.comboboxOption,
+                index === activeIndex && styles.comboboxOptionActive,
+                item.type === "create" && styles.comboboxOptionCreate
+              )}
+              onPointerDown={(e) => {
+                e.preventDefault(); // Keep focus on input
+                selectItem(item);
+              }}
+            >
+              {item.type === "existing" ? (
+                <>
+                  <span className={styles.comboboxOptionName}>
+                    {item.name}
+                  </span>
+                  {item.assessment && (
+                    <VerdictBadge verdict={item.assessment.verdict} />
+                  )}
+                </>
+              ) : (
+                <>
+                  <Plus
+                    style={{ width: 14, height: 14, flexShrink: 0 }}
+                    aria-hidden
+                  />
+                  <span className={styles.comboboxCreateLabel}>
+                    Add &ldquo;{item.name}&rdquo;
+                  </span>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline editable label
+// ---------------------------------------------------------------------------
+
+function EditableLabel({
+  value,
+  onSave,
+  disabled,
+}: {
+  value: string;
+  onSave: (newValue: string) => void;
+  disabled: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  // Keep draft in sync with external value when not editing.
+  // Using a stable callback avoids the need for a render-time ref check.
+  const startEditing = useCallback(() => {
+    setDraft(value); // Always sync to latest value when entering edit mode
+    setEditing(true);
+  }, [value]);
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) {
+      onSave(trimmed);
+    } else {
+      setDraft(value);
+    }
+    setEditing(false);
+  }, [draft, value, onSave]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setDraft(value);
+        setEditing(false);
+      }
+    },
+    [commit, value]
+  );
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        className={styles.editableLabelInput}
+        aria-label="Edit box name"
+        onClick={(e) => e.stopPropagation()}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.editableLabelButton}
+      onClick={(e) => {
+        if (disabled) return;
+        e.stopPropagation();
+        startEditing();
+      }}
+      disabled={disabled}
+      aria-label={`Edit box name: ${value}`}
+      title="Click to edit name"
+    >
+      <span className={styles.boxLabel}>{value}</span>
+      {!disabled && (
+        <Pencil
+          className={styles.editIcon}
+          style={{ width: 12, height: 12 }}
+          aria-hidden
+        />
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Size editor with dimension disclosure
+// ---------------------------------------------------------------------------
+
+const SIZE_OPTIONS = Object.values(BoxSize) as BoxSize[];
+
+function SizeEditor({
+  currentSize,
+  onSizeChange,
+  disabled,
+}: {
+  currentSize: BoxSize;
+  onSizeChange: (size: BoxSize) => void;
+  disabled: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDimensions, setShowDimensions] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isEditing) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsEditing(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isEditing]);
+
+  const handleSizeSelect = useCallback(
+    (size: BoxSize) => {
+      if (size !== currentSize) {
+        onSizeChange(size);
+      }
+      setIsEditing(false);
+    },
+    [currentSize, onSizeChange]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsEditing(false);
+      }
+    },
+    []
+  );
+
+  const dims = BOX_SIZE_DIMENSIONS[currentSize];
+
+  return (
+    <div ref={containerRef} className={styles.sizeEditorWrap}>
+      <div className={styles.sizeEditorRow}>
+        <button
+          type="button"
+          className={styles.sizeEditorTrigger}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!disabled) setIsEditing((prev) => !prev);
+          }}
+          disabled={disabled}
+          aria-label={`Box size: ${currentSize}. Click to change.`}
+          aria-expanded={isEditing}
+        >
+          <BoxSizeBadge size={currentSize} />
+        </button>
+
+        <button
+          type="button"
+          className={styles.dimensionToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDimensions((prev) => !prev);
+          }}
+          aria-label={showDimensions ? "Hide dimensions" : "Show dimensions"}
+          aria-expanded={showDimensions}
+          title="View dimensions"
+        >
+          <Info style={{ width: 13, height: 13 }} aria-hidden />
+        </button>
+      </div>
+
+      {/* Size picker dropdown */}
+      {isEditing && (
+        <div
+          className={styles.sizePickerDropdown}
+          role="listbox"
+          aria-label="Select box size"
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
+        >
+          {SIZE_OPTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="option"
+              aria-selected={s === currentSize}
+              className={cn(
+                styles.sizePickerOption,
+                s === currentSize && styles.sizePickerOptionActive
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSizeSelect(s);
+              }}
+            >
+              <span className={styles.sizePickerLabel}>{s}</span>
+              <span className={styles.sizePickerCbm}>
+                {BOX_SIZE_CBM[s]} CBM
+              </span>
+              {s === currentSize && (
+                <Check
+                  style={{ width: 14, height: 14, flexShrink: 0 }}
+                  aria-hidden
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Dimension disclosure */}
+      {showDimensions && (
+        <div className={styles.dimensionPanel}>
+          <span className={styles.dimensionText}>
+            {dims.length} x {dims.width} x {dims.height} cm
+          </span>
+          <span className={styles.dimensionNote}>
+            Standard {currentSize} box dimensions
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BoxCard
+// ---------------------------------------------------------------------------
 
 export function BoxCard({
   box,
   items,
   assessments,
+  unboxedItems,
   onAddItem,
+  onAddExistingItem,
   onRemoveItem,
   onMarkPacked,
+  onUpdateBox,
 }: BoxCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [addItemValue, setAddItemValue] = useState("");
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [itemCountKey, setItemCountKey] = useState(0);
+  const prevItemCount = useRef(items.length);
+
+  useEffect(() => {
+    if (items.length !== prevItemCount.current) {
+      setItemCountKey((k) => k + 1);
+      prevItemCount.current = items.length;
+    }
+  }, [items.length]);
+
+  // On mobile, use simple CSS transitions instead of spring physics
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const isShipped = box.status === "shipped" || box.status === "arrived";
   const isPacking = box.status === "packing";
-  const showAddInput = isPacking && onAddItem;
+  const showAddInput = isPacking && (onAddItem || onAddExistingItem);
   const showSize =
     box.size &&
     box.box_type !== BoxType.CARRYON &&
@@ -89,22 +644,20 @@ export function BoxCard({
     [handleToggle]
   );
 
-  const handleAddItem = useCallback(() => {
-    const name = addItemValue.trim();
-    if (!name || !onAddItem) return;
-    onAddItem(box.id, name);
-    setAddItemValue("");
-    inputRef.current?.focus();
-  }, [addItemValue, box.id, onAddItem]);
-
-  const handleAddItemKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddItem();
-      }
+  const handleSelectExistingItem = useCallback(
+    (item: ItemAssessment) => {
+      if (!onAddExistingItem) return;
+      onAddExistingItem(box.id, item.id);
     },
-    [handleAddItem]
+    [box.id, onAddExistingItem]
+  );
+
+  const handleCreateNewItem = useCallback(
+    (name: string) => {
+      if (!onAddItem) return;
+      onAddItem(box.id, name);
+    },
+    [box.id, onAddItem]
   );
 
   const handleConfirmPacked = useCallback(() => {
@@ -112,13 +665,29 @@ export function BoxCard({
     setConfirmPackedOpen(false);
   }, [box.id, onMarkPacked]);
 
+  const handleLabelSave = useCallback(
+    (newLabel: string) => {
+      onUpdateBox?.(box.id, { label: newLabel });
+    },
+    [box.id, onUpdateBox]
+  );
+
+  const handleSizeChange = useCallback(
+    (newSize: BoxSize) => {
+      onUpdateBox?.(box.id, { size: newSize });
+    },
+    [box.id, onUpdateBox]
+  );
+
+  // Determine if we have unboxed items for the combobox
+  const hasUnboxedItems = unboxedItems && unboxedItems.length > 0;
+
   return (
     <>
       <div
-        className={cn(
-          "rounded-lg border border-border bg-card transition-colors",
-          isShipped && "opacity-70"
-        )}
+        className={cn(styles.card, isShipped && styles.cardShipped)}
+        data-open={isOpen ? "true" : "false"}
+        data-box-type={box.box_type}
       >
         {/* Collapsed header — always visible */}
         <div
@@ -126,85 +695,123 @@ export function BoxCard({
           tabIndex={0}
           onClick={handleToggle}
           onKeyDown={handleKeyDown}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left cursor-pointer select-none"
+          className={styles.header}
           aria-expanded={isOpen}
           aria-label={`${box.label}, ${items.length} ${items.length === 1 ? "item" : "items"}, status: ${box.status}`}
         >
           <BoxIcon boxType={box.box_type} />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-semibold text-foreground truncate">
-                {box.label}
-              </span>
-              {showSize && <BoxSizeBadge size={box.size!} />}
+          <div className={styles.headerContent}>
+            <div className={styles.headerTopRow}>
+              {onUpdateBox && isPacking ? (
+                <EditableLabel
+                  value={box.label}
+                  onSave={handleLabelSave}
+                  disabled={isShipped}
+                />
+              ) : (
+                <span className={styles.boxLabel}>{box.label}</span>
+              )}
+              {showSize && onUpdateBox && isPacking ? (
+                <SizeEditor
+                  currentSize={box.size!}
+                  onSizeChange={handleSizeChange}
+                  disabled={isShipped}
+                />
+              ) : showSize ? (
+                <BoxSizeBadge size={box.size!} />
+              ) : null}
               <BoxStatusBadge status={box.status} />
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>
+            <div className={styles.headerMeta}>
+              <motion.span
+                key={itemCountKey}
+                initial={itemCountKey > 0 ? { scale: 1.15 } : false}
+                animate={{ scale: 1 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.3, ease: "easeOut" }}
+              >
                 {items.length} {items.length === 1 ? "item" : "items"}
-              </span>
+              </motion.span>
               {showCbm && <span>{box.cbm} CBM</span>}
             </div>
           </div>
 
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-muted-foreground transition-transform",
-              isOpen && "rotate-180"
-            )}
-          />
+          <div className={styles.chevronWrap}>
+            <ChevronDown
+              className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+              style={{ width: 16, height: 16 }}
+            />
+          </div>
         </div>
 
         {/* Expanded content */}
         <AnimatePresence initial={false}>
           {isOpen && (
             <motion.div
-              initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+              initial={
+                prefersReducedMotion || isMobile
+                  ? false
+                  : { height: 0, opacity: 0 }
+              }
               animate={{ height: "auto", opacity: 1 }}
               exit={
-                prefersReducedMotion
+                prefersReducedMotion || isMobile
                   ? { opacity: 0 }
                   : { height: 0, opacity: 0 }
               }
               transition={
-                prefersReducedMotion
+                prefersReducedMotion || isMobile
                   ? { duration: 0 }
                   : { type: "spring", stiffness: 300, damping: 30 }
               }
-              className="overflow-hidden"
+              className={styles.expandedContent}
             >
-              <div className="border-t border-border px-4 py-3">
+              <div className={styles.expandedInner}>
                 {/* Items list */}
                 {items.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No items in this box yet.
-                  </p>
+                  <p className={styles.emptyMessage}>No items in this box yet.</p>
                 ) : (
-                  <ul className="space-y-1">
-                    {items.map((item) => {
+                  <ul className={styles.itemList}>
+                    <AnimatePresence mode="popLayout">
+                    {[...items]
+                      .sort((a, b) => {
+                        const nameA = (a.item_assessment_id ? assessments?.[a.item_assessment_id]?.item_name : undefined) ?? a.item_name ?? "";
+                        const nameB = (b.item_assessment_id ? assessments?.[b.item_assessment_id]?.item_name : undefined) ?? b.item_name ?? "";
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((item) => {
                       const assessment = item.item_assessment_id
                         ? assessments?.[item.item_assessment_id]
                         : undefined;
+                      const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
 
                       return (
-                        <li
+                        <motion.li
                           key={item.id}
-                          className="flex min-h-[44px] items-center justify-between gap-2 text-sm"
+                          layout
+                          className={styles.itemRow}
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: 12 }}
+                          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-foreground truncate">
-                              {item.item_name}
-                            </span>
+                          <div className={styles.itemRowLeft}>
+                            <span
+                              className={styles.verdictDot}
+                              style={{
+                                background: assessment
+                                  ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
+                                  : "var(--color-border-default)",
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span className={styles.itemName}>{displayName}</span>
                             {item.quantity > 1 && (
-                              <span className="text-muted-foreground">
-                                x{item.quantity}
-                              </span>
+                              <span className={styles.itemQty}>x{item.quantity}</span>
                             )}
                             {assessment && (
                               <VerdictBadge
                                 verdict={assessment.verdict}
-                                className="text-[10px] px-1.5 py-0.5"
                               />
                             )}
                           </div>
@@ -212,60 +819,51 @@ export function BoxCard({
                           {!isShipped && onRemoveItem && (
                             <Button
                               variant="ghost"
-                              size="icon-xs"
+                              size="icon-sm"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onRemoveItem(box.id, item.id);
                               }}
-                              aria-label={`Remove ${item.item_name} from ${box.label}`}
-                              className="shrink-0 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-destructive"
+                              aria-label={`Remove ${displayName} from ${box.label}`}
+                              className={styles.removeItemButton ?? ""}
                             >
-                              <XIcon />
+                              <XIcon style={{ width: 16, height: 16 }} />
                             </Button>
                           )}
-                        </li>
+                        </motion.li>
                       );
                     })}
+                    </AnimatePresence>
                   </ul>
                 )}
 
-                {/* Add to this box — inline input */}
+                {/* Add to this box — unified combobox */}
                 {showAddInput && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={addItemValue}
-                        onChange={(e) => setAddItemValue(e.target.value)}
-                        onKeyDown={handleAddItemKeyDown}
-                        placeholder="Type an item name to add..."
-                        className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                        aria-label={`Add item to ${box.label}`}
+                  <div className={styles.addSection}>
+                    {hasUnboxedItems && onAddExistingItem ? (
+                      <ItemCombobox
+                        unboxedItems={unboxedItems}
+                        onSelectExisting={handleSelectExistingItem}
+                        onCreateNew={handleCreateNewItem}
+                        boxLabel={box.label}
                       />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddItem();
-                      }}
-                      disabled={!addItemValue.trim()}
-                      aria-label="Add item"
-                    >
-                      <Plus />
-                    </Button>
+                    ) : onAddItem ? (
+                      <SimpleAddInput
+                        onAdd={handleCreateNewItem}
+                        boxLabel={box.label}
+                      />
+                    ) : null}
                   </div>
                 )}
 
                 {/* Mark as packed button */}
                 {isPacking && onMarkPacked && (
-                  <div className="mt-3">
+                  <div className={styles.markPackedRow}>
                     <Button
+                      ref={triggerRef}
                       variant="outline"
                       size="sm"
-                      className="w-full"
+                      className={styles.markPackedButton ?? ""}
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmPackedOpen(true);
@@ -282,25 +880,76 @@ export function BoxCard({
       </div>
 
       {/* Mark as packed confirmation dialog */}
-      <Dialog open={confirmPackedOpen} onOpenChange={setConfirmPackedOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark as packed?</DialogTitle>
-            <DialogDescription>
-              Mark {box.label} as packed? You can still edit it later.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmPackedOpen(false)}
-            >
-              Not yet
-            </Button>
-            <Button onClick={handleConfirmPacked}>Yes, packed</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        isOpen={confirmPackedOpen}
+        onClose={() => setConfirmPackedOpen(false)}
+        title="Mark as packed?"
+        description={`Mark ${box.label} as packed? You can still edit it later.`}
+        confirmLabel="Yes, packed"
+        cancelLabel="Not yet"
+        onConfirm={handleConfirmPacked}
+        triggerRef={triggerRef}
+      />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: simple text input when there are no unboxed items to search
+// ---------------------------------------------------------------------------
+
+function SimpleAddInput({
+  onAdd,
+  boxLabel,
+}: {
+  onAdd: (name: string) => void;
+  boxLabel: string;
+}) {
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdd = useCallback(() => {
+    const name = value.trim();
+    if (!name) return;
+    onAdd(name);
+    setValue("");
+    inputRef.current?.focus();
+  }, [value, onAdd]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAdd();
+      }
+    },
+    [handleAdd]
+  );
+
+  return (
+    <div className={styles.comboboxInputRow}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Type an item name to add..."
+        className={styles.addItemInput}
+        aria-label={`Add item to ${boxLabel}`}
+      />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleAdd();
+        }}
+        disabled={!value.trim()}
+        aria-label="Add item"
+      >
+        <Plus style={{ width: 16, height: 16 }} />
+      </Button>
+    </div>
   );
 }

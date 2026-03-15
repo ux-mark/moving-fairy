@@ -3,6 +3,7 @@
 import type { Country, OnwardTimeline } from "@/lib/constants";
 import { getCountryName, getSupportedCountries } from "@/lib/countries";
 import { cn } from "@/lib/utils";
+import styles from "./step.module.css";
 
 type OnwardIntent = "yes" | "maybe" | "no";
 
@@ -51,28 +52,26 @@ export function OnwardStep({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-base leading-relaxed text-foreground">
+    <div className={styles.step}>
+      <div className={styles.prompt}>
+        <p className={styles.promptQuote}>
           &ldquo;Some people use {arrivalName} as a stepping stone. Are you
           planning to move somewhere else after?&rdquo;
         </p>
-        <p className="mt-1 text-sm text-primary font-medium">— Aisling</p>
+        <p className={styles.promptAuthor}>— Aisling</p>
       </div>
 
-      <fieldset>
-        <legend className="sr-only">Onward move plans</legend>
-        <div className="grid gap-3">
+      <fieldset className="fieldsetReset">
+        <legend className="srOnly">Onward move plans</legend>
+        <div className={styles.optionGrid}>
           {intentOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => onIntentChange(option.value)}
               className={cn(
-                "flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-left text-base font-medium transition-colors",
-                intent === option.value
-                  ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                  : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                styles.optionButton,
+                intent === option.value && styles.optionButtonSelected
               )}
               aria-pressed={intent === option.value}
             >
@@ -84,40 +83,37 @@ export function OnwardStep({
 
       {/* Aisling's conditional microcopy */}
       {intent === "yes" && (
-        <p className="text-sm leading-relaxed text-muted-foreground italic">
+        <p className={styles.microcopy}>
           &ldquo;Good to know — that changes what&rsquo;s worth shipping.
           I&rsquo;ll factor both legs into my advice.&rdquo;
         </p>
       )}
       {intent === "maybe" && (
-        <p className="text-sm leading-relaxed text-muted-foreground italic">
+        <p className={styles.microcopy}>
           &ldquo;No worries, I&rsquo;ll keep it in mind. Better to plan for it
           than get caught out.&rdquo;
         </p>
       )}
 
       {showSubQuestions && (
-        <div
-          className="flex flex-col gap-6"
-        >
+        <div className={styles.subQuestions}>
           {/* Onward country */}
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">
+          <div className={styles.subQuestion}>
+            <p className={styles.subQuestionLabel}>
               Where are you thinking of moving next?
             </p>
-            <fieldset>
-              <legend className="sr-only">Onward country</legend>
-              <div className="grid gap-3">
+            <fieldset className="fieldsetReset">
+              <legend className="srOnly">Onward country</legend>
+              <div className={styles.optionGrid}>
                 {availableCountries.map((country) => (
                   <button
                     key={country.code}
                     type="button"
                     onClick={() => onCountryChange(country.code)}
                     className={cn(
-                      "flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-left text-base font-medium transition-colors",
-                      onwardCountry === country.code
-                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                      styles.optionButton,
+                      onwardCountry === country.code &&
+                        styles.optionButtonSelected
                     )}
                     aria-pressed={onwardCountry === country.code}
                   >
@@ -129,23 +125,22 @@ export function OnwardStep({
           </div>
 
           {/* Timeline */}
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">
+          <div className={styles.subQuestion}>
+            <p className={styles.subQuestionLabel}>
               When are you thinking about that move?
             </p>
-            <fieldset>
-              <legend className="sr-only">Onward timeline</legend>
-              <div className="grid gap-3">
+            <fieldset className="fieldsetReset">
+              <legend className="srOnly">Onward timeline</legend>
+              <div className={styles.optionGrid}>
                 {TIMELINE_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => onTimelineChange(option.value)}
                     className={cn(
-                      "flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-left text-base font-medium transition-colors",
-                      onwardTimeline === option.value
-                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
+                      styles.optionButton,
+                      onwardTimeline === option.value &&
+                        styles.optionButtonSelected
                     )}
                     aria-pressed={onwardTimeline === option.value}
                   >

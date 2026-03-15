@@ -1,0 +1,63 @@
+/* LightAssessmentWarning — DS tokens */
+
+.card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-warning-border, #fcd34d);
+  background: var(--color-warning-bg, #fffbeb);
+  padding: var(--space-card-padding, 20px);
+}
+
+.inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: var(--color-warning, #d97706);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-warning-text-strong, #78350f);
+}
+
+.flagList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flagItem {
+  font-size: 14px;
+  color: var(--color-warning-text, #92400e);
+}
+
+.flagItemLabel {
+  font-weight: 500;
+}
+
+.confirmPrompt {
+  font-size: 13px;
+  color: var(--color-warning-text-muted, #b45309);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}

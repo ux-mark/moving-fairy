@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import styles from "./AILogicPanel.module.css";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,53 +45,41 @@ export function AILogicPanel({ events, isStreaming }: AILogicPanelProps) {
   }, [events]);
 
   return (
-    <div className="border-t border-border bg-muted/50 font-mono text-xs">
+    <div className={styles.panel}>
       {/* Panel header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/60">
-        <span className="text-muted-foreground font-medium tracking-tight">
-          AI Logic
-        </span>
+      <div className={styles.header}>
+        <span className={styles.title}>AI Logic</span>
         {isStreaming && (
-          <span className="flex items-center gap-1 text-green-500">
-            <span
-              className="inline-block size-1.5 rounded-full bg-green-500 animate-pulse"
-              aria-hidden="true"
-            />
+          <span className={styles.live}>
+            <span className={styles.liveDot} aria-hidden="true" />
             Live
           </span>
         )}
         {events.length === 0 && (
-          <span className="text-muted-foreground/60 text-xs">
-            — no events yet
-          </span>
+          <span className={styles.empty}>— no events yet</span>
         )}
       </div>
 
       {/* Event list */}
-      <div className="overflow-y-auto max-h-36 px-2 py-1 space-y-0.5">
+      <div className={styles.eventList}>
         {events.map((event) => (
-          <div
-            key={event.id}
-            className="flex items-start gap-2 py-0.5 leading-relaxed"
-          >
+          <div key={event.id} className={styles.eventRow}>
             {/* Type badge */}
             <span
               className={
                 event.type === "tool_call"
-                  ? "shrink-0 rounded px-1 py-0 bg-blue-500/10 text-blue-500"
-                  : "shrink-0 rounded px-1 py-0 bg-emerald-500/10 text-emerald-500"
+                  ? styles.badgeCall
+                  : styles.badgeResult
               }
             >
               {event.type === "tool_call" ? "call" : "result"}
             </span>
 
             {/* Tool name */}
-            <span className="shrink-0 font-semibold text-foreground/80">
-              {event.name}
-            </span>
+            <span className={styles.toolName}>{event.name}</span>
 
             {/* Data preview */}
-            <span className="text-muted-foreground/70 truncate">
+            <span className={styles.dataPreview}>
               {truncate(event.data)}
             </span>
           </div>

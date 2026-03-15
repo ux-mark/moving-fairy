@@ -1,0 +1,577 @@
+/**
+ * Claude CLI Backend — DEV mode subprocess wrapper.
+ *
+ * In development, this module replaces the Anthropic SDK with the `claude` CLI
+ * subprocess. The CLI uses the developer's logged-in Claude subscription, so no
+ * API key is required.
+ *
+ * In production, the SDK path is used with a real API key (sk-ant-api03-*).
+ *
+ * Ported from Job Fairy's claude_cli.py to TypeScript for Next.js.
+ */
+
+import { spawn as nodeSpawn } from 'child_process'
+
+// ─── Mode detection ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true when we should use the CLI subprocess instead of the SDK.
+ * Dev mode by default; set FORCE_SDK=true in .env.local to override.
+ */
+export function useCliMode(): boolean {
+  return (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FORCE_SDK !== 'true'
+  )
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface ToolDefinition {
+  name: string
+  description: string
+  input_schema: {
+    type: string
+    properties: Record<string, unknown>
+    required?: string[]
+  }
+}
+
+interface ToolCall {
+  name: string
+  input: Record<string, unknown>
+}
+
+// ─── CLI invocation ──────────────────────────────────────────────────────────
+
+/**
+ * Call the claude CLI in --print mode and return the full response text.
+ * Used for single-turn calls (e.g., light-assessment).
+ */
+export async function callCli(
+  prompt: string,
+  systemPrompt: string | null,
+  model: string
+): Promise<string> {
+  const args = buildCliArgs(systemPrompt, model)
+  return spawnCli(args, prompt)
+}
+
+/**
+ * Run the full agentic tool-use loop via CLI subprocess.
+ * Mirrors runAislingLoop() but uses the CLI instead of the SDK.
+ *
+ * Yields SSE-formatted chunks to the controller so the frontend sees the
+ * same event stream as the SDK path.
+ */
+export async function runCliAgentLoop(
+  systemPrompt: string,
+  messages: Array<{ role: string; content: string }>,
+  tools: ToolDefinition[],
+  model: string,
+  controller: ReadableStreamDefaultController,
+  executeTool: (name: string, input: Record<string, unknown>) => Promise<string>,
+  extraAllowedTools?: string[]
+): Promise<string> {
+  const encoder = new TextEncoder()
+  let fullAssistantText = ''
+
+  // Guard against writing to a closed stream. The client may disconnect
+  // while the CLI subprocess is still running. Without this guard, the
+  // enqueue() throws "Controller is already closed" as an uncaughtException,
+  // crashing the Next.js dev server and triggering a full page reload.
+  let streamClosed = false
+  function safeEnqueue(data: string) {
+    if (streamClosed) return
+    try {
+      controller.enqueue(encoder.encode(data))
+    } catch {
+      streamClosed = true
+    }
+  }
+
+  // Prepend tool instructions so they get priority attention from the model.
+  // With long system prompts (persona + country modules + shipping economics),
+  // instructions at the end get lost — the model outputs plain text instead
+  // of <tool_call> XML blocks.
+  const toolInstructions = buildToolInstructions(tools)
+  const fullSystemPrompt = toolInstructions + '\n\n' + systemPrompt
+
+  // Build initial prompt from message history
+  let prompt = buildCliPrompt(messages)
+
+  for (let round = 0; round < 10; round++) {
+    const cmd = buildCliArgs(fullSystemPrompt, model, extraAllowedTools)
+
+    // Stream text deltas to the client as they arrive, while also
+    // collecting the full response text for tool call extraction.
+    let roundText = ''
+    const responseText = await spawnCliStreaming(cmd, prompt, (chunk) => {
+      roundText += chunk
+      fullAssistantText += chunk
+      safeEnqueue(`data: ${JSON.stringify(chunk)}\n\n`)
+    })
+
+    // Check for tool calls in the full response (they appear as <tool_call> XML)
+    const toolCalls = extractToolCalls(responseText)
+
+    if (toolCalls.length === 0) {
+      break
+    }
+
+    // Execute each tool call
+    const toolResults: Array<{ tool: string; result: unknown }> = []
+
+    for (const tc of toolCalls) {
+      // Emit tool_call event for AI Logic panel
+      const toolCallPayload = JSON.stringify({
+        __type: 'tool_call',
+        name: tc.name,
+        input: tc.input,
+      })
+      safeEnqueue(`data: ${toolCallPayload}\n\n`)
+
+      // Emit card data for render_assessment_card (same as SDK path)
+      if (tc.name === 'render_assessment_card') {
+        const cardPayload = JSON.stringify({ __type: 'card', ...tc.input })
+        safeEnqueue(`data: ${cardPayload}\n\n`)
+      }
+
+      const result = await executeTool(tc.name, tc.input)
+
+      // Emit tool_result event
+      let parsedResult: unknown = result
+      try {
+        parsedResult = JSON.parse(result)
+      } catch {
+        // keep raw string
+      }
+      const toolResultPayload = JSON.stringify({
+        __type: 'tool_result',
+        name: tc.name,
+        result: parsedResult,
+      })
+      safeEnqueue(`data: ${toolResultPayload}\n\n`)
+
+      toolResults.push({ tool: tc.name, result: parsedResult })
+    }
+
+    // Build next prompt with tool results
+    prompt = buildToolResultPrompt(toolResults)
+  }
+
+  return fullAssistantText
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[]): string[] {
+  const cmd = [
+    'claude',
+    '--print',
+    '--model',
+    model,
+    '--output-format',
+    'stream-json',
+    '--include-partial-messages',
+    '--no-session-persistence',
+  ]
+
+  if (systemPrompt) {
+    cmd.push('--system-prompt', systemPrompt)
+  }
+
+  // Block native CLI tools that could write to the project directory and
+  // trigger Turbopack file watcher restarts. Keep the rest available so the
+  // model stays in "tool mode" and follows <tool_call> XML instructions.
+  // IMPORTANT: blocking too many tools causes the model to ignore our custom
+  // tool instructions and output plain text instead of <tool_call> XML.
+  cmd.push('--disallowed-tools', 'Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit')
+
+  if (allowedTools && allowedTools.length > 0) {
+    // Auto-allow specified tools (e.g., Read for image viewing)
+    cmd.push('--allowedTools', ...allowedTools)
+  }
+
+  return cmd
+}
+
+function cleanEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {}
+
+  // Allowlist: only pass env vars the CLI genuinely needs.
+  // Everything else is stripped to prevent the CLI from discovering
+  // the Next.js project directory and writing files that trigger
+  // Turbopack's file watcher (which causes a full dev server restart).
+  const SAFE_PREFIXES = [
+    'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM',
+    'LANG', 'LC_', 'SSH_AUTH_SOCK', 'TMPDIR', 'XDG_',
+    'ANTHROPIC_', 'CLAUDE_',
+  ]
+  const BLOCKED = new Set([
+    'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_PROJECT_DIR',
+  ])
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (BLOCKED.has(key)) continue
+    if (SAFE_PREFIXES.some((p) => key.startsWith(p))) {
+      env[key] = value
+    }
+  }
+
+  // Force CWD-related vars to /tmp so the CLI doesn't resolve
+  // back to the Next.js project root
+  env.PWD = '/tmp'
+
+  return env
+}
+
+/**
+ * Spawn the CLI and stream text deltas to a callback as they arrive.
+ * Returns the full collected response text (including <tool_call> blocks).
+ * The onTextDelta callback receives ONLY displayable text (not tool XML).
+ */
+function spawnCliStreaming(
+  args: string[],
+  prompt: string,
+  onTextDelta: (chunk: string) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const env = cleanEnv()
+    const command = args[0] ?? 'claude'
+    const commandArgs = args.slice(1)
+    console.log(`[claude-cli] Spawning: ${command} ${commandArgs.join(' ').slice(0, 200)}...`)
+    console.log(`[claude-cli] cwd=/tmp, tools=${commandArgs.includes('--tools') ? commandArgs[commandArgs.indexOf('--tools') + 1] || '(none)' : '(default)'}`)
+    // Run in /tmp with a sanitised env so the CLI doesn't write files
+    // to the project dir (which would trigger Next.js dev server restarts)
+    const proc = nodeSpawn(command, commandArgs, {
+      env: env as NodeJS.ProcessEnv,
+      cwd: '/tmp',
+    })
+
+    let fullText = ''
+    let lineBuffer = ''
+    let stderr = ''
+    // Track whether we're inside a <tool_call> block to suppress streaming it
+    let insideToolCall = false
+
+    function processTextDelta(text: string) {
+      fullText += text
+
+      // Buffer tool_call XML — don't stream it to the client
+      if (text.includes('<tool_call>')) {
+        insideToolCall = true
+        // Emit any text before the tag
+        const before = text.split('<tool_call>')[0]
+        if (before) onTextDelta(before)
+      } else if (insideToolCall) {
+        if (text.includes('</tool_call>')) {
+          insideToolCall = false
+          // Emit any text after the closing tag
+          const after = text.split('</tool_call>').slice(1).join('')
+          if (after) onTextDelta(after)
+        }
+        // else: inside tool call, suppress
+      } else {
+        onTextDelta(text)
+      }
+    }
+
+    function processEvent(event: Record<string, unknown>) {
+      const eventType = event.type as string
+
+      // With --include-partial-messages, events are wrapped in stream_event
+      if (eventType === 'stream_event') {
+        const inner = event.event as Record<string, unknown> | undefined
+        if (inner) processEvent(inner)
+        return
+      }
+
+      if (eventType === 'content_block_delta') {
+        const delta = event.delta as Record<string, unknown> | undefined
+        if (delta?.type === 'text_delta') {
+          processTextDelta(delta.text as string)
+        }
+      } else if (eventType === 'assistant') {
+        const message = event.message as Record<string, unknown> | undefined
+        const content = (message?.content as Array<Record<string, unknown>>) ?? []
+        for (const block of content) {
+          if (block.type === 'text') {
+            const text = block.text as string
+            // This is the final assembled message — only use if we missed deltas
+            if (!fullText) {
+              fullText = text
+              onTextDelta(text)
+            }
+          }
+        }
+      } else if (eventType === 'result') {
+        const resultText = event.result as string | undefined
+        if (resultText && !fullText) {
+          fullText = resultText
+          onTextDelta(resultText)
+        }
+      }
+    }
+
+    function processLine(line: string) {
+      const trimmed = line.trim()
+      if (!trimmed) return
+
+      let event: Record<string, unknown>
+      try {
+        event = JSON.parse(trimmed)
+      } catch {
+        return
+      }
+
+      processEvent(event)
+    }
+
+    if (proc.stdout) {
+      proc.stdout.on('data', (data: Buffer) => {
+        lineBuffer += data.toString()
+        const lines = lineBuffer.split('\n')
+        // Keep the last partial line in the buffer
+        lineBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          processLine(line)
+        }
+      })
+    }
+
+    if (proc.stderr) {
+      proc.stderr.on('data', (data: Buffer) => {
+        const chunk = data.toString()
+        stderr += chunk
+        // Log stderr in real-time so we see CLI warnings/errors in the terminal
+        if (chunk.trim()) console.warn(`[claude-cli stderr] ${chunk.trim()}`)
+      })
+    }
+
+    proc.on('close', (code: number | null) => {
+      // Process any remaining buffered line
+      if (lineBuffer.trim()) processLine(lineBuffer)
+
+      console.log(`[claude-cli] Process exited with code ${code}, output length: ${fullText.length}`)
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
+        return
+      }
+      resolve(fullText)
+    })
+
+    proc.on('error', (err: Error) => {
+      reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
+    })
+
+    if (proc.stdin) {
+      proc.stdin.write(prompt)
+      proc.stdin.end()
+    }
+
+    setTimeout(() => {
+      proc.kill()
+      reject(new Error('Claude CLI timed out after 5 minutes'))
+    }, 300_000)
+  })
+}
+
+/**
+ * Spawn the claude CLI, pipe prompt to stdin, return parsed response text.
+ * Non-streaming — used for single-turn calls (light-assessment).
+ */
+function spawnCli(args: string[], prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const env = cleanEnv()
+    const command = args[0] ?? 'claude'
+    const commandArgs = args.slice(1)
+    // Run in /tmp with a sanitised env so the CLI doesn't write files
+    // to the project dir (which would trigger Next.js dev server restarts)
+    const proc = nodeSpawn(command, commandArgs, {
+      env: env as NodeJS.ProcessEnv,
+      cwd: '/tmp',
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    if (proc.stdout) {
+      proc.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString()
+      })
+    }
+    if (proc.stderr) {
+      proc.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+    }
+
+    proc.on('close', (code: number | null) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
+        return
+      }
+      resolve(parseStreamJson(stdout))
+    })
+
+    proc.on('error', (err: Error) => {
+      reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
+    })
+
+    if (proc.stdin) {
+      proc.stdin.write(prompt)
+      proc.stdin.end()
+    }
+
+    setTimeout(() => {
+      proc.kill()
+      reject(new Error('Claude CLI timed out after 5 minutes'))
+    }, 300_000)
+  })
+}
+
+/**
+ * Parse stream-json output from the claude CLI into text.
+ */
+function parseStreamJson(output: string): string {
+  const textParts: string[] = []
+
+  for (const line of output.trim().split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    let event: Record<string, unknown>
+    try {
+      event = JSON.parse(trimmed)
+    } catch {
+      continue
+    }
+
+    const eventType = event.type as string
+
+    if (eventType === 'assistant') {
+      const message = event.message as Record<string, unknown> | undefined
+      const content = (message?.content as Array<Record<string, unknown>>) ?? []
+      for (const block of content) {
+        if (block.type === 'text') {
+          textParts.push(block.text as string)
+        }
+      }
+    } else if (eventType === 'content_block_delta') {
+      const delta = event.delta as Record<string, unknown> | undefined
+      if (delta?.type === 'text_delta') {
+        textParts.push(delta.text as string)
+      }
+    } else if (eventType === 'result') {
+      const resultText = event.result as string | undefined
+      if (resultText && textParts.length === 0) {
+        textParts.push(resultText)
+      }
+    }
+  }
+
+  return textParts.join('')
+}
+
+/**
+ * Convert SDK-format messages into a single text prompt for the CLI.
+ */
+function buildCliPrompt(
+  messages: Array<{ role: string; content: string }>
+): string {
+  return messages
+    .map((m) => `[${m.role.toUpperCase()}]: ${m.content}`)
+    .join('\n\n')
+}
+
+/**
+ * Build tool usage instructions to append to the system prompt.
+ * The model outputs tool calls as <tool_call> JSON blocks.
+ */
+function buildToolInstructions(tools: ToolDefinition[]): string {
+  let instructions =
+    '\n\n--- TOOL USE INSTRUCTIONS (MANDATORY) ---\n' +
+    'CRITICAL: You MUST call tools using <tool_call> XML tags. NEVER output tool ' +
+    'data as plain text, markdown tables, or inline descriptions.\n\n' +
+    'Format — wrap a JSON object in <tool_call> tags:\n\n' +
+    '<tool_call>\n' +
+    '{"name": "tool_name", "input": {"param1": "value1"}}\n' +
+    '</tool_call>\n\n' +
+    'You may output multiple <tool_call> blocks. After outputting tool calls, ' +
+    'STOP and wait for the results.\n\n' +
+    'Available tools:\n\n'
+
+  for (const t of tools) {
+    instructions += `### ${t.name}\n`
+    instructions += `${t.description}\n`
+    const required = t.input_schema.required ?? []
+    const props = t.input_schema.properties ?? {}
+    if (Object.keys(props).length > 0) {
+      instructions += 'Parameters:\n'
+      for (const [pname, pdef] of Object.entries(props)) {
+        const def = pdef as Record<string, unknown>
+        const reqMarker = required.includes(pname) ? ' (required)' : ''
+        const desc = (def.description as string) ?? (def.type as string) ?? 'any'
+        instructions += `  - ${pname}: ${desc}${reqMarker}\n`
+      }
+    }
+    instructions += '\n'
+  }
+
+  instructions += '--- END TOOL USE INSTRUCTIONS ---\n'
+  return instructions
+}
+
+/**
+ * Extract <tool_call> blocks from response text.
+ */
+function extractToolCalls(responseText: string): ToolCall[] {
+  const toolCalls: ToolCall[] = []
+  const pattern = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
+  let match
+
+  while ((match = pattern.exec(responseText)) !== null) {
+    try {
+      const raw = match[1] ?? ''
+      const tc = JSON.parse(raw.trim()) as { name: string; input?: Record<string, unknown> }
+      if (tc.name) {
+        toolCalls.push({
+          name: tc.name,
+          input: tc.input ?? {},
+        })
+      }
+    } catch {
+      console.warn('[claude-cli] Failed to parse tool call JSON:', match[1]?.slice(0, 100))
+    }
+  }
+
+  return toolCalls
+}
+
+/**
+ * Extract text content from response, excluding tool call blocks.
+ */
+function extractTextContent(responseText: string, toolCalls: ToolCall[]): string {
+  if (toolCalls.length === 0) return responseText.trim()
+  return responseText
+    .replace(/<tool_call>\s*[\s\S]*?\s*<\/tool_call>/g, '')
+    .trim()
+}
+
+/**
+ * Build a prompt containing tool execution results for the next CLI call.
+ */
+function buildToolResultPrompt(
+  toolResults: Array<{ tool: string; result: unknown }>
+): string {
+  const parts = ['Here are the results of the tool calls you requested:\n']
+  for (const tr of toolResults) {
+    parts.push(`Tool: ${tr.tool}`)
+    parts.push(`Result: ${JSON.stringify(tr.result)}`)
+    parts.push('')
+  }
+  parts.push('Please continue based on these results.')
+  return parts.join('\n')
+}

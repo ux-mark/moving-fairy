@@ -1,31 +1,45 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  Briefcase,
   ChevronDown,
   Luggage,
   Package,
   PackagePlus,
+  Pencil,
   Plane,
+  Plus,
   ShoppingBag,
+  Trash2,
 } from "lucide-react";
-
-import Image from "next/image";
-
+import {
+  ConfirmDialog,
+  EmptyState,
+  Skeleton,
+  SkeletonGroup,
+} from "@thefairies/design-system/components";
 import { BoxCard } from "@/components/boxes/BoxCard";
+import { BoxPicker } from "@/components/boxes/BoxPicker";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
+import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { CostSummary } from "@/components/inventory/CostSummary";
+import { ItemEditPanel } from "@/components/inventory/ItemEditPanel";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/shared/Collapsible";
 import type { Verdict } from "@/lib/constants";
+import { BoxSize, BoxType } from "@/lib/constants";
 import { useInventory } from "@/lib/hooks/useInventory";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { cn } from "@/lib/utils";
+
+import styles from "./InventoryPanel.module.css";
 
 type ViewMode = "container" | "verdict";
 
@@ -38,72 +52,67 @@ const VERDICT_ORDER: Verdict[] = [
   "DECIDE_LATER",
 ];
 
-const VERDICT_LABELS: Record<Verdict, string> = {
-  SHIP: "Ship",
-  CARRY: "Carry",
-  SELL: "Sell",
-  DONATE: "Donate",
-  DISCARD: "Discard",
-  DECIDE_LATER: "Decide later",
-};
-
 interface InventoryPanelProps {
   className?: string;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
 }
 
-export function InventoryPanel({ className }: InventoryPanelProps) {
+export function InventoryPanel({ className, onBackToChat }: InventoryPanelProps) {
   const { assessments, boxes, boxItems, costSummary, isLoading, error, refreshInventory } =
     useInventory();
   const [viewMode, setViewMode] = useState<ViewMode>("container");
   const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const isEmpty = assessments.length === 0 && boxes.length === 0;
+  const router = useRouter();
 
   return (
-    <div className={cn("flex h-full flex-col bg-background", className)} aria-live="polite">
-      <CostSummary data={costSummary} variant="full" />
+    <div className={cn(styles.panel, className)} aria-live="polite">
+      <div className={styles.scrollArea}>
+        <CostSummary data={costSummary} variant="full" />
 
-      <div className="flex shrink-0 border-b border-border bg-card">
-        <button
-          type="button"
-          onClick={() => setViewMode("container")}
-          className={cn(
-            "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-            viewMode === "container"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          By container
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode("verdict")}
-          className={cn(
-            "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-            viewMode === "verdict"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          By verdict
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
+        <div className={styles.tabBar}>
+          <button
+            type="button"
+            onClick={() => setViewMode("container")}
+            className={cn(styles.tab, viewMode === "container" && styles.tabActive)}
+          >
+            By container
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("verdict")}
+            className={cn(styles.tab, viewMode === "verdict" && styles.tabActive)}
+          >
+            By verdict
+          </button>
+        </div>
         {isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
           <ErrorState error={error} onRetry={refreshInventory} />
         ) : isEmpty ? (
-          <EmptyState />
+          <EmptyState
+            heading="Your inventory is empty"
+            description="Start a conversation with Aisling to assess your belongings — she'll help you decide what to ship, sell, or leave behind."
+            ctaLabel="Start with Aisling"
+            onCtaClick={() => router.push("/inventory")}
+          />
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={viewMode}
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
+              initial={prefersReducedMotion ? false : isMobile ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={isMobile ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: isMobile ? 0.1 : 0.15 }}
             >
               {viewMode === "container" ? (
                 <ContainerView
@@ -111,9 +120,16 @@ export function InventoryPanel({ className }: InventoryPanelProps) {
                   boxes={boxes}
                   boxItems={boxItems}
                   onRefresh={refreshInventory}
+                  onBackToChat={onBackToChat}
                 />
               ) : (
-                <VerdictView assessments={assessments} onRefresh={refreshInventory} />
+                <VerdictView
+                  assessments={assessments}
+                  boxes={boxes}
+                  boxItems={boxItems}
+                  onRefresh={refreshInventory}
+                  onBackToChat={onBackToChat}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -132,12 +148,151 @@ function ContainerView({
   boxes,
   boxItems,
   onRefresh,
+  onBackToChat,
 }: {
   assessments: ItemAssessment[];
   boxes: Box[];
   boxItems: Record<string, BoxItem[]>;
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
+  const [createPanelOpen, setCreatePanelOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+
+  const assessmentMap = useMemo(
+    () =>
+      assessments.reduce<Record<string, ItemAssessment>>((acc, a) => {
+        acc[a.id] = a;
+        return acc;
+      }, {}),
+    [assessments]
+  );
+
+  const handleAddItem = useCallback(
+    async (boxId: string, itemName: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_name: itemName }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  // Note: unlike BoxManagement (which does incremental state updates),
+  // ContainerView relies on onRefresh() to re-fetch all data after mutations.
+  // This is correct because getBox() resolves box_item names from item_assessment
+  // server-side, so the refreshed data always has canonical names.
+  const handleAddExistingItem = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleAssignToBox = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleRemoveItem = useCallback(
+    async (boxId: string, boxItemId: string) => {
+      await fetch(`/api/boxes/${boxId}/items/${boxItemId}`, {
+        method: "DELETE",
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleMarkPacked = useCallback(
+    async (boxId: string) => {
+      await fetch(`/api/boxes/${boxId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "packed" }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleCreateBox = useCallback(
+    async (data: { roomName: string; size: BoxSize; boxType: (typeof BoxType)[keyof typeof BoxType] }) => {
+      setIsCreating(true);
+      try {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: data.roomName,
+            size: data.size,
+            box_type: data.boxType,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create box");
+        setCreatePanelOpen(false);
+        onRefresh();
+      } catch (err) {
+        console.error("Failed to create box:", err);
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [onRefresh]
+  );
+
+  const handleAutoAssignCarry = useCallback(
+    async (assessmentId: string) => {
+      const carryBox = boxes.find(
+        (b) =>
+          (b.box_type === "carryon" || b.box_type === "checked_luggage") &&
+          b.status === "packing"
+      );
+
+      let targetBoxId: string;
+
+      if (carryBox) {
+        targetBoxId = carryBox.id;
+      } else {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: "Carry-on bag",
+            box_type: "carryon",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create carry-on box");
+        const json = await res.json();
+        targetBoxId = (json.box ?? json).id;
+      }
+
+      await fetch(`/api/boxes/${targetBoxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+
+      onRefresh();
+    },
+    [boxes, onRefresh]
+  );
+
   const luggageBoxes = boxes.filter(
     (b) => b.box_type === "carryon" || b.box_type === "checked_luggage"
   );
@@ -162,48 +317,94 @@ function ContainerView({
       .filter((bi) => bi.item_assessment_id)
       .map((bi) => bi.item_assessment_id)
   );
-  const unboxedItems = assessments.filter(
-    (a) => (a.verdict === "SHIP" || a.verdict === "CARRY") && !boxedItemIds.has(a.id)
+  const unboxedItems = assessments
+    .filter(
+      (a) => (a.verdict === "SHIP" || a.verdict === "CARRY") && !boxedItemIds.has(a.id)
+    )
+    .sort((a, b) => a.item_name.localeCompare(b.item_name));
+
+  const packingBoxes = boxes.filter((b) => b.status === "packing");
+
+  // Item count per box, for display in BoxPicker
+  const boxItemCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(boxItems).map(([bid, bItems]) => [bid, bItems.length])
+      ),
+    [boxItems]
   );
 
-  const notShipping = assessments.filter(
-    (a) => a.verdict === "SELL" || a.verdict === "DONATE" || a.verdict === "DISCARD"
-  );
+  const notShipping = assessments
+    .filter(
+      (a) => a.verdict === "SELL" || a.verdict === "DONATE" || a.verdict === "DISCARD"
+    )
+    .sort((a, b) => a.item_name.localeCompare(b.item_name));
 
   return (
-    <div className="space-y-1 pb-6">
+    <div className={styles.viewStack}>
       {luggageBoxes.length > 0 && (
         <Section icon={Plane} title="Travelling with me">
-          <div className="space-y-2 px-4 pb-3">
+          <div className={styles.sectionContent}>
             {luggageBoxes.map((box) => (
-              <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
+              <BoxCard
+                key={box.id}
+                box={box}
+                items={boxItems[box.id] ?? []}
+                assessments={assessmentMap}
+                unboxedItems={unboxedItems}
+                onAddItem={handleAddItem}
+                onAddExistingItem={handleAddExistingItem}
+                onRemoveItem={handleRemoveItem}
+                onMarkPacked={handleMarkPacked}
+              />
             ))}
           </div>
         </Section>
       )}
 
-      {freightBoxes.length > 0 && (
-        <Section icon={Package} title="Freight boxes">
-          <div className="space-y-2 px-4 pb-3">
-            {freightBoxes.map((box) => (
-              <BoxCard key={box.id} box={box} items={boxItems[box.id] ?? []} />
-            ))}
-          </div>
-        </Section>
-      )}
+      <Section icon={Package} title="Freight boxes">
+        <div className={styles.sectionContent}>
+          {freightBoxes.map((box) => (
+            <BoxCard
+              key={box.id}
+              box={box}
+              items={boxItems[box.id] ?? []}
+              assessments={assessmentMap}
+              unboxedItems={unboxedItems}
+              onAddItem={handleAddItem}
+              onAddExistingItem={handleAddExistingItem}
+              onRemoveItem={handleRemoveItem}
+              onMarkPacked={handleMarkPacked}
+            />
+          ))}
+          <button
+            type="button"
+            className={styles.addBoxButton}
+            onClick={() => setCreatePanelOpen(true)}
+            aria-label="Add a box"
+          >
+            <Plus size={15} aria-hidden="true" />
+            Add a box
+          </button>
+        </div>
+      </Section>
+
+      <CreateBoxPanel
+        open={createPanelOpen}
+        onClose={() => setCreatePanelOpen(false)}
+        onSubmit={handleCreateBox}
+        isSubmitting={isCreating}
+      />
 
       {singleItems.length > 0 && (
         <Section icon={Luggage} title="Large items — shipping individually">
-          <div className="space-y-2 px-4 pb-3">
+          <div className={styles.sectionContent}>
             {singleItems.map((box) => (
-              <div
-                key={box.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
-              >
+              <div key={box.id} className={styles.singleItemRow}>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{box.label}</p>
+                  <p className={styles.singleItemLabel}>{box.label}</p>
                   {box.cbm !== null && (
-                    <p className="text-xs text-muted-foreground">{box.cbm} CBM</p>
+                    <p className={styles.singleItemSubLabel}>{box.cbm} CBM</p>
                   )}
                 </div>
                 <BoxStatusBadge status={box.status} />
@@ -215,15 +416,37 @@ function ContainerView({
 
       {unboxedItems.length > 0 && (
         <Section icon={PackagePlus} title="Not yet boxed">
-          <div className="space-y-1 px-4 pb-3">
-            {unboxedItems.map((item) => (
-              <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
-            ))}
+          <div className={styles.collapsibleItems}>
+            <AnimatePresence mode="popLayout">
+              {unboxedItems.map((item) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+                >
+                  <ItemRow
+                    item={item}
+                    boxes={boxes}
+                    packingBoxes={packingBoxes}
+                    boxItemCounts={boxItemCounts}
+                    onAssignToBox={handleAssignToBox}
+                    onAutoAssignCarry={handleAutoAssignCarry}
+                    onRefresh={onRefresh}
+                    onBackToChat={onBackToChat}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </Section>
       )}
 
-      {notShipping.length > 0 && <NotShippingSection items={notShipping} />}
+      {notShipping.length > 0 && (
+        <NotShippingSection items={notShipping} onRefresh={onRefresh} />
+      )}
     </div>
   );
 }
@@ -234,14 +457,98 @@ function ContainerView({
 
 function VerdictView({
   assessments,
+  boxes,
+  boxItems,
   onRefresh,
+  onBackToChat,
 }: {
   assessments: ItemAssessment[];
+  boxes: Box[];
+  boxItems: Record<string, BoxItem[]>;
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
+  const packingBoxes = boxes.filter((b) => b.status === "packing");
+  const boxItemCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(boxItems).map(([bid, bItems]) => [bid, bItems.length])
+      ),
+    [boxItems]
+  );
+
+  const handleAssignToBox = useCallback(
+    async (boxId: string, assessmentId: string) => {
+      await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
+  const handleAutoAssignCarry = useCallback(
+    async (assessmentId: string) => {
+      const carryBox = boxes.find(
+        (b) =>
+          (b.box_type === "carryon" || b.box_type === "checked_luggage") &&
+          b.status === "packing"
+      );
+
+      let targetBoxId: string;
+
+      if (carryBox) {
+        targetBoxId = carryBox.id;
+      } else {
+        const res = await fetch("/api/boxes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_name: "Carry-on bag",
+            box_type: "carryon",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create carry-on box");
+        const json = await res.json();
+        targetBoxId = (json.box ?? json).id;
+      }
+
+      await fetch(`/api/boxes/${targetBoxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: assessmentId }),
+      });
+
+      onRefresh();
+    },
+    [boxes, onRefresh]
+  );
+  // Build reverse map: assessment ID → box it's currently assigned to
+  const boxById = useMemo(
+    () => Object.fromEntries(boxes.map((b) => [b.id, b])),
+    [boxes]
+  );
+  const assessmentBoxMap = useMemo(() => {
+    const map: Record<string, Box> = {};
+    for (const [bid, items] of Object.entries(boxItems)) {
+      const box = boxById[bid];
+      if (!box) continue;
+      for (const bi of items) {
+        if (bi.item_assessment_id) {
+          map[bi.item_assessment_id] = box;
+        }
+      }
+    }
+    return map;
+  }, [boxItems, boxById]);
+
   const grouped = VERDICT_ORDER.reduce(
     (acc, v) => {
-      const items = assessments.filter((a) => a.verdict === v);
+      const items = assessments
+        .filter((a) => a.verdict === v)
+        .sort((a, b) => a.item_name.localeCompare(b.item_name));
       if (items.length > 0) acc.push({ verdict: v, items });
       return acc;
     },
@@ -249,9 +556,21 @@ function VerdictView({
   );
 
   return (
-    <div className="space-y-1 pb-6">
+    <div className={styles.viewStack}>
       {grouped.map(({ verdict, items }) => (
-        <VerdictGroup key={verdict} verdict={verdict} items={items} onRefresh={onRefresh} />
+        <VerdictGroup
+          key={verdict}
+          verdict={verdict}
+          items={items}
+          boxes={boxes}
+          packingBoxes={packingBoxes}
+          boxItemCounts={boxItemCounts}
+          assessmentBoxMap={assessmentBoxMap}
+          onAssignToBox={handleAssignToBox}
+          onAutoAssignCarry={handleAutoAssignCarry}
+          onRefresh={onRefresh}
+          onBackToChat={onBackToChat}
+        />
       ))}
     </div>
   );
@@ -260,33 +579,68 @@ function VerdictView({
 function VerdictGroup({
   verdict,
   items,
+  boxes,
+  packingBoxes,
+  boxItemCounts,
+  assessmentBoxMap,
+  onAssignToBox,
+  onAutoAssignCarry,
   onRefresh,
+  onBackToChat,
 }: {
   verdict: Verdict;
   items: ItemAssessment[];
+  boxes: Box[];
+  packingBoxes: Box[];
+  boxItemCounts: Record<string, number>;
+  assessmentBoxMap: Record<string, Box>;
+  onAssignToBox: (boxId: string, assessmentId: string) => void;
+  onAutoAssignCarry: (assessmentId: string) => void;
   onRefresh: () => void;
+  onBackToChat?: (() => void) | undefined;
 }) {
   const [isOpen, setIsOpen] = useState(true);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50">
-        <div className="flex items-center gap-2">
+      <CollapsibleTrigger className={styles.verdictTrigger}>
+        <div className={styles.verdictTriggerLeft}>
           <VerdictBadge verdict={verdict} />
-          <span className="text-xs text-muted-foreground">{items.length}</span>
+          <span className={styles.verdictCount}>{items.length}</span>
         </div>
         <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            isOpen && "rotate-180"
-          )}
+          className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+          style={{ width: 16, height: 16 }}
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="space-y-1 px-4 pb-3">
-          {items.map((item) => (
-            <ItemRow key={item.id} item={item} onRefresh={onRefresh} />
-          ))}
+        <div className={styles.collapsibleItems}>
+          <AnimatePresence mode="popLayout">
+            {items.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+              >
+                <ItemRow
+                  item={item}
+                  boxes={boxes}
+                  packingBoxes={packingBoxes}
+                  boxItemCounts={boxItemCounts}
+                  onAssignToBox={onAssignToBox}
+                  onAutoAssignCarry={onAutoAssignCarry}
+                  onRefresh={onRefresh}
+                  onBackToChat={onBackToChat}
+                  showVerdict={false}
+                  currentBox={assessmentBoxMap[item.id]}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -302,152 +656,282 @@ function Section({
   title,
   children,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <div className="flex items-center gap-2 px-4 py-3">
-        <Icon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className={styles.sectionHeader}>
+        <Icon style={{ width: 16, height: 16, color: "var(--color-text-muted)" }} />
+        <h3 className={styles.sectionTitle}>{title}</h3>
       </div>
       {children}
     </div>
   );
 }
 
-function ItemRow({ item, onRefresh }: { item: ItemAssessment; onRefresh: () => void }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(item.item_name);
-  const [selectedVerdict, setSelectedVerdict] = useState(item.verdict);
+interface ItemRowProps {
+  item: ItemAssessment;
+  boxes: Box[];
+  onRefresh: () => void;
+  /** Packing boxes for quick-assign box picker (only for SHIP/CARRY items) */
+  packingBoxes?: Box[];
+  /** Item count per box, for display in BoxPicker */
+  boxItemCounts?: Record<string, number>;
+  /** Called when the user selects a box via the quick-assign picker */
+  onAssignToBox?: (boxId: string, assessmentId: string) => void;
+  /** Called when the user taps "Add to carry-on" for a CARRY item — auto-creates carry-on if needed */
+  onAutoAssignCarry?: (assessmentId: string) => void;
+  /** Called when the user taps "Back to Aisling" from inside the edit panel on mobile */
+  onBackToChat?: (() => void) | undefined;
+  /** Whether to show the verdict badge inline in the row (default true). Pass false inside VerdictGroup where the badge is already in the group header. */
+  showVerdict?: boolean;
+  /** The box this item is currently assigned to (if any) */
+  currentBox?: Box | undefined;
+}
 
-  const handleNameSave = useCallback(async () => {
-    if (editName.trim() === "" || editName === item.item_name) {
-      setEditName(item.item_name);
-      setIsEditing(false);
-      return;
-    }
-    try {
-      await fetch(`/api/assessments/${item.id}`, {
+function ItemRow({
+  item,
+  boxes,
+  onRefresh,
+  packingBoxes,
+  boxItemCounts,
+  onAssignToBox,
+  onAutoAssignCarry,
+  onBackToChat,
+  showVerdict = true,
+  currentBox,
+}: ItemRowProps) {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPickingBox, setIsPickingBox] = useState(false);
+
+  const canQuickAssign =
+    item.verdict === "SHIP" &&
+    onAssignToBox !== undefined &&
+    packingBoxes !== undefined &&
+    packingBoxes.length > 0;
+
+  const canAutoAssignCarry =
+    item.verdict === "CARRY" && onAutoAssignCarry !== undefined;
+
+  const handleItemSave = useCallback(
+    async (updates: Partial<ItemAssessment>) => {
+      if (Object.keys(updates).length === 0) return;
+      const res = await fetch(`/api/assessments/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_name: editName.trim() }),
+        body: JSON.stringify(updates),
       });
-      setIsEditing(false);
-      onRefresh();
-    } catch {
-      setEditName(item.item_name);
-      setIsEditing(false);
-    }
-  }, [editName, item.id, item.item_name, onRefresh]);
-
-  const handleVerdictChange = useCallback(
-    async (newVerdict: string) => {
-      setSelectedVerdict(newVerdict as Verdict);
-      try {
-        await fetch(`/api/assessments/${item.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ verdict: newVerdict }),
-        });
-        onRefresh();
-      } catch {
-        setSelectedVerdict(item.verdict);
+      if (!res.ok) {
+        throw new Error("Failed to save item");
       }
+      onRefresh();
     },
-    [item.id, item.verdict, onRefresh]
+    [item.id, onRefresh]
+  );
+
+  const handleDeleteItem = useCallback(async () => {
+    await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+    setIsEditOpen(false);
+    onRefresh();
+  }, [item.id, onRefresh]);
+
+  const handleSelectBox = useCallback(
+    (box: Box) => {
+      onAssignToBox?.(box.id, item.id);
+      setIsPickingBox(false);
+    },
+    [item.id, onAssignToBox]
   );
 
   return (
-    <div className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
-      {item.image_url ? (
-        <Image src={item.image_url} alt="" width={32} height={32} className="size-8 shrink-0 rounded object-cover" />
-      ) : (
-        <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted">
-          <ShoppingBag className="size-3.5 text-muted-foreground" />
-        </div>
-      )}
+    <>
+      <div className={styles.itemRowOuter} data-verdict={item.verdict}>
+        <div className={styles.itemRow}>
+          {item.image_url ? (
+            <img
+              src={`/api/img?url=${encodeURIComponent(item.image_url)}`}
+              alt=""
+              className={styles.itemThumb}
+            />
+          ) : (
+            <div className={styles.itemThumbPlaceholder} aria-hidden="true">
+              <ShoppingBag style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
+            </div>
+          )}
 
-      <div className="min-w-0 flex-1">
-        {isEditing ? (
-          <input
-            type="text"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleNameSave();
-              if (e.key === "Escape") {
-                setEditName(item.item_name);
-                setIsEditing(false);
-              }
-            }}
-            className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- inline edit mode requires immediate focus
-            autoFocus
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="max-w-full truncate text-left text-sm text-foreground hover:underline"
-            title="Click to edit name"
-          >
-            {item.item_name}
-          </button>
+          <span className={styles.itemName}>{item.item_name}</span>
+
+          <div className={styles.itemRowActions}>
+            {showVerdict && <VerdictBadge verdict={item.verdict} />}
+
+            {currentBox && (
+              <span className={styles.currentBoxLabel} title={currentBox.label}>
+                <Package size={12} aria-hidden="true" />
+                {currentBox.label}
+              </span>
+            )}
+
+            {canQuickAssign && (
+              <button
+                type="button"
+                className={styles.assignBoxButton}
+                onClick={() => setIsPickingBox((prev) => !prev)}
+                aria-expanded={isPickingBox}
+                aria-label={currentBox ? `Change box for ${item.item_name}` : `Assign ${item.item_name} to a box`}
+              >
+                {currentBox ? "Change box" : "Assign to box"}
+              </button>
+            )}
+
+            {canAutoAssignCarry && !currentBox && (
+              <button
+                type="button"
+                className={styles.carryOnButton}
+                onClick={() => onAutoAssignCarry!(item.id)}
+                aria-label={`Add ${item.item_name} to carry-on`}
+              >
+                <Briefcase size={13} aria-hidden="true" />
+                Add to carry-on
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              className={styles.itemEditButton}
+              aria-label={`Edit ${item.item_name}`}
+            >
+              <Pencil size={13} aria-hidden="true" />
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {isPickingBox && packingBoxes && (
+          <div className={styles.boxPickerWrap}>
+            <BoxPicker
+              boxes={packingBoxes}
+              itemCounts={boxItemCounts ?? {}}
+              onSelect={handleSelectBox}
+              onDismiss={() => setIsPickingBox(false)}
+            />
+          </div>
         )}
       </div>
 
-      <select
-        value={selectedVerdict}
-        onChange={(e) => handleVerdictChange(e.target.value)}
-        className="h-7 shrink-0 rounded border border-border bg-background px-1.5 text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
-        aria-label={`Verdict for ${item.item_name}`}
-      >
-        {VERDICT_ORDER.map((v) => (
-          <option key={v} value={v}>
-            {VERDICT_LABELS[v]}
-          </option>
-        ))}
-      </select>
-    </div>
+      <ItemEditPanel
+        item={item}
+        boxes={boxes}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onSave={handleItemSave}
+        onDelete={handleDeleteItem}
+        onBackToChat={onBackToChat}
+        breadcrumbLabel="Inventory"
+        currentBoxId={currentBox?.id}
+      />
+    </>
   );
 }
 
-function NotShippingSection({ items }: { items: ItemAssessment[] }) {
+function NotShippingSection({
+  items,
+  onRefresh,
+}: {
+  items: ItemAssessment[];
+  onRefresh: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-muted-foreground">Not shipping</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {items.length}
-          </span>
+      <CollapsibleTrigger className={styles.notShippingTrigger}>
+        <div className={styles.verdictTriggerLeft}>
+          <span className={styles.notShippingLabel}>Not shipping</span>
+          <span className={styles.notShippingCount}>{items.length}</span>
         </div>
         <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            isOpen && "rotate-180"
-          )}
+          className={cn(styles.chevron, isOpen && styles.chevronOpen)}
+          style={{ width: 16, height: 16 }}
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="space-y-1 px-4 pb-3">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-md px-2 py-1.5"
-            >
-              <span className="truncate text-sm text-muted-foreground">{item.item_name}</span>
-              <VerdictBadge verdict={item.verdict} className="text-[10px]" />
-            </div>
-          ))}
+        <div className={styles.collapsibleItems}>
+          <AnimatePresence mode="popLayout">
+            {items.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+              >
+                <NotShippingItemRow item={item} onRefresh={onRefresh} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function NotShippingItemRow({
+  item,
+  onRefresh,
+}: {
+  item: ItemAssessment;
+  onRefresh: () => void;
+}) {
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await fetch(`/api/assessments/${item.id}`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      alert("Failed to delete item. Please try again.");
+    }
+  }, [item.id, onRefresh]);
+
+  return (
+    <>
+      <div className={styles.notShippingItem}>
+        <span className={styles.notShippingItemName}>{item.item_name}</span>
+        <VerdictBadge verdict={item.verdict} />
+        <button
+          ref={deleteButtonRef}
+          type="button"
+          className={styles.notShippingDeleteButton}
+          onClick={() => setIsDeleteOpen(true)}
+          aria-label={`Delete ${item.item_name}`}
+          aria-haspopup="dialog"
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Delete this item?"
+        description="Are you sure? This will remove it from your inventory and any boxes it's in. This can't be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        variant="danger"
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          handleDelete();
+        }}
+        triggerRef={deleteButtonRef}
+      />
+    </>
   );
 }
 
@@ -455,31 +939,15 @@ function NotShippingSection({ items }: { items: ItemAssessment[] }) {
 /*  States                                                             */
 /* ------------------------------------------------------------------ */
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-      <div className="flex size-16 items-center justify-center rounded-full bg-muted">
-        <Package className="size-8 text-muted-foreground/60" />
-      </div>
-      <div>
-        <p className="text-base font-medium text-foreground">No items assessed yet</p>
-        <p className="mt-1.5 max-w-[280px] text-sm text-muted-foreground">
-          Start a conversation with Aisling — snap a photo of something or type an item name.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className={styles.skeleton}>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="space-y-2">
-          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-          <div className="h-14 animate-pulse rounded-lg bg-muted" />
-          <div className="h-14 animate-pulse rounded-lg bg-muted" />
-        </div>
+        <SkeletonGroup key={i} label="Loading inventory">
+          <Skeleton height={16} width="40%" borderRadius="var(--radius-sm)" style={{ marginBottom: 8 }} />
+          <Skeleton height={56} width="100%" borderRadius="var(--radius-md)" style={{ marginBottom: 6 }} />
+          <Skeleton height={56} width="100%" borderRadius="var(--radius-md)" />
+        </SkeletonGroup>
       ))}
     </div>
   );
@@ -487,13 +955,9 @@ function LoadingSkeleton() {
 
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="text-sm text-destructive">{error}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80"
-      >
+    <div className={styles.errorState}>
+      <p className={styles.errorText}>{error}</p>
+      <button type="button" onClick={onRetry} className={styles.retryButton}>
         Try again
       </button>
     </div>

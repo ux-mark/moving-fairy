@@ -15,7 +15,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }))
 
 // Import after mock is in place
-import { saveItemAssessment, computeBoxLabel, getCostSummary } from './tools'
+import { saveItemAssessment, computeBoxLabel, getCostSummary, addItemToBox } from './tools'
 
 // ─── Shared setup helper ─────────────────────────────────────────────────────
 
@@ -258,5 +258,137 @@ describe('getCostSummary()', () => {
     eq.mockResolvedValueOnce({ data: null, error: { message: 'query failed' } })
 
     await expect(getCostSummary('user-1')).rejects.toThrow('query failed')
+  })
+})
+
+// ─── addItemToBox ──────────────────────────────────────────────────────────
+
+describe('addItemToBox()', () => {
+  function setupAddItemChains(opts: {
+    assessment?: { verdict: string } | null
+    assessmentError?: { message: string } | null
+    existing?: { id: string; box_id: string; item_assessment_id: string; item_name: string | null } | null
+    deleteResult?: { error: null }
+    insertResult?: { id: string; box_id: string; item_assessment_id: string; item_name: string | null } | null
+    insertError?: { message: string } | null
+  }) {
+    // Track all from() calls to return different chain behaviour
+    let fromCallIndex = 0
+    mockFrom.mockImplementation((table: string) => {
+      fromCallIndex++
+
+      if (table === 'item_assessment') {
+        // select().eq().single() for verdict gate
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: opts.assessment ?? null,
+                error: opts.assessmentError ?? (opts.assessment ? null : { message: 'not found' }),
+              }),
+            }),
+          }),
+        }
+      }
+
+      if (table === 'box_item') {
+        // Could be: select (existing check), delete, or insert
+        if (fromCallIndex <= 3) {
+          // First box_item call: existing check — select().eq().limit().single()
+          return {
+            select: () => ({
+              eq: () => ({
+                limit: () => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: opts.existing ?? null,
+                    error: opts.existing ? null : { code: 'PGRST116' },
+                  }),
+                }),
+              }),
+            }),
+            delete: () => ({
+              eq: vi.fn().mockReturnValue({
+                error: null,
+                ...(opts.deleteResult ?? {}),
+              }),
+            }),
+            insert: () => ({
+              select: () => ({
+                single: vi.fn().mockResolvedValue({
+                  data: opts.insertResult ?? null,
+                  error: opts.insertError ?? (opts.insertResult ? null : { message: 'insert failed' }),
+                }),
+              }),
+            }),
+          }
+        }
+
+        // Later box_item calls: delete or insert
+        return {
+          delete: () => ({
+            eq: vi.fn().mockReturnValue({
+              error: null,
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: opts.insertResult ?? null,
+                error: opts.insertError ?? (opts.insertResult ? null : { message: 'insert failed' }),
+              }),
+            }),
+          }),
+        }
+      }
+
+      return {}
+    })
+  }
+
+  it('rejects SELL verdict items', async () => {
+    setupAddItemChains({
+      assessment: { verdict: 'SELL' },
+    })
+
+    await expect(
+      addItemToBox('box-1', { itemAssessmentId: 'assess-1' })
+    ).rejects.toThrow('Cannot add item with verdict SELL')
+  })
+
+  it('rejects DECIDE_LATER verdict items', async () => {
+    setupAddItemChains({
+      assessment: { verdict: 'DECIDE_LATER' },
+    })
+
+    await expect(
+      addItemToBox('box-1', { itemAssessmentId: 'assess-1' })
+    ).rejects.toThrow('Cannot add item with verdict DECIDE_LATER')
+  })
+
+  it('returns existing record when item is already in the same box (idempotent)', async () => {
+    const existingBoxItem = {
+      id: 'bi-existing',
+      box_id: 'box-1',
+      item_assessment_id: 'assess-1',
+      item_name: null, // assessed items store null; name resolved via item_assessment
+    }
+    setupAddItemChains({
+      assessment: { verdict: 'SHIP' },
+      existing: existingBoxItem,
+    })
+
+    const result = await addItemToBox('box-1', { itemAssessmentId: 'assess-1' })
+    expect(result).toEqual(existingBoxItem)
+  })
+
+  it('throws when assessment is not found', async () => {
+    setupAddItemChains({
+      assessment: null,
+      assessmentError: { message: 'not found' },
+    })
+
+    await expect(
+      addItemToBox('box-1', { itemAssessmentId: 'nonexistent' })
+    ).rejects.toThrow('Item assessment not found')
   })
 })

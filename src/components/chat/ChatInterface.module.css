@@ -1,0 +1,119 @@
+/* ChatInterface — DS tokens */
+
+/* ---- Root wrapper ---- */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-page);
+  overflow: hidden;
+}
+
+/* ---- Messages scroll area ---- */
+
+.messagesScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+  position: relative;
+}
+
+/*
+ * On mobile the DecisionNotificationTab renders as a 44px circular badge
+ * in the bottom-right corner (right: 12px). Adding right padding here
+ * ensures message text never sits behind the badge at any scroll position.
+ */
+@media (max-width: 767px) {
+  .messagesScroll {
+    padding-right: 64px;
+  }
+}
+
+.messagesInner {
+  /* No max-width constraint — chat bubbles manage their own max-width */
+}
+
+/* ---- Error banner ---- */
+
+.errorWrapper {
+  padding: 8px 0;
+}
+
+.errorBox {
+  border-radius: var(--radius-lg, 8px);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  padding: 12px 16px;
+}
+
+.errorText {
+  font-size: 16px;
+  color: var(--color-error);
+}
+
+.errorDismiss {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-error);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ---- Scroll-to-bottom button — sticky inside scroll area ---- */
+
+.scrollButtonWrapper {
+  position: sticky;
+  bottom: 8px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.scrollButton {
+  pointer-events: auto;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-bg-card);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-dropdown, 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1));
+  outline: 1px solid var(--color-border-default);
+  outline-offset: -1px;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.scrollButton:hover {
+  background: var(--color-bg-subtle);
+}
+
+/* ---- Input bar wrapper ---- */
+
+.inputWrapper {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .errorText {
+    font-size: 1rem;
+  }
+
+  .errorDismiss {
+    font-size: 1rem;
+  }
+
+  .scrollButton {
+    font-size: 0.875rem;
+  }
+}

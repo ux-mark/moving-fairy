@@ -2,6 +2,10 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { Package, TrendingUp } from "lucide-react";
+import { Badge } from "@thefairies/design-system/components";
+import type { CostStripTag } from "@thefairies/design-system/components";
+
+import styles from "./CostSummary.module.css";
 import { cn } from "@/lib/utils";
 
 export interface CostSummaryData {
@@ -16,13 +20,14 @@ interface CostSummaryProps {
   className?: string;
 }
 
-const VERDICT_COLOUR: Record<string, string> = {
-  SHIP: "bg-verdict-ship/15 text-verdict-ship",
-  CARRY: "bg-verdict-carry/15 text-verdict-carry",
-  SELL: "bg-verdict-sell/15 text-verdict-sell",
-  DONATE: "bg-verdict-donate/15 text-verdict-donate",
-  DISCARD: "bg-verdict-discard/15 text-verdict-discard",
-  DECIDE_LATER: "bg-verdict-decide-later/15 text-verdict-decide-later",
+// DS token colours per verdict
+const VERDICT_COLORS: Record<string, { bgColor: string; fgColor: string }> = {
+  SHIP: { bgColor: "var(--verdict-ship-bg, #d1fae5)", fgColor: "var(--verdict-ship-fg, #065f46)" },
+  CARRY: { bgColor: "var(--verdict-carry-bg, #d1fae5)", fgColor: "var(--verdict-carry-fg, #065f46)" },
+  SELL: { bgColor: "var(--verdict-sell-bg, #fef3c7)", fgColor: "var(--verdict-sell-fg, #92400e)" },
+  DONATE: { bgColor: "var(--verdict-donate-bg, #f3f4f6)", fgColor: "var(--verdict-donate-fg, #374151)" },
+  DISCARD: { bgColor: "var(--verdict-discard-bg, #f3f4f6)", fgColor: "var(--verdict-discard-fg, #374151)" },
+  DECIDE_LATER: { bgColor: "var(--verdict-decide-later-bg, #dbeafe)", fgColor: "var(--verdict-decide-later-fg, #1e40af)" },
 };
 
 function AnimatedNumber({
@@ -40,7 +45,7 @@ function AnimatedNumber({
       initial={prefersReducedMotion ? false : { scale: 1 }}
       animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={cn("tabular-nums", className)}
+      className={cn(styles.tabularNums, className)}
     >
       {value}
     </motion.span>
@@ -55,49 +60,41 @@ function formatCurrency(amount: number, currency: string): string {
   }).format(amount);
 }
 
-function VerdictChip({
-  label,
-  count,
-  colorClass,
-}: {
-  label: string;
-  count: number;
-  colorClass: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
-        colorClass
-      )}
-    >
-      {count} {label.replace("_", " ")}
-    </span>
-  );
-}
-
 export function CostSummary({ data, variant, className }: CostSummaryProps) {
   const { counts_by_verdict, total_estimated_ship_cost, currency } = data;
   const formattedCost = formatCurrency(total_estimated_ship_cost, currency);
   const totalItems = Object.values(counts_by_verdict).reduce((sum, n) => sum + n, 0);
 
+  const tags: CostStripTag[] = Object.entries(counts_by_verdict)
+    .filter(([, count]) => count > 0)
+    .map(([verdict, count]) => {
+      const colors = VERDICT_COLORS[verdict] ?? {
+        bgColor: "var(--color-bg-subtle)",
+        fgColor: "var(--color-text-muted)",
+      };
+      const verdictLabel = verdict
+        .replace("_", " ")
+        .toLowerCase()
+        .replace(/^\w/, (c) => c.toUpperCase());
+      return {
+        label: `${count} ${verdictLabel}`,
+        bgColor: colors.bgColor,
+        fgColor: colors.fgColor,
+      };
+    });
+
   if (variant === "compact") {
     return (
       <div
-        className={cn(
-          "flex items-center justify-between gap-4 border-b border-border bg-card px-4 py-2",
-          className
-        )}
+        className={cn(styles.compact, className)}
         aria-label={`Estimated shipping cost: ${formattedCost}, ${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`}
       >
-        <div className="flex items-center gap-3 text-sm">
-          <span className="flex items-center gap-1.5 font-medium text-foreground" aria-hidden="true">
-            <TrendingUp className="size-3.5 text-muted-foreground" />
-            <AnimatedNumber value={formattedCost} />
-          </span>
+        <div className={styles.compactCost} aria-hidden="true">
+          <TrendingUp style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
+          <AnimatedNumber value={formattedCost} />
         </div>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-hidden="true">
-          <Package className="size-3.5" />
+        <span className={styles.compactItems} aria-hidden="true">
+          <Package style={{ width: 14, height: 14 }} />
           <AnimatedNumber value={totalItems} />
           {" "}
           {totalItems === 1 ? "item" : "items"}
@@ -108,42 +105,31 @@ export function CostSummary({ data, variant, className }: CostSummaryProps) {
 
   return (
     <div
-      className={cn(
-        "space-y-3 border-b border-border bg-card px-4 py-3",
-        className
-      )}
+      className={cn(styles.full, className)}
       aria-label={`Estimated shipping cost: ${formattedCost} ${currency}, ${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`}
       role="region"
     >
-      <div className="flex items-baseline justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Est. Shipping
-          </p>
-          <AnimatedNumber
-            value={formattedCost}
-            className="text-xl font-bold text-foreground"
-          />
-          <p className="mt-0.5 text-xs text-muted-foreground">{currency}</p>
+      <div className={styles.mainRow}>
+        <div className={styles.totalLabelBlock}>
+          <p className={styles.totalLabel}>Est. Shipping</p>
+          <AnimatedNumber value={formattedCost} className={styles.totalValue ?? ""} />
+          <p className={styles.currencyLabel}>{currency}</p>
         </div>
-        <span className="text-sm text-muted-foreground">
+        <span className={styles.itemCount}>
           <AnimatedNumber value={totalItems} /> {totalItems === 1 ? "item" : "items"}
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(counts_by_verdict).map(([verdict, count]) =>
-          count > 0 ? (
-            <VerdictChip
-              key={verdict}
-              label={verdict}
-              count={count}
-              colorClass={
-                VERDICT_COLOUR[verdict] ?? "bg-stone-100 text-stone-700"
-              }
-            />
-          ) : null
-        )}
+      <div className={styles.tagsRow}>
+        {tags.map((tag) => (
+          <Badge
+            key={tag.label}
+            label={tag.label}
+            bgColor={tag.bgColor}
+            fgColor={tag.fgColor}
+            size="sm"
+          />
+        ))}
       </div>
     </div>
   );

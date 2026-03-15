@@ -1,0 +1,145 @@
+/* Landing page styles — Nos DS tokens */
+
+.main {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.inner {
+  display: flex;
+  width: 100%;
+  max-width: 448px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Wordmark */
+.wordmark {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wordmarkIcon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent-dashboard);
+  flex-shrink: 0;
+}
+
+.wordmarkTitle {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--color-text-primary);
+}
+
+/* Tagline */
+.tagline {
+  margin-bottom: 24px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+/* Aisling intro blockquote */
+.intro {
+  margin-bottom: 32px;
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-card);
+  padding: 20px 24px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border-default);
+}
+
+/*
+ * Override the DS AuthCard wrapper styles.
+ * AuthCard renders a wrapper div with min-height: 100vh and centering,
+ * which creates a second full-viewport container inside our page.
+ * We neutralise that so the card flows naturally in the page layout.
+ * The > div targets the AuthCard wrapper (its outermost rendered element).
+ */
+.authCardOverride {
+  width: 100%;
+}
+
+.authCardOverride > div {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* ------------------------------------------------
+ * Mobile: tighten spacing to keep everything
+ * above the fold. Uses max-width: 767px (standard
+ * mobile breakpoint), not max-height.
+ * ------------------------------------------------ */
+@media (max-width: 767px) {
+  .main {
+    justify-content: flex-start;
+    padding: 40px 20px 24px;
+  }
+
+  .wordmark {
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .wordmarkIcon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .wordmarkTitle {
+    font-size: 26px;
+  }
+
+  .tagline {
+    margin-bottom: 16px;
+    font-size: 16px;
+  }
+
+  .intro {
+    margin-bottom: 20px;
+    padding: 14px 18px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
+
+/* Very small screens — condense further */
+@media (max-width: 374px) {
+  .main {
+    padding: 28px 16px 20px;
+  }
+
+  .wordmark {
+    margin-bottom: 8px;
+  }
+
+  .wordmarkTitle {
+    font-size: 24px;
+  }
+
+  .tagline {
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+
+  .intro {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}

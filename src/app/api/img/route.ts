@@ -1,16 +1,33 @@
 import { NextRequest } from 'next/server'
 
-// Proxy images from Supabase storage so they work from any device on the network
-// (127.0.0.1 URLs don't resolve on mobile — this route fetches server-side and pipes through)
+// Image proxy — fetches upstream images server-side and pipes them through.
+// This is needed because Supabase storage URLs on localhost (127.0.0.1) don't
+// resolve on mobile devices on the same network.
+//
+// SSRF protection: only HTTPS URLs are accepted; private/loopback IPs are rejected.
 
-const isDev = process.env.NODE_ENV !== 'production'
-const allowedHostnames = [
-  new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname,
-  ...(isDev ? ['127.0.0.1', 'localhost'] : []),
-]
+const PRIVATE_IP_PATTERN =
+  /^(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|127\.\d+\.\d+\.\d+|::1|localhost)$/i
+
+function isPrivateHostname(hostname: string): boolean {
+  return PRIVATE_IP_PATTERN.test(hostname)
+}
+
+/** Check if a URL belongs to our Supabase instance (trusted origin) */
+function isSupabaseUrl(parsed: URL): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return false
+  try {
+    const supabase = new URL(supabaseUrl)
+    return parsed.hostname === supabase.hostname && parsed.port === supabase.port
+  } catch {
+    return false
+  }
+}
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url')
+
   if (!url) {
     return new Response('Missing url param', { status: 400 })
   }
@@ -22,21 +39,35 @@ export async function GET(req: NextRequest) {
     return new Response('Invalid url', { status: 400 })
   }
 
-  // Only proxy requests to our own Supabase storage
-  if (!allowedHostnames.includes(parsed.hostname)) {
+  // Allow Supabase storage URLs (trusted origin — may be HTTP in local dev)
+  const trusted = isSupabaseUrl(parsed)
+
+  // Only allow HTTPS — reject http, data:, blob:, etc. (Supabase URLs exempt)
+  if (!trusted && parsed.protocol !== 'https:') {
+    return new Response('Only HTTPS URLs are allowed', { status: 400 })
+  }
+
+  // Block private/loopback IP ranges — SSRF protection (Supabase URLs exempt)
+  if (!trusted && isPrivateHostname(parsed.hostname)) {
     return new Response('Forbidden', { status: 403 })
   }
 
-  const upstream = await fetch(url)
+  let upstream: Response
+  try {
+    upstream = await fetch(url)
+  } catch {
+    return new Response('Failed to fetch image', { status: 502 })
+  }
+
   if (!upstream.ok) {
-    return new Response('Image not found', { status: upstream.status })
+    return new Response('Failed to fetch image', { status: 502 })
   }
 
   const contentType = upstream.headers.get('content-type') || 'image/webp'
   return new Response(upstream.body, {
     headers: {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': 'public, max-age=86400, immutable',
     },
   })
 }

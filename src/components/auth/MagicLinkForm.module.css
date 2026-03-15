@@ -1,0 +1,152 @@
+/* MagicLinkForm styles using Nós DS tokens */
+
+.form {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.input {
+  box-sizing: border-box;
+  height: 48px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 16px;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.errorBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.errorText {
+  font-size: 14px;
+  color: var(--color-error);
+}
+
+.submitButton {
+  width: 100%;
+}
+
+/* Sent state */
+.sentWrapper {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.sentIcon {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-circle);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.sentTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sentDescription {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.sentEmail {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.sentNote {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.retryButton {
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  transition: opacity var(--transition-fast);
+}
+
+.retryButton:hover {
+  opacity: 0.8;
+}
+
+.retryButton:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .label {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .sentEmail {
+    font-size: 16px;
+  }
+
+  .sentNote {
+    font-size: 16px;
+  }
+}

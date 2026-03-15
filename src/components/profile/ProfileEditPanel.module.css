@@ -1,0 +1,182 @@
+/* ProfileEditPanel styles using Nós DS tokens */
+
+.loadingWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.optionGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.optionButton {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.optionButton:hover {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.optionButtonSelected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.onwardDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.transformerFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputLabel {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+}
+
+.input {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.wattageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wattageInput {
+  flex: 1;
+}
+
+.wattageUnit {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.errorBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  padding: 8px 12px;
+}
+
+.errorText {
+  font-size: 14px;
+  color: var(--color-error);
+}
+
+.successBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-success-bg);
+  padding: 8px 12px;
+}
+
+.successText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-success-dark);
+}
+
+.saveButton {
+  height: 44px;
+  width: 100%;
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .label {
+    font-size: 16px;
+  }
+
+  .optionButton {
+    font-size: 16px;
+  }
+
+  .inputLabel {
+    font-size: 16px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .wattageUnit {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .successText {
+    font-size: 16px;
+  }
+}

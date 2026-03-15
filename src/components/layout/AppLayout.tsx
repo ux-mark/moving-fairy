@@ -1,46 +1,184 @@
 "use client";
 
-import { useState } from "react";
-import { Settings } from "lucide-react";
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
+import { MessageCircle, Package, Settings, Sparkles } from "lucide-react";
+import { Navigation } from "@thefairies/design-system/components";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import {
-  BottomTabBar,
-  type ActiveTab,
-} from "@/components/layout/BottomTabBar";
 import { CostSummary } from "@/components/inventory/CostSummary";
+import { DecisionNotificationTab } from "@/components/inventory/DecisionNotificationTab";
+import { InventoryPreview } from "@/components/inventory/InventoryPreview";
 import { ProfileEditPanel } from "@/components/profile/ProfileEditPanel";
-import { Button } from "@/components/ui/button";
 import { useInventory } from "@/lib/hooks/useInventory";
-import { cn } from "@/lib/utils";
+
+import styles from "./AppLayout.module.css";
 
 interface AppLayoutProps {
   chatPanel: React.ReactNode;
   inventoryPanel: React.ReactNode;
+  decisionCount?: number;
+  onOpenDecisions?: () => void;
+  /** Ref populated with the function to close the mobile overlay and return to chat */
+  closeMobileOverlayRef?: MutableRefObject<(() => void) | null>;
+  /** When true, the Decisions tab is active in the side panel — hide the notification tab */
+  decisionsTabActive?: boolean;
 }
 
+const NAV_PRIMARY_ITEMS = [
+  { key: "chat", label: "Aisling", icon: MessageCircle },
+  { key: "inventory", label: "Inventory", icon: Package },
+];
+
+const NAV_SECONDARY_ITEMS = [
+  { key: "settings", label: "Settings", icon: Settings },
+];
+
 /**
- * AppLayout provides the split-screen (desktop) / tabbed (mobile) layout
- * for the chat + inventory experience.
- *
- * Desktop (>= 768px): side-by-side with inventory on the left (~40%),
- *   chat on the right (~60%). Both scroll independently.
- *
- * Mobile (< 768px): bottom tab bar switches between chat and inventory.
- *   A compact cost strip is always visible at the top.
+ * AppLayout provides the app shell: Navigation at the top, chat as the main
+ * content, and a toggleable right-side panel for inventory (desktop) or
+ * a full-screen top-down overlay (mobile).
  */
-export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
+export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef, decisionsTabActive = false }: AppLayoutProps) {
+  // Start with the server-side default (true), then adjust on mount.
+  // Using window.innerWidth in the initialiser causes a hydration mismatch
+  // because the server always returns true while the client may return false.
+  const [inventoryOpen, setInventoryOpen] = useState(true);
+
+  useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setInventoryOpen(false);
+    }
+  }, []);
+  const [inventoryWidth, setInventoryWidth] = useState(380);
+  const [activeSection, setActiveSection] = useState("chat");
   const [profileOpen, setProfileOpen] = useState(false);
   const { costSummary, refreshInventory } = useInventory();
 
+  // Mobile overlay state (replaces bottom sheet)
+  const [mobileInventoryOpen, setMobileInventoryOpen] = useState(false);
+
+  // Resize state (desktop)
+  const isResizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(inventoryWidth);
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizingRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthRef.current = inventoryWidth;
+    },
+    [inventoryWidth]
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = startXRef.current - e.clientX;
+      const maxWidth = window.innerWidth * 0.5;
+      const newWidth = Math.max(320, Math.min(maxWidth, startWidthRef.current + delta));
+      setInventoryWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      isResizingRef.current = false;
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const handleNavigate = useCallback(
+    (section: string) => {
+      if (section === "chat") {
+        setInventoryOpen(false);
+        setMobileInventoryOpen(false);
+        setActiveSection("chat");
+      } else if (section === "inventory") {
+        setInventoryOpen(true);
+        setActiveSection("inventory");
+        // On mobile, open the full-screen overlay
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+          setMobileInventoryOpen(true);
+        }
+      } else if (section === "settings") {
+        setProfileOpen(true);
+      }
+    },
+    []
+  );
+
+  // Total items for preview strip
+  const totalItems = costSummary
+    ? Object.values(costSummary.counts_by_verdict).reduce((sum, n) => sum + n, 0)
+    : 0;
+  const hasCostData = totalItems > 0;
+
+  // Mobile overlay: open
+  const openMobileInventory = useCallback(() => {
+    setMobileInventoryOpen(true);
+    setActiveSection("inventory");
+  }, []);
+
+  // Mobile overlay: close
+  const closeMobileInventory = useCallback(() => {
+    setMobileInventoryOpen(false);
+    setActiveSection("chat");
+  }, []);
+
+  // Lock body scroll when mobile inventory overlay is open.
+  // On iOS Safari, overflow:hidden alone does NOT prevent touch-driven
+  // scrolling of the body behind a fixed overlay. The reliable fix is to
+  // set position:fixed on the body (which pins it in place) and compensate
+  // for the scroll-jump by setting top:-scrollY then restoring afterwards.
+  const savedScrollYRef = useRef(0);
+
+  useEffect(() => {
+    if (mobileInventoryOpen) {
+      const scrollY = window.scrollY;
+      savedScrollYRef.current = scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.overflow = "hidden";
+    } else {
+      const scrollY = savedScrollYRef.current;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    }
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.overflow = "";
+    };
+  }, [mobileInventoryOpen]);
+
+  // Expose closeMobileInventory to parent via ref
+  useEffect(() => {
+    if (closeMobileOverlayRef) {
+      closeMobileOverlayRef.current = closeMobileInventory;
+    }
+    return () => {
+      if (closeMobileOverlayRef) {
+        closeMobileOverlayRef.current = null;
+      }
+    };
+  }, [closeMobileOverlayRef, closeMobileInventory]);
+
   return (
-    <div className="flex h-svh flex-col bg-background">
+    <div className={styles.root}>
       {/* Skip navigation link */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline-none"
-      >
+      <a href="#main-content" className={styles.skipNav}>
         Skip to main content
       </a>
 
@@ -51,80 +189,110 @@ export function AppLayout({ chatPanel, inventoryPanel }: AppLayoutProps) {
         onSaved={refreshInventory}
       />
 
-      {/* Mobile: compact cost strip with edit trigger */}
-      <div className="shrink-0 md:hidden">
-        <div className="flex items-center">
-          <div className="flex-1">
-            <CostSummary data={costSummary} variant="compact" />
-          </div>
-          <div className="mr-2 flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setProfileOpen(true)}
-              aria-label="Edit move details"
-              className="text-muted-foreground"
-            >
-              <Settings className="size-4" />
-            </Button>
+      {/* DS Navigation */}
+      <Navigation
+        brandName="Moving Fairy"
+        brandIcon={<Sparkles size={20} strokeWidth={1.8} />}
+        activeSection={activeSection}
+        onNavigate={handleNavigate}
+        primaryItems={NAV_PRIMARY_ITEMS}
+        secondaryItems={NAV_SECONDARY_ITEMS}
+      />
+
+      {/* Mobile: inventory preview strip (replaces old cost strip on mobile) */}
+      {hasCostData && (
+        <>
+          {/* Desktop cost strip — hidden on mobile by InventoryPreview's own media query */}
+          <div className={styles.costStrip}>
+            <CostSummary data={costSummary!} variant="compact" />
             <SignOutButton />
           </div>
-        </div>
-      </div>
 
-      {/* Desktop: side-by-side layout */}
-      <div className="hidden flex-1 md:flex">
-        {/* Inventory panel — left side */}
-        <aside className="flex w-[40%] min-w-[320px] max-w-[480px] flex-col border-r border-border" aria-label="Inventory">
-          <div className="flex items-center justify-end gap-1 border-b border-border px-3 py-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setProfileOpen(true)}
-              className="gap-1.5 text-xs text-muted-foreground"
-            >
-              <Settings className="size-3.5" />
-              Edit move details
-            </Button>
-            <SignOutButton />
-          </div>
-          {inventoryPanel}
-        </aside>
+          {/* Mobile preview strip — hidden on desktop via its own CSS, and hidden when the mobile overlay is open */}
+          {!mobileInventoryOpen && (
+            <InventoryPreview
+              itemCount={totalItems}
+              estimatedCost={costSummary!.total_estimated_ship_cost}
+              currency={costSummary!.currency}
+              onExpand={openMobileInventory}
+            />
+          )}
+        </>
+      )}
 
-        {/* Chat panel — right side */}
-        <main id="main-content" className="flex flex-1 flex-col">
+      {/* Main body — chat + optional inventory panel */}
+      <div className={styles.body}>
+        {/* Chat — primary content */}
+        <main id="main-content" className={styles.chatMain}>
           {chatPanel}
         </main>
+
+        {/* Desktop: inventory side panel */}
+        {inventoryOpen && (
+          <aside
+            className={styles.inventoryPanel}
+            style={{ width: inventoryWidth }}
+            aria-label="Inventory"
+          >
+            <div
+              className={styles.resizeHandle}
+              onMouseDown={handleResizeStart}
+              aria-hidden="true"
+            >
+              <div className={styles.resizeLine} />
+              <div className={styles.resizeGrip}>
+                <span className={styles.resizeGripLine} />
+              </div>
+            </div>
+            <div className={styles.inventoryContent}>
+              {inventoryPanel}
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* Mobile: tabbed content */}
-      <div className="flex flex-1 flex-col overflow-hidden md:hidden">
-        <div
-          className={cn(
-            "flex-1 overflow-hidden",
-            activeTab === "chat" ? "block" : "hidden"
-          )}
-          id="mobile-tabpanel-chat"
-          role="tabpanel"
-          aria-labelledby="mobile-tab-chat"
-        >
-          {chatPanel}
+      {/* Mobile: full-screen inventory overlay (slides down from nav) */}
+      <div
+        className={`${styles.mobileOverlay} ${mobileInventoryOpen ? styles.mobileOverlayOpen : ""}`}
+        role="region"
+        aria-label="Inventory panel"
+        aria-hidden={!mobileInventoryOpen}
+      >
+        {/* Inventory content */}
+        <div className={styles.mobileOverlayContent}>
+          {mobileInventoryOpen && inventoryPanel}
         </div>
-        <div
-          className={cn(
-            "flex-1 overflow-hidden",
-            activeTab === "inventory" ? "block" : "hidden"
-          )}
-          id="mobile-tabpanel-inventory"
-          role="tabpanel"
-          aria-labelledby="mobile-tab-inventory"
-        >
-          {inventoryPanel}
+
+        {/* Back to Aisling floating button */}
+        <div className={styles.mobileOverlayFooter}>
+          <button
+            type="button"
+            className={styles.backToChat}
+            onClick={closeMobileInventory}
+          >
+            <MessageCircle size={18} />
+            Back to Aisling
+          </button>
         </div>
       </div>
 
-      {/* Mobile bottom tab bar */}
-      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Decision notification tab — right edge.
+          Hidden when: mobile overlay is open, or Decisions tab is active in the side panel
+          (no point showing a "go to Decisions" tab when you're already looking at Decisions). */}
+      {!mobileInventoryOpen && !(decisionsTabActive && inventoryOpen) && (
+        <DecisionNotificationTab
+          count={decisionCount}
+          onClick={() => {
+            setInventoryOpen(true);
+            setActiveSection("inventory");
+            // On mobile, open the overlay and switch to Decisions tab
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setMobileInventoryOpen(true);
+            }
+            onOpenDecisions?.();
+          }}
+        />
+      )}
     </div>
   );
 }

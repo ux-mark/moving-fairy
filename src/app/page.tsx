@@ -2,47 +2,56 @@ import { redirect } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { MagicLinkForm } from '@/components/auth/MagicLinkForm'
+import { AuthCard } from '@thefairies/design-system/components'
+import styles from './page.module.css'
 
 export default async function Home() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    redirect('/chat')
+    redirect('/inventory')
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
-      <div className="flex w-full max-w-md flex-col items-center text-center">
+    <main className={styles.main}>
+      <div className={styles.inner}>
         {/* Wordmark */}
-        <div className="mb-8 flex items-center gap-2.5">
+        <div className={styles.wordmark}>
           <Sparkles
-            className="size-7 text-accent"
+            className={styles.wordmarkIcon}
             strokeWidth={1.8}
             aria-hidden="true"
           />
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className={styles.wordmarkTitle}>
             Moving Fairy
           </h1>
         </div>
 
         {/* Tagline */}
-        <p className="mb-8 text-lg font-medium text-muted-foreground">
+        <p className={styles.tagline}>
           Your fairy to help you with your move abroad.
         </p>
 
         {/* Aisling intro */}
-        <blockquote className="mb-10 rounded-xl bg-card px-6 py-5 text-base leading-relaxed text-foreground shadow-sm ring-1 ring-border">
+        <blockquote className={styles.intro}>
           <p>
-            &ldquo;Hi, I&rsquo;m Aisling. I&rsquo;ve helped hundreds of people
-            figure out what to bring, what to sell, and what to leave behind when
-            they move overseas. Let&rsquo;s sort through it together&nbsp;&mdash;
-            I&rsquo;ll tell you exactly what I&rsquo;d do.&rdquo;
+            &ldquo;I&rsquo;m Aisling. Tell me what you own and
+            I&rsquo;ll tell you what to bring, sell, or leave
+            behind&nbsp;&mdash; item by item.&rdquo;
           </p>
         </blockquote>
 
-        {/* Email form — handles both new and returning users */}
-        <MagicLinkForm />
+        {/* Email form wrapped in DS AuthCard — override neutralises
+            AuthCard's built-in full-viewport centering wrapper */}
+        <div className={styles.authCardOverride}>
+          <AuthCard
+            title="Sign in to continue"
+            subtitle="We'll send you a magic link — no password needed."
+          >
+            <MagicLinkForm />
+          </AuthCard>
+        </div>
       </div>
     </main>
   )

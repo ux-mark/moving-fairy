@@ -1,9 +1,10 @@
 "use client"
 
 import { FormEvent, useState } from "react"
-import { Check, Loader2 } from "lucide-react"
+import { Check } from "lucide-react"
+import { Button, Spinner } from "@thefairies/design-system/components"
 import { createClient } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
+import styles from "./MagicLinkForm.module.css"
 
 type FormState = "idle" | "sending" | "sent" | "error"
 
@@ -50,32 +51,26 @@ export function MagicLinkForm() {
 
   if (formState === "sent") {
     return (
-      <div className="flex w-full flex-col items-center gap-4">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10">
+      <div className={styles.sentWrapper}>
+        <div className={styles.sentIcon}>
           <Check
-            className="size-7 text-primary"
+            style={{ width: 28, height: 28, color: "var(--color-primary)" }}
             strokeWidth={2.5}
             aria-hidden="true"
           />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">
-          Magic link sent!
-        </h2>
-        <p className="text-base leading-relaxed text-muted-foreground">
+        <h2 className={styles.sentTitle}>Magic link sent!</h2>
+        <p className={styles.sentDescription}>
           Check your inbox for an email from Moving Fairy. Click the link to
           continue.
         </p>
-        <p className="text-sm font-medium text-foreground">{email}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className={styles.sentEmail}>{email}</p>
+        <p className={styles.sentNote}>
           Didn&rsquo;t get it? Check your spam folder, or{" "}
           <button
             type="button"
             onClick={handleReset}
-            className={cn(
-              "font-medium text-primary underline underline-offset-2",
-              "transition-colors hover:text-primary/80",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:rounded-sm"
-            )}
+            className={styles.retryButton}
           >
             try again
           </button>
@@ -86,12 +81,9 @@ export function MagicLinkForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-      <div className="flex flex-col gap-1.5 text-left">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-foreground"
-        >
+    <form onSubmit={handleSubmit} className={styles.form}>
+      <div className={styles.fieldGroup}>
+        <label htmlFor="email" className={styles.label}>
           Your email address
         </label>
         <input
@@ -103,49 +95,32 @@ export function MagicLinkForm() {
           onChange={(e) => setEmail(e.target.value)}
           disabled={formState === "sending"}
           placeholder="you@example.com"
-          className={cn(
-            "h-12 w-full rounded-lg border border-input bg-background px-4 text-base text-foreground",
-            "placeholder:text-muted-foreground/60",
-            "transition-colors",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
+          className={styles.input}
         />
       </div>
 
       {formState === "error" && errorMessage && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 text-left"
-        >
-          <p className="text-sm text-destructive">{errorMessage}</p>
+        <div role="alert" className={styles.errorBanner}>
+          <p className={styles.errorText}>{errorMessage}</p>
         </div>
       )}
 
-      <button
+      <Button
         type="submit"
+        variant="primary"
+        size="lg"
         disabled={formState === "sending"}
-        className={cn(
-          "inline-flex h-12 items-center justify-center rounded-lg",
-          "bg-primary px-8 text-base font-semibold text-primary-foreground",
-          "transition-colors hover:bg-primary/85",
-          "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-          "motion-reduce:transition-none",
-          "disabled:cursor-not-allowed disabled:opacity-70"
-        )}
+        className={styles.submitButton ?? ""}
       >
         {formState === "sending" ? (
           <>
-            <Loader2
-              className="mr-2 size-4 animate-spin"
-              aria-hidden="true"
-            />
+            <Spinner size="sm" />
             Sending...
           </>
         ) : (
           "Send me a magic link"
         )}
-      </button>
+      </Button>
     </form>
   )
 }

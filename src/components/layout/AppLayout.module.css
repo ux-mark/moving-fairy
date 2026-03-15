@@ -1,0 +1,289 @@
+/* AppLayout — DS tokens */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  background: var(--color-bg-page);
+  overflow-x: hidden;
+}
+
+/* Skip nav */
+.skipNav {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.skipNav:focus {
+  position: absolute;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  clip: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-primary, #16a34a);
+  padding: 8px 16px;
+  color: #fff;
+  outline: none;
+}
+
+/* Desktop cost summary strip — hidden on mobile where InventoryPreview replaces it */
+.costStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .costStrip {
+    display: none;
+  }
+}
+
+/* Body — chat + optional inventory panel */
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Chat — primary content */
+.chatMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Inventory side panel — desktop */
+.inventoryPanel {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  border-left: 1px solid var(--color-border-default);
+  background: var(--color-bg-panel);
+}
+
+/* Hide desktop inventory panel on mobile — bottom sheet replaces it */
+@media (max-width: 767px) {
+  .inventoryPanel {
+    display: none;
+  }
+}
+
+/* Resize handle — left edge of inventory panel */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  /* Extend touch target to 44px wide; visually centred on the border */
+  left: -22px;
+  width: 44px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hidden on mobile */
+@media (max-width: 767px) {
+  .resizeHandle {
+    display: none;
+  }
+}
+
+/* Visible line running the full height — sits in the centre of the 44px hit area */
+.resizeLine {
+  width: 2px;
+  height: 100%;
+  background: var(--color-border-default);
+  transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.resizeHandle:hover .resizeLine {
+  background: var(--color-border-input);
+}
+
+/* Groove / bulge affordance — centred vertically on the divider line */
+.resizeGrip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+
+  width: 12px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  pointer-events: none;
+}
+
+/* Individual grip lines inside the bulge */
+.resizeGrip::before,
+.resizeGrip::after,
+.resizeGripLine {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-border-default);
+  transition: background var(--transition-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.resizeHandle:hover .resizeGrip {
+  background: var(--color-bg-card);
+  border-color: var(--color-border-input);
+}
+
+.resizeHandle:hover .resizeGrip::before,
+.resizeHandle:hover .resizeGrip::after,
+.resizeHandle:hover .resizeGripLine {
+  background: var(--color-text-secondary);
+}
+
+.resizeHandle:active .resizeGrip::before,
+.resizeHandle:active .resizeGrip::after,
+.resizeHandle:active .resizeGripLine {
+  background: var(--color-primary);
+}
+
+/* Inventory content area */
+.inventoryContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ---- Mobile full-screen inventory overlay ---- */
+
+.mobileOverlay {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileOverlay {
+    display: none;
+    flex-direction: column;
+    position: fixed;
+    /* Start from the very top of the viewport so the overlay background
+       covers any gap between the sticky nav and the content area.
+       padding-top pushes the actual content below the nav bar. */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding-top: var(--nav-height, 56px);
+    /* Use card background (white) so there's no grey strip between
+       the white nav bar and the white tab bar inside the panel */
+    background: var(--color-bg-card);
+    /* Must sit above chat content but below the sticky nav so the nav
+       remains visible and interactive on top of the overlay */
+    z-index: calc(var(--z-sticky-nav, 100) - 1);
+  }
+
+  .mobileOverlayOpen {
+    display: flex;
+  }
+}
+
+/* Overlay content fills available space above the footer */
+.mobileOverlayContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Floating footer with "Back to Aisling" button */
+.mobileOverlayFooter {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileOverlayFooter {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(
+      to top,
+      var(--color-bg-page) 60%,
+      transparent
+    );
+  }
+}
+
+/* "Back to Aisling" — tertiary text button with icon */
+.backToChat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backToChat {
+    transition: none;
+  }
+}
+
+.backToChat:hover {
+  opacity: 0.8;
+}
+
+.backToChat:active {
+  opacity: 0.7;
+}
+
+.backToChat:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 3px;
+}

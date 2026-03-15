@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 
+/**
+ * Build a redirect URL using the real Host header instead of request.url,
+ * which resolves to 0.0.0.0 when Next.js is bound to all interfaces.
+ */
+function redirectTo(path: string, request: NextRequest) {
+  const host = request.headers.get('host') || request.nextUrl.host
+  const proto = request.headers.get('x-forwarded-proto') || 'http'
+  return NextResponse.redirect(new URL(path, `${proto}://${host}`))
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
 
   if (code) {
     const supabase = await createClient()
@@ -25,14 +34,14 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (profile) {
-          return NextResponse.redirect(new URL('/chat', request.url))
+          return redirectTo('/inventory', request)
         } else {
-          return NextResponse.redirect(new URL('/onboarding', request.url))
+          return redirectTo('/onboarding', request)
         }
       }
     }
   }
 
   // Auth error — redirect to home with error
-  return NextResponse.redirect(new URL(`/?error=auth`, request.url))
+  return redirectTo('/?error=auth', request)
 }

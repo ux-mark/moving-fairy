@@ -1,0 +1,113 @@
+/* CostSummary — uses DS tokens */
+
+.compact {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 8px 16px;
+}
+
+.compactCost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.compactItems {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.full {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 12px 16px;
+}
+
+.mainRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.totalLabelBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.totalLabel {
+  font-size: 13px;
+  font-weight: 500;
+  /* no text-transform */
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.totalValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.currencyLabel {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.itemCount {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagsRow :global([class*="Badge"]) {
+  text-transform: none !important;
+}
+
+.tabularNums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Mobile font-size bumps ---- */
+@media (max-width: 767px) {
+  .compactCost {
+    font-size: 16px;
+  }
+
+  .compactItems {
+    font-size: 14px;
+  }
+
+  .totalLabel {
+    font-size: 13px;
+  }
+
+  .currencyLabel {
+    font-size: 13px;
+  }
+
+  .itemCount {
+    font-size: 16px;
+  }
+}

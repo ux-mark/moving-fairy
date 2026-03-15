@@ -1,0 +1,691 @@
+/* ItemEditPanel — custom animated panel (Framer Motion) */
+
+/* ---- Overlay backdrop ---- */
+
+.overlay {
+  position: fixed;
+  top: 59px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-overlay, rgba(0, 0, 0, 0.3));
+  z-index: var(--z-overlay, 400);
+}
+
+/* ---- Desktop panel: slides from right ---- */
+
+.panelDesktop {
+  position: fixed;
+  top: 59px;
+  right: 0;
+  width: 460px;
+  max-width: 90vw;
+  height: calc(100vh - 59px);
+  background: var(--color-bg-card);
+  border-top: 3px solid var(--color-primary);
+  box-shadow: var(--shadow-edit-panel, -4px 0 24px rgba(0, 0, 0, 0.12));
+  z-index: var(--z-modal, 500);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Mobile panel: slides from bottom, full screen ---- */
+
+.panelMobile {
+  position: fixed;
+  top: 59px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-card);
+  z-index: var(--z-modal, 500);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Header (desktop only) ---- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---- Mobile breadcrumb bar ---- */
+
+.breadcrumbBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+  min-height: 52px;
+  background: var(--color-bg-card);
+}
+
+.breadcrumbLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+  /* Ensure 44px touch target */
+  min-height: 44px;
+}
+
+.breadcrumbLink:hover {
+  opacity: 0.8;
+}
+
+.breadcrumbLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.breadcrumbSeparator {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.breadcrumbCurrent {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 0;
+  line-height: 1.4;
+  /* 2-line clamp for breadcrumb item name — keeps the bar compact while showing enough to identify the item */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---- Scrollable body ---- */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .body {
+    padding: 0 16px 24px;
+    /* Safe area at bottom is handled by .stickyFooter */
+  }
+
+  .label {
+    font-size: 16px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .currencySymbol {
+    font-size: 16px;
+  }
+
+  .valueInput {
+    font-size: 16px;
+  }
+
+  .textarea {
+    font-size: 16px;
+  }
+
+  .select {
+    font-size: 16px;
+  }
+
+  .breadcrumbLink {
+    font-size: 16px;
+  }
+
+  .breadcrumbCurrent {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+
+  .successText {
+    font-size: 16px;
+  }
+}
+
+/* ---- Verdict selector ---- */
+
+.verdictSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.verdictPill {
+  height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  white-space: nowrap;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Verdict-specific hover states (unselected) */
+.verdictPill[data-verdict="ship"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-ship-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-ship) 30%, transparent);
+  color: var(--verdict-ship-fg);
+}
+.verdictPill[data-verdict="carry"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-carry-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-carry) 30%, transparent);
+  color: var(--verdict-carry-fg);
+}
+.verdictPill[data-verdict="sell"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-sell-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-sell) 30%, transparent);
+  color: var(--verdict-sell-fg);
+}
+.verdictPill[data-verdict="donate"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-donate-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-donate) 30%, transparent);
+  color: var(--verdict-donate-fg);
+}
+.verdictPill[data-verdict="discard"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-discard-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-discard) 30%, transparent);
+  color: var(--verdict-discard-fg);
+}
+.verdictPill[data-verdict="decide-later"]:not([data-selected]):not(:disabled):hover {
+  background: color-mix(in srgb, var(--verdict-decide-later-bg) 50%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-decide-later) 30%, transparent);
+  color: var(--verdict-decide-later-fg);
+}
+
+/* Selected states */
+.verdictPill[data-verdict="ship"][data-selected] {
+  background: var(--verdict-ship-bg);
+  border-color: color-mix(in srgb, var(--verdict-ship) 30%, transparent);
+  color: var(--verdict-ship-fg);
+  font-weight: 600;
+}
+.verdictPill[data-verdict="carry"][data-selected] {
+  background: var(--verdict-carry-bg);
+  border-color: color-mix(in srgb, var(--verdict-carry) 30%, transparent);
+  color: var(--verdict-carry-fg);
+  font-weight: 600;
+}
+.verdictPill[data-verdict="sell"][data-selected] {
+  background: var(--verdict-sell-bg);
+  border-color: color-mix(in srgb, var(--verdict-sell) 30%, transparent);
+  color: var(--verdict-sell-fg);
+  font-weight: 600;
+}
+.verdictPill[data-verdict="donate"][data-selected] {
+  background: var(--verdict-donate-bg);
+  border-color: color-mix(in srgb, var(--verdict-donate) 30%, transparent);
+  color: var(--verdict-donate-fg);
+  font-weight: 600;
+}
+.verdictPill[data-verdict="discard"][data-selected] {
+  background: var(--verdict-discard-bg);
+  border-color: color-mix(in srgb, var(--verdict-discard) 30%, transparent);
+  color: var(--verdict-discard-fg);
+  font-weight: 600;
+}
+.verdictPill[data-verdict="decide-later"][data-selected] {
+  background: var(--verdict-decide-later-bg);
+  border-color: color-mix(in srgb, var(--verdict-decide-later) 30%, transparent);
+  color: var(--verdict-decide-later-fg);
+  font-weight: 600;
+}
+
+/* Focus-visible states */
+.verdictPill[data-verdict="ship"]:focus-visible {
+  outline: 2px solid var(--verdict-ship);
+  outline-offset: 2px;
+}
+.verdictPill[data-verdict="carry"]:focus-visible {
+  outline: 2px solid var(--verdict-carry);
+  outline-offset: 2px;
+}
+.verdictPill[data-verdict="sell"]:focus-visible {
+  outline: 2px solid var(--verdict-sell);
+  outline-offset: 2px;
+}
+.verdictPill[data-verdict="donate"]:focus-visible {
+  outline: 2px solid var(--verdict-donate);
+  outline-offset: 2px;
+}
+.verdictPill[data-verdict="discard"]:focus-visible {
+  outline: 2px solid var(--verdict-discard);
+  outline-offset: 2px;
+}
+.verdictPill[data-verdict="decide-later"]:focus-visible {
+  outline: 2px solid var(--verdict-decide-later);
+  outline-offset: 2px;
+}
+
+.verdictPill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inline note shown when changing verdict away from ship/carry */
+.verdictChangeNote {
+  font-size: 13px;
+  color: var(--color-warning-text, #92400e);
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  .verdictSelector {
+    gap: 8px;
+  }
+
+  /* 3 pills per row on mobile */
+  .verdictPill {
+    height: 44px;
+    font-size: 14px;
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .verdictChangeNote {
+    font-size: 14px;
+  }
+}
+
+/* ---- Form ---- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 20px;
+  padding-bottom: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.labelHint {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+/* Text input */
+.input {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Value / currency row */
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.valueRow:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.currencySymbol {
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.valueInput {
+  flex: 1;
+  height: 44px;
+  border: none;
+  background: transparent;
+  padding: 0 12px 0 0;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  /* Remove browser default number input arrows */
+  -moz-appearance: textfield;
+}
+
+.valueInput::-webkit-outer-spin-button,
+.valueInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.valueInput::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.valueInput:focus-visible {
+  outline: none;
+}
+
+.valueInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Textarea */
+.textarea {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  resize: vertical;
+  min-height: 96px;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Select */
+.select {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-bg-card);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error banner */
+.errorBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  padding: 8px 12px;
+}
+
+.errorText {
+  font-size: 14px;
+  color: var(--color-error);
+  margin: 0;
+}
+
+/* Success banner */
+.successBanner {
+  border-radius: var(--radius-lg);
+  background: var(--color-success-bg);
+  padding: 8px 12px;
+}
+
+.successText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-success-dark);
+  margin: 0;
+}
+
+/* Save button */
+.saveButton {
+  height: 48px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.saveButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.saveButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saveButtonInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* "Back to Aisling" tertiary text link — mobile only, in sticky footer */
+.backToChat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.backToChat:hover {
+  opacity: 0.8;
+}
+
+.backToChat:active {
+  opacity: 0.7;
+}
+
+.backToChat:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backToChat {
+    transition: none;
+  }
+}
+
+/* Sticky footer — always visible at the bottom of the mobile panel */
+.stickyFooter {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+}
+
+/* ---- Delete item ---- */
+
+.deleteSeparator {
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin: 8px 0 0;
+}
+
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-error, #dc2626);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
+.deleteButton:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
+}
+
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Portal wrapper — elevates the ConfirmDialog above the edit panel (z-index 500) */
+.deleteDialogWrapper :global([class*="overlay"]) {
+  z-index: 600 !important;
+}
+
+.deleteDialogWrapper :global([class*="dialog"]) {
+  z-index: 601 !important;
+}

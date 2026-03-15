@@ -123,7 +123,6 @@ export async function createSession(userProfileId: string): Promise<Session> {
     .from('session')
     .insert({
       user_profile_id: userProfileId,
-      messages: [],
     })
     .select()
     .single()
@@ -144,27 +143,47 @@ export async function getSession(sessionId: string): Promise<Session | null> {
   return session as Session
 }
 
-export async function appendMessage(sessionId: string, message: Message): Promise<void> {
+export async function appendMessage(sessionId: string, message: Omit<Message, 'session_id'>): Promise<void> {
   const supabase = getAdminClient()
 
-  // Fetch current messages, append, update
-  const { data: session, error: fetchErr } = await supabase
-    .from('session')
-    .select('messages')
-    .eq('id', sessionId)
-    .single()
-
-  if (fetchErr || !session) throw new Error(fetchErr?.message ?? 'Session not found')
-
-  const messages: Message[] = Array.isArray(session.messages) ? session.messages : []
-  messages.push(message)
-
   const { error } = await supabase
-    .from('session')
-    .update({ messages, updated_at: new Date().toISOString() })
-    .eq('id', sessionId)
+    .from('message')
+    .insert({
+      id: message.id,
+      session_id: sessionId,
+      role: message.role,
+      content: message.content,
+      created_at: message.created_at,
+    })
 
   if (error) throw new Error(error.message)
+}
+
+export async function getMessages(sessionId: string): Promise<Message[]> {
+  const supabase = getAdminClient()
+
+  const { data, error } = await supabase
+    .from('message')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Message[]
+}
+
+export async function getRecentMessages(sessionId: string, count: number): Promise<Message[]> {
+  const supabase = getAdminClient()
+
+  const { data, error } = await supabase
+    .from('message')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(count)
+
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as Message[]).reverse()
 }
 
 // ─── ItemAssessment ────────────────────────────────────────────────────────
@@ -209,6 +228,35 @@ export async function saveItemAssessment(data: {
   const isLightweight =
     verdict === Verdict.SELL || verdict === Verdict.DONATE || verdict === Verdict.DISCARD
 
+  // Check for existing unconfirmed record with the same item name (case-insensitive).
+  // If found, update it instead of creating a duplicate.
+  const { data: existing } = await supabase
+    .from('item_assessment')
+    .select('id')
+    .eq('user_profile_id', data.user_profile_id)
+    .ilike('item_name', data.item_name)
+    .eq('user_confirmed', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (existing) {
+    return updateItemAssessment(existing.id, {
+      item_name: data.item_name,
+      verdict: data.verdict,
+      advice_text: data.advice_text ?? null,
+      item_description: isLightweight ? null : (data.item_description ?? null),
+      image_url: isLightweight ? null : (data.image_url ?? null),
+      voltage_compatible: isLightweight ? null : (data.voltage_compatible ?? null),
+      needs_transformer: isLightweight ? null : (data.needs_transformer ?? null),
+      estimated_ship_cost: isLightweight ? null : (data.estimated_ship_cost ?? null),
+      currency: isLightweight ? null : (data.currency ?? null),
+      estimated_replace_cost: isLightweight ? null : (data.estimated_replace_cost ?? null),
+      replace_currency: isLightweight ? null : (data.replace_currency ?? null),
+      user_confirmed: data.user_confirmed ?? false,
+    }, data.user_profile_id)
+  }
+
   const payload: ItemAssessmentInsert = {
     user_profile_id: data.user_profile_id,
     session_id: data.session_id ?? null,
@@ -239,6 +287,7 @@ export async function saveItemAssessment(data: {
 // Narrowed type for updatable fields — prevents accidental mutation of
 // system-managed fields like id, user_profile_id, session_id, created_at.
 type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
+  | 'item_name'
   | 'verdict'
   | 'advice_text'
   | 'item_description'
@@ -294,6 +343,68 @@ export async function getItemAssessments(
   return (data ?? []) as ItemAssessment[]
 }
 
+// ─── Delete ItemAssessment ──────────────────────────────────────────────────
+
+/**
+ * Deletes an item assessment and all associated data:
+ * 1. Verifies the assessment exists and belongs to the given user profile
+ * 2. Deletes any box_item rows referencing this assessment
+ * 3. Deletes the item_assessment row itself
+ * 4. If the assessment had an image_url, attempts to delete from Supabase Storage
+ */
+export async function deleteItemAssessment(
+  assessmentId: string,
+  userProfileId: string
+): Promise<void> {
+  const supabase = getAdminClient()
+
+  // 1. Fetch and verify ownership
+  const { data: assessment, error: fetchErr } = await supabase
+    .from('item_assessment')
+    .select('id, user_profile_id, image_url')
+    .eq('id', assessmentId)
+    .single()
+
+  if (fetchErr || !assessment) {
+    throw new Error('Item assessment not found')
+  }
+
+  if (assessment.user_profile_id !== userProfileId) {
+    throw new Error('Not authorised to delete this item')
+  }
+
+  // 2. Delete associated box_item rows
+  const { error: boxItemErr } = await supabase
+    .from('box_item')
+    .delete()
+    .eq('item_assessment_id', assessmentId)
+
+  if (boxItemErr) throw new Error(boxItemErr.message)
+
+  // 3. Delete the item_assessment row
+  const { error: deleteErr } = await supabase
+    .from('item_assessment')
+    .delete()
+    .eq('id', assessmentId)
+
+  if (deleteErr) throw new Error(deleteErr.message)
+
+  // 4. Delete image from Supabase Storage if present
+  if (assessment.image_url) {
+    try {
+      // URL format: https://<project>.supabase.co/storage/v1/object/public/item-images/{profile_id}/{uuid}.webp
+      const url = new URL(assessment.image_url as string)
+      // Extract path after /item-images/ — e.g. "{profile_id}/{uuid}.webp"
+      const match = url.pathname.match(/\/item-images\/(.+)$/)
+      if (match?.[1]) {
+        await supabase.storage.from('item-images').remove([match[1]])
+      }
+    } catch {
+      // Non-fatal: image deletion failure should not block the response
+    }
+  }
+}
+
 // ─── Cost summary ──────────────────────────────────────────────────────────
 
 export async function getCostSummary(userProfileId: string): Promise<{
@@ -303,9 +414,23 @@ export async function getCostSummary(userProfileId: string): Promise<{
 }> {
   const supabase = getAdminClient()
 
+  // Get departure country to determine authoritative currency
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('departure_country')
+    .eq('id', userProfileId)
+    .single()
+
+  const currencyMap: Record<string, string> = {
+    US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
+  }
+  const departureCurrency = profile?.departure_country
+    ? currencyMap[profile.departure_country.toUpperCase()] ?? 'USD'
+    : 'USD'
+
   const { data, error } = await supabase
     .from('item_assessment')
-    .select('verdict, estimated_ship_cost, currency')
+    .select('verdict, estimated_ship_cost')
     .eq('user_profile_id', userProfileId)
 
   if (error) throw new Error(error.message)
@@ -313,17 +438,15 @@ export async function getCostSummary(userProfileId: string): Promise<{
   const records = data ?? []
   const counts_by_verdict: Record<string, number> = {}
   let total_estimated_ship_cost = 0
-  let currency = 'USD'
 
   for (const r of records) {
     counts_by_verdict[r.verdict] = (counts_by_verdict[r.verdict] ?? 0) + 1
     if (r.estimated_ship_cost) {
       total_estimated_ship_cost += r.estimated_ship_cost
-      if (r.currency) currency = r.currency
     }
   }
 
-  return { counts_by_verdict, total_estimated_ship_cost, currency }
+  return { counts_by_verdict, total_estimated_ship_cost, currency: departureCurrency }
 }
 
 // ─── Box ───────────────────────────────────────────────────────────────────
@@ -402,7 +525,7 @@ export async function addItemToBox(
   let fromAssessment = false
 
   if (opts.itemAssessmentId) {
-    // Validate verdict gate
+    // Validate verdict gate — also fetch item_name for the insert payload
     const { data: assessment, error: aErr } = await supabase
       .from('item_assessment')
       .select('verdict, item_name')
@@ -418,8 +541,28 @@ export async function addItemToBox(
       )
     }
 
-    itemName = assessment.item_name as string
     fromAssessment = true
+    itemName = assessment.item_name
+
+    // Check if this assessed item is already in a box (partial unique index)
+    const { data: existing } = await supabase
+      .from('box_item')
+      .select('*')
+      .eq('item_assessment_id', opts.itemAssessmentId)
+      .limit(1)
+      .single()
+
+    if (existing) {
+      if (existing.box_id === boxId) {
+        // Already in this box — return existing record (idempotent)
+        return existing as BoxItem
+      }
+      // In a different box — move it: delete from old box, then insert into new
+      await supabase
+        .from('box_item')
+        .delete()
+        .eq('id', existing.id)
+    }
   }
 
   const payload = {
@@ -470,10 +613,37 @@ export async function getBox(boxId: string): Promise<Box & { items: BoxItem[] }>
 
   if (itemsErr) throw new Error(itemsErr.message)
 
-  return { ...(box as Box), items: (items ?? []) as BoxItem[] }
+  const rawItems = (items ?? []) as BoxItem[]
+
+  // Resolve canonical names for assessed items from item_assessment.item_name
+  const assessmentIds = rawItems
+    .map((i) => i.item_assessment_id)
+    .filter((id): id is string => id !== null)
+
+  let assessmentNames: Record<string, string> = {}
+  if (assessmentIds.length > 0) {
+    const { data: assessments } = await supabase
+      .from('item_assessment')
+      .select('id, item_name')
+      .in('id', assessmentIds)
+    if (assessments) {
+      assessmentNames = Object.fromEntries(assessments.map((a) => [a.id, a.item_name]))
+    }
+  }
+
+  const resolvedItems = rawItems.map((item) => ({
+    ...item,
+    // For assessed items, resolve the canonical name from item_assessment.
+    // Fall back to box_item.item_name for unassessed items (handwritten lists).
+    item_name: item.item_assessment_id
+      ? (assessmentNames[item.item_assessment_id] ?? item.item_name ?? '[Item name unavailable]')
+      : item.item_name,
+  }))
+
+  return { ...(box as Box), items: resolvedItems }
 }
 
-export async function getBoxes(userProfileId: string): Promise<Box[]> {
+export async function getBoxes(userProfileId: string): Promise<(Box & { items: BoxItem[] })[]> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('box')
@@ -482,7 +652,11 @@ export async function getBoxes(userProfileId: string): Promise<Box[]> {
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as Box[]
+  const boxes = (data ?? []) as Box[]
+
+  // Fetch items for each box so callers get accurate item counts
+  const boxesWithItems = await Promise.all(boxes.map((box) => getBox(box.id)))
+  return boxesWithItems
 }
 
 export async function saveBoxManifestPhoto(boxId: string, imageUrl: string): Promise<Box> {
@@ -500,7 +674,7 @@ export async function saveBoxManifestPhoto(boxId: string, imageUrl: string): Pro
 
 export async function getBoxManifest(
   boxId: string
-): Promise<{ label: string; items: { item_name: string; quantity: number }[] }> {
+): Promise<{ label: string; items: { item_name: string | null; quantity: number }[] }> {
   const { label, items } = await getBox(boxId)
   return {
     label,
@@ -544,5 +718,32 @@ export async function updateBoxCbm(boxId: string, cbm: number): Promise<Box> {
     .single()
 
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box CBM')
+  return box as Box
+}
+
+export async function updateBoxLabel(boxId: string, label: string): Promise<Box> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ label, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box label')
+  return box as Box
+}
+
+export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> {
+  const supabase = getAdminClient()
+  const cbm = BOX_SIZE_CBM[size]
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ size, cbm, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box size')
   return box as Box
 }

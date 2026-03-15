@@ -118,9 +118,8 @@ New equipment types are added as new JSONB keys — no migration required.
 |-------------------|-------------------|----------|-------|
 | `id`              | UUID              | No       | Primary key. |
 | `created_at`      | Timestamp with TZ | No       | Session start time. |
-| `updated_at`      | Timestamp with TZ | No       | Updated on every new message. |
+| `updated_at`      | Timestamp with TZ | No       | Updated on every change to the session. |
 | `user_profile_id` | UUID (FK)         | No       | References `UserProfile.id`. |
-| `messages`        | JSONB             | No       | Ordered array of message objects. See section 7. |
 
 **Index**: `user_profile_id`.
 
@@ -128,35 +127,25 @@ Images are NOT stored on Session. Each image URL lives on the `ItemAssessment` r
 
 ---
 
-## 7. Message Format (within Session.messages JSONB)
+## 7. Message Table
 
-Ordered, append-only array.
+Stores chat messages as individual rows. Each message belongs to a session.
 
-```json
-[
-  {
-    "id": "msg_01HXYZ",
-    "role": "user",
-    "content": "What should I do with my KitchenAid?",
-    "created_at": "2026-03-08T14:32:00Z"
-  },
-  {
-    "id": "msg_01HYZA",
-    "role": "assistant",
-    "content": "**SHIP** — Your DS-5500 handles the 300W draw comfortably...",
-    "created_at": "2026-03-08T14:32:05Z"
-  }
-]
-```
+| Column      | Type              | Nullable | Notes |
+|-------------|-------------------|----------|-------|
+| `id`        | TEXT              | No       | Message ID (e.g. `msg_1710000000000_user`). Part of composite PK. |
+| `session_id`| UUID (FK)         | No       | References `Session.id`. Part of composite PK. |
+| `role`      | TEXT              | No       | `user` or `assistant`. Enforced by CHECK constraint. |
+| `content`   | TEXT              | No       | Markdown permitted. |
+| `created_at`| Timestamp with TZ | No       | Defaults to NOW(). |
 
-| Field        | Type   | Notes |
-|--------------|--------|-------|
-| `id`         | string | `msg_` + ULID or similar. |
-| `role`       | string | `user` or `assistant`. |
-| `content`    | string | Markdown permitted. |
-| `created_at` | string | ISO 8601 timestamp. |
+**Primary Key**: `(session_id, id)` — message IDs are unique within a session, not globally.
 
-When a user sends an image, the image URL is passed alongside the message to the API but stored on the `ItemAssessment` record, not in the messages JSONB.
+**Indexes:**
+- `(session_id)` — retrieve all messages for a session
+- `(session_id, created_at)` — ordered retrieval for chat history
+
+**RLS**: Enabled. Policies to be added alongside other tables (see MF-ISSUE-005).
 
 ---
 
@@ -300,7 +289,7 @@ Links items to boxes. An assessed item can only be in one box at a time.
 | `id`                    | UUID              | No       | Primary key. |
 | `box_id`                | UUID (FK)         | No       | References `Box.id`. |
 | `item_assessment_id`    | UUID (FK)         | Yes      | References `ItemAssessment.id`. Null for items added from a handwritten list that have not yet been assessed. |
-| `item_name`             | text              | No       | Display name. Copied from `ItemAssessment.item_name` if linked; free text if unassessed. |
+| `item_name`             | text              | Yes      | Display name for unassessed items only. NULL for assessed items — use `ItemAssessment.item_name` as the canonical source. |
 | `quantity`              | integer           | No       | Default 1. |
 | `from_handwritten_list` | boolean           | No       | Default false. True if added via handwritten list OCR rather than directly by the user or Aisling. |
 | `needs_assessment`      | boolean           | No       | Default false. True if `item_assessment_id` is null — flags items from handwritten lists pending assessment. |
@@ -359,7 +348,7 @@ The MCP server enforces the record type rules: it never stores `image_url` or co
 UserProfile    (1) ──── (many) Session
 UserProfile    (1) ──── (many) ItemAssessment
 UserProfile    (1) ──── (many) Box
-Session        (1) ──── (1)    messages JSONB array
+Session        (1) ──── (many) Message
 Session        (1) ──── (many) ItemAssessment  [via session_id FK, nullable]
 Box            (1) ──── (many) BoxItem
 BoxItem        (0..1) ── (1)   ItemAssessment  [via item_assessment_id, nullable]
@@ -378,21 +367,20 @@ User submits onboarding form
   → POST /onboarding
   → Validate form data
   → INSERT UserProfile (departure, arrival, onward, timeline, equipment)
-  → INSERT Session (user_profile_id, messages: [])
+  → INSERT Session (user_profile_id)
   → Return session_id to client
 
 User sends text message
   → POST /chat { session_id, message }
   → MCP: get_user_profile(session_id) → UserProfile
   → Serialise profile → resolve modules → compose system prompt
-  → Append user message to Session.messages
+  → INSERT into message table (user message)
   → Call LLM API (system prompt + messages)
-  → Append assistant response to Session.messages
+  → INSERT into message table (assistant response)
   → If verdict is SHIP/CARRY: MCP: save_item_assessment(... full record ...)
   → If verdict is SELL/DONATE/DISCARD: MCP: save_item_assessment(... lightweight ...)
   → If verdict is DECIDE_LATER: do not save yet
   → MCP: get_cost_summary(user_profile_id) → updated totals
-  → UPDATE Session (updated_at, messages)
   → Return response + cost summary to client
 
 User sends message with image

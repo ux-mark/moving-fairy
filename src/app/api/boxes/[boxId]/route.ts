@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server'
-import { updateBoxCbm, updateBoxStatus } from '@/mcp'
+import { updateBoxCbm, updateBoxLabel, updateBoxSize, updateBoxStatus } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
-import { BoxStatus } from '@/lib/constants'
+import { BoxSize, BoxStatus } from '@/lib/constants'
 
 interface PatchBoxBody {
   status?: string
   cbm?: number
+  label?: string
+  size?: string
 }
 
 export async function PATCH(
@@ -26,6 +28,24 @@ export async function PATCH(
 
     if (body.cbm !== undefined) {
       const box = await updateBoxCbm(boxId, body.cbm)
+      return Response.json(box)
+    }
+
+    if (body.label !== undefined) {
+      const trimmed = body.label.trim()
+      if (!trimmed) {
+        return Response.json({ ok: false, error: 'Label cannot be empty' }, { status: 400 })
+      }
+      const box = await updateBoxLabel(boxId, trimmed)
+      return Response.json(box)
+    }
+
+    if (body.size !== undefined) {
+      const validSizes = Object.values(BoxSize) as string[]
+      if (!validSizes.includes(body.size)) {
+        return Response.json({ ok: false, error: 'Invalid box size' }, { status: 400 })
+      }
+      const box = await updateBoxSize(boxId, body.size as BoxSize)
       return Response.json(box)
     }
 

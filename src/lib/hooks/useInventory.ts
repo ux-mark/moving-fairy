@@ -1,8 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { CostSummaryData } from "@/components/inventory/CostSummary";
+
+// Module-level registry so external callers (e.g. ChatInterface after AI tool
+// calls) can trigger a refresh of all mounted useInventory instances.
+let externalRefreshCallbacks: Array<() => void> = [];
+
+export function registerInventoryRefresh(cb: () => void): () => void {
+  externalRefreshCallbacks.push(cb);
+  return () => {
+    externalRefreshCallbacks = externalRefreshCallbacks.filter((fn) => fn !== cb);
+  };
+}
+
+export function triggerInventoryRefresh() {
+  externalRefreshCallbacks.forEach((cb) => cb());
+}
+
+// Re-export so consumers can import CostSummaryData from one place.
+export type { CostSummaryData };
 
 interface InventoryState {
   assessments: ItemAssessment[];
@@ -29,8 +47,13 @@ export function useInventory() {
     error: null,
   });
 
+  const hasLoadedRef = useRef(false);
+
   const fetchInventory = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    // Only show skeleton on initial load, not background refreshes
+    if (!hasLoadedRef.current) {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    }
 
     try {
       const [assessRes, boxesRes, costRes] = await Promise.allSettled([
@@ -51,8 +74,11 @@ export function useInventory() {
 
       if (boxesRes.status === "fulfilled" && boxesRes.value.ok) {
         const data = await boxesRes.value.json();
-        boxes = data.boxes ?? data ?? [];
-        boxItems = data.box_items ?? data.boxItems ?? {};
+        const rawBoxes = data.boxes ?? data ?? [];
+        boxes = rawBoxes.map(({ items, ...box }: { items?: unknown; [key: string]: unknown }) => box);
+        boxItems = Object.fromEntries(
+          rawBoxes.map((b: { id: string; items?: unknown[] }) => [b.id, b.items ?? []])
+        );
       }
 
       if (costRes.status === "fulfilled" && costRes.value.ok) {
@@ -63,6 +89,7 @@ export function useInventory() {
         costSummary = deriveCostSummary(assessments);
       }
 
+      hasLoadedRef.current = true;
       setState({
         assessments,
         boxes,
@@ -82,6 +109,13 @@ export function useInventory() {
 
   useEffect(() => {
     fetchInventory();
+
+    // Register with the global refresh system so external triggers
+    // (e.g. ChatInterface after AI tool calls) refresh this hook too.
+    const unregister = registerInventoryRefresh(fetchInventory);
+    return () => {
+      unregister();
+    };
   }, [fetchInventory]);
 
   return { ...state, refreshInventory: fetchInventory };

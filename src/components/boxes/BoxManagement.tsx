@@ -7,6 +7,8 @@ import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWa
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { BoxSize, BoxType } from "@/lib/constants";
 
+import styles from "./BoxManagement.module.css";
+
 interface BoxManagementProps {
   initialBoxes: Box[];
   initialBoxItems: Record<string, BoxItem[]>;
@@ -50,7 +52,7 @@ export function BoxManagement({
 }: BoxManagementProps) {
   const [boxes, setBoxes] = useState(initialBoxes);
   const [boxItems, setBoxItems] = useState(initialBoxItems);
-  const [assessments] = useState(initialAssessments);
+  const [assessments, setAssessments] = useState(initialAssessments);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingWarning, setPendingWarning] = useState<PendingWarning | null>(null);
 
@@ -137,7 +139,10 @@ export function BoxManagement({
         }
 
         // Clean — item was saved and added to box by the light-assessment endpoint.
-        // Use the returned box_item to update local state.
+        // Use the returned box_item and assessment to update local state.
+        if (assessData.assessment) {
+          setAssessments((prev) => [...prev, assessData.assessment as ItemAssessment]);
+        }
         if (assessData.box_item) {
           setBoxItems((prev) => ({
             ...prev,
@@ -210,6 +215,27 @@ export function BoxManagement({
     []
   );
 
+  const handleUpdateBox = useCallback(
+    async (boxId: string, updates: { label?: string; size?: string }) => {
+      try {
+        const res = await fetch(`/api/boxes/${boxId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+
+        if (!res.ok) throw new Error("Failed to update box");
+        const updatedBox: Box = await res.json();
+        setBoxes((prev) =>
+          prev.map((b) => (b.id === boxId ? updatedBox : b))
+        );
+      } catch (err) {
+        console.error("Failed to update box:", err);
+      }
+    },
+    []
+  );
+
   const handleShipAll = useCallback(async () => {
     try {
       const res = await fetch("/api/boxes/ship-all", { method: "POST" });
@@ -243,6 +269,9 @@ export function BoxManagement({
         if (!res.ok) throw new Error("Failed to confirm assessment");
         const data = await res.json();
 
+        if (data.assessment) {
+          setAssessments((prev) => [...prev, data.assessment as ItemAssessment]);
+        }
         if (data.box_item) {
           setBoxItems((prev) => ({
             ...prev,
@@ -263,7 +292,7 @@ export function BoxManagement({
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className={styles.container}>
       {pendingWarning && (
         <LightAssessmentWarning
           warningCard={pendingWarning.warningCard}
@@ -283,6 +312,7 @@ export function BoxManagement({
         onRemoveItem={handleRemoveItem}
         onMarkPacked={handleMarkPacked}
         onAddToBox={handleAddToBox}
+        onUpdateBox={handleUpdateBox}
         onShipAll={handleShipAll}
         isCreating={isCreating}
       />

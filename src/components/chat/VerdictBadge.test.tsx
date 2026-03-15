@@ -34,40 +34,46 @@ describe('VerdictBadge', () => {
     expect(screen.getByText('DECIDE LATER')).toBeInTheDocument()
   })
 
-  it('SHIP badge has green styling class', () => {
+  it('SHIP badge passes green verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.SHIP} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-ship/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-ship-bg)')
+    expect(badge.style.color).toBe('var(--verdict-ship-fg)')
   })
 
-  it('SELL badge has amber styling class', () => {
+  it('SELL badge passes amber verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.SELL} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-sell/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-sell-bg)')
+    expect(badge.style.color).toBe('var(--verdict-sell-fg)')
   })
 
-  it('DONATE badge has a donate styling class', () => {
+  it('DONATE badge passes donate verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.DONATE} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-donate/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-donate-bg)')
+    expect(badge.style.color).toBe('var(--verdict-donate-fg)')
   })
 
-  it('DISCARD badge has a discard styling class', () => {
+  it('DISCARD badge passes discard verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.DISCARD} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-discard/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-discard-bg)')
+    expect(badge.style.color).toBe('var(--verdict-discard-fg)')
   })
 
-  it('CARRY badge has green styling class', () => {
+  it('CARRY badge passes green verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.CARRY} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-carry/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-carry-bg)')
+    expect(badge.style.color).toBe('var(--verdict-carry-fg)')
   })
 
-  it('DECIDE_LATER badge has blue styling class', () => {
+  it('DECIDE_LATER badge passes blue verdict colours to Badge', () => {
     const { container } = render(<VerdictBadge verdict={Verdict.DECIDE_LATER} />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toMatch(/text-verdict-decide-later/)
+    expect(badge.style.backgroundColor).toBe('var(--verdict-decide-later-bg)')
+    expect(badge.style.color).toBe('var(--verdict-decide-later-fg)')
   })
 
   it('accepts a custom className', () => {

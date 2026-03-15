@@ -1,5 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Source_Sans_3 } from "next/font/google";
+import { ToastProvider } from "@thefairies/design-system/components";
+import '@thefairies/design-system/styles/tokens.css';
+import '@thefairies/design-system/styles/animations.css';
+import './moving-fairy-tokens.css';
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -8,6 +12,13 @@ const sourceSans = Source_Sans_3({
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
 
 export const metadata: Metadata = {
   title: "Moving Fairy",
@@ -22,7 +33,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={sourceSans.variable}>
-      <body className="antialiased" suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

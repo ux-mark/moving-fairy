@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     return Response.json({
       ok: true,
       assessment_id: saved.id,
+      assessment: saved,
       verdict: mcpVerdict,
       box_item: boxItem,
     })
