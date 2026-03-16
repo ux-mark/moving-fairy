@@ -373,17 +373,21 @@ export async function POST(
           await appendConversationMessage(conversation.id, 'assistant', fullAssistantText)
         }
 
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        if (!signal.aborted) {
+          try { controller.enqueue(encoder.encode('data: [DONE]\n\n')) } catch { /* controller already closed */ }
+        }
       } catch (err) {
         console.error('[per-item-chat] Error:', err)
         const errorMsg = err instanceof Error ? err.message : 'Unexpected error'
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ __type: 'error', message: errorMsg })}\n\n`
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ __type: 'error', message: errorMsg })}\n\n`
+            )
           )
-        )
+        } catch { /* controller already closed */ }
       } finally {
-        controller.close()
+        try { controller.close() } catch { /* already closed */ }
       }
     },
     cancel() {

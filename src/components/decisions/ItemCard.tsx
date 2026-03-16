@@ -2,12 +2,14 @@
 
 import { RecommendationCard } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+import styles from './ItemCard.module.css'
 
 interface ItemCardProps {
   item: ItemAssessment
   onConfirm: (id: string) => void
   onRetry: (id: string) => void
   onClick: (id: string) => void
+  onVerdictChange?: (() => void) | undefined
 }
 
 // Verdict colours matching the CostSummary palette
@@ -38,7 +40,7 @@ function formatCost(amount: number, currency: string | null): string {
   }).format(amount)
 }
 
-export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
+export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
 
@@ -83,8 +85,22 @@ export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
   if (thumbnail !== undefined) cardProps.thumbnail = thumbnail
   if (item.processing_status === 'failed') cardProps.onRetry = () => onRetry(item.id)
 
+  const showVerdictTrigger = onVerdictChange && item.processing_status === 'completed' && item.verdict
+
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic prop construction
-    <RecommendationCard {...(cardProps as any)} />
+    <div className={styles.cardWrap}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic prop construction */}
+      <RecommendationCard {...(cardProps as any)} />
+      {showVerdictTrigger && (
+        <button
+          type="button"
+          className={styles.verdictTrigger}
+          onClick={(e) => { e.stopPropagation(); onVerdictChange() }}
+          aria-label={`Change verdict for ${item.item_name || 'this item'}`}
+        >
+          Change verdict
+        </button>
+      )}
+    </div>
   )
 }

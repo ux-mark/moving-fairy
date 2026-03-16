@@ -295,32 +295,19 @@ export function DecisionsList({
                     onConfirm={onConfirm}
                     onRetry={onRetry}
                     onClick={onItemClick}
+                    onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
                   />
 
-                  {/* Verdict picker trigger — only for completed items with a verdict and when onVerdictChange is provided */}
-                  {onVerdictChange && item.processing_status === 'completed' && item.verdict && (
+                  {/* Verdict picker — rendered outside the card so it can overlay */}
+                  {verdictPickerItemId === item.id && item.verdict && (
                     <div className={styles.verdictTriggerWrap}>
-                      <button
-                        type="button"
-                        className={styles.verdictTrigger}
-                        onClick={() => handleVerdictTrigger(item.id)}
-                        aria-expanded={verdictPickerItemId === item.id}
-                        aria-haspopup="listbox"
-                        aria-label={`Change verdict for ${item.item_name || 'this item'}: currently ${item.verdict}`}
-                      >
-                        <span className={styles.verdictTriggerDot} aria-hidden="true" />
-                        Change verdict
-                      </button>
-
-                      {verdictPickerItemId === item.id && (
-                        <VerdictPicker
-                          currentVerdict={item.verdict}
-                          isOpen={true}
-                          onClose={handleVerdictClose}
-                          onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
-                          {...(item.item_name ? { itemName: item.item_name } : {})}
-                        />
-                      )}
+                      <VerdictPicker
+                        currentVerdict={item.verdict}
+                        isOpen={true}
+                        onClose={handleVerdictClose}
+                        onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
+                        {...(item.item_name ? { itemName: item.item_name } : {})}
+                      />
                     </div>
                   )}
                 </div>
