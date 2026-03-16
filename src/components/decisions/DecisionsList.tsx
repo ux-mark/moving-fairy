@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import { Sparkles, Camera } from 'lucide-react'
 import {
-  EmptyState,
   RecommendationCardSkeleton,
   Button,
 } from '@thefairies/design-system/components'
@@ -64,6 +65,7 @@ export function DecisionsList({
   const hasItems = items.length > 0
   const costSummary = deriveCostSummary(items)
   const hasCostData = Object.values(costSummary.counts_by_verdict).some((n) => n > 0)
+  const [showWelcomeTextInput, setShowWelcomeTextInput] = useState(false)
 
   // Sort: processing/pending first, then by created_at descending
   const sortedItems = [...items].sort((a, b) => {
@@ -81,11 +83,13 @@ export function DecisionsList({
         {items.length > 0 ? `${items.length} item${items.length !== 1 ? 's' : ''}` : ''}
       </span>
 
-      {/* Entry points — always visible */}
-      <div className={styles.entryBar}>
-        <BatchUploadButton onUpload={onUploadPhotos} disabled={isLoading} />
-        <TextAddInput onSubmit={onAddByText} disabled={isLoading} />
-      </div>
+      {/* Entry bar — only shown when items exist */}
+      {hasItems && (
+        <div className={styles.entryBar}>
+          <BatchUploadButton onUpload={onUploadPhotos} disabled={isLoading} />
+          <TextAddInput onSubmit={onAddByText} disabled={isLoading} />
+        </div>
+      )}
 
       {/* Upload/add error banner */}
       {uploadError && (
@@ -134,16 +138,52 @@ export function DecisionsList({
             )}
           </div>
         ) : !hasItems ? (
-          <div className={styles.emptyWrap}>
-            <EmptyState
-              heading="No items yet"
-              description="Upload photos or describe items to get started. Aisling will assess each one and help you decide what to ship, sell, or leave behind."
-              ctaLabel="Upload photos"
-              onCtaClick={() => {
-                // Trigger the BatchUploadButton via its id
-                document.getElementById('batch-upload-trigger')?.click()
-              }}
+          <div className={styles.welcomeRoot}>
+            {/* Hidden BatchUploadButton provides the file input; its trigger id is used by the welcome CTA */}
+            <div aria-hidden="true" style={{ display: 'none' }}>
+              <BatchUploadButton onUpload={onUploadPhotos} disabled={isLoading} />
+            </div>
+
+            <Sparkles
+              className={styles.welcomeIcon}
+              style={{ width: 48, height: 48 }}
+              aria-hidden="true"
             />
+
+            <h1 className={styles.welcomeHeading}>Meet Aisling</h1>
+
+            <p className={styles.welcomeDescription}>
+              Aisling is your moving assistant. Snap photos of your things and she&apos;ll help you
+              decide what to ship, sell, donate, or leave behind.
+            </p>
+
+            <div className={styles.welcomeCta}>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => document.getElementById('batch-upload-trigger')?.click()}
+                disabled={isLoading}
+                style={{ width: '100%' }}
+              >
+                <Camera style={{ width: 20, height: 20 }} aria-hidden="true" />
+                Upload photos
+              </Button>
+            </div>
+
+            <button
+              type="button"
+              className={styles.welcomeSecondary}
+              onClick={() => setShowWelcomeTextInput((v) => !v)}
+              aria-expanded={showWelcomeTextInput}
+            >
+              Or describe an item
+            </button>
+
+            {showWelcomeTextInput && (
+              <div className={styles.welcomeTextInput}>
+                <TextAddInput onSubmit={onAddByText} disabled={isLoading} />
+              </div>
+            )}
           </div>
         ) : (
           <ul className={styles.cardList} aria-label="Your items">

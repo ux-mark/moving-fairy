@@ -14,14 +14,21 @@
 /* Entry bar — upload + text-add */
 .entryBar {
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* Ensure BatchUploadButton doesn't flex-shrink */
-.entryBar > :first-child {
-  flex-shrink: 0;
+@media (min-width: 768px) {
+  .entryBar {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  /* On desktop, text input fills remaining space */
+  .entryBar > :last-child {
+    flex: 1;
+  }
 }
 
 /* Cost summary strip */
@@ -144,4 +151,80 @@
   .root {
     padding: 24px 24px 48px;
   }
+}
+
+/* Welcome empty state */
+.welcomeRoot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 16px 40px;
+}
+
+.welcomeIcon {
+  color: var(--color-primary, #16a34a);
+  margin-bottom: 20px;
+}
+
+.welcomeHeading {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary, #111827);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.welcomeDescription {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+  line-height: 1.6;
+  margin: 8px 0 0;
+  max-width: 420px;
+}
+
+@media (min-width: 768px) {
+  .welcomeDescription {
+    font-size: 15px;
+  }
+}
+
+.welcomeCta {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.welcomeSecondary {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.welcomeSecondary:hover {
+  text-decoration: underline;
+  color: var(--color-text-primary, #111827);
+}
+
+.welcomeSecondary:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.welcomeTextInput {
+  margin-top: 16px;
+  width: 100%;
+  max-width: 420px;
 }
