@@ -149,6 +149,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
           <ItemEditPanel
             key={item.updated_at}
             item={item}
+            shipCurrency={item.currency ?? 'USD'}
+            replaceCurrency={item.replace_currency ?? 'EUR'}
             onSave={handleSave}
           />
         )}

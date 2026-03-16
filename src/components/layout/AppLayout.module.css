@@ -24,7 +24,7 @@
    Targets the .nav root class emitted by Navigation.module.css. */
 .root :global(.nav) {
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--color-bg-card, #ffffff);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -47,7 +47,7 @@
   border-radius: var(--radius-md);
   background: var(--color-primary, #16a34a);
   padding: 8px 16px;
-  color: #fff;
+  color: var(--color-text-inverse, #ffffff);
   outline: none;
 }
 

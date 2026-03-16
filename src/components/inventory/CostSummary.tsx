@@ -114,6 +114,12 @@ export function CostSummary({ data, variant, className }: CostSummaryProps) {
         <div className={styles.compactCost} aria-hidden="true">
           <TrendingUp style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
           <AnimatedNumber value={formattedShipCost} />
+          {formattedReplaceCost && (
+            <>
+              <span style={{ color: "var(--color-text-muted)", margin: "0 4px" }}>/</span>
+              <AnimatedNumber value={formattedReplaceCost} />
+            </>
+          )}
         </div>
         <span className={styles.compactItems} aria-hidden="true">
           <Package style={{ width: 14, height: 14 }} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, useId } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -254,7 +254,8 @@ function ItemCombobox({
     items[activeIndex]?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
-  const listboxId = "box-item-combobox-listbox";
+  const reactId = useId();
+  const listboxId = `box-item-combobox-listbox-${reactId}`;
 
   return (
     <div ref={containerRef} className={styles.comboboxWrap}>
@@ -793,6 +794,7 @@ export function BoxCard({
                         <img
                           src={itemImageUrl}
                           alt=""
+                          aria-hidden="true"
                           className={styles.itemThumb}
                         />
                       ) : (

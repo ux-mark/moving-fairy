@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useId } from 'react'
+import { Button } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import type { Verdict } from '@/lib/constants'
 import styles from './ItemEditPanel.module.css'
@@ -24,6 +25,8 @@ const VERDICT_OPTIONS: { value: Verdict; label: string }[] = [
 
 interface ItemEditPanelProps {
   item: ItemAssessment
+  shipCurrency?: string
+  replaceCurrency?: string
   onSave: (updates: Partial<ItemAssessment>) => Promise<void>
 }
 
@@ -31,7 +34,15 @@ interface ItemEditPanelProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function ItemEditPanel({ item, onSave }: ItemEditPanelProps) {
+// Currency symbol lookup
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$',
+}
+function currencySymbol(code: string): string {
+  return CURRENCY_SYMBOLS[code] ?? code
+}
+
+export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave }: ItemEditPanelProps) {
   const id = useId()
 
   const [name, setName] = useState(item.item_name || '')
@@ -124,13 +135,14 @@ export function ItemEditPanel({ item, onSave }: ItemEditPanelProps) {
       <div className={styles.costsRow}>
         <div className={styles.field}>
           <label htmlFor={`${id}-ship-cost`} className={styles.label}>
-            Estimated shipping cost
+            Estimated shipping cost ({shipCurrency})
           </label>
           <div className={styles.inputWithPrefix}>
-            <span className={styles.currencyPrefix} aria-hidden="true">$</span>
+            <span className={styles.currencyPrefix} aria-hidden="true">{currencySymbol(shipCurrency)}</span>
             <input
               id={`${id}-ship-cost`}
               type="number"
+              inputMode="decimal"
               className={styles.inputPrefixed}
               value={shipCost}
               onChange={(e) => setShipCost(e.target.value)}
@@ -138,20 +150,21 @@ export function ItemEditPanel({ item, onSave }: ItemEditPanelProps) {
               min="0"
               step="0.01"
               disabled={isSaving}
-              aria-label="Estimated shipping cost in US dollars"
+              aria-label={`Estimated shipping cost in ${shipCurrency}`}
             />
           </div>
         </div>
 
         <div className={styles.field}>
           <label htmlFor={`${id}-replace-cost`} className={styles.label}>
-            Estimated replacement cost
+            Estimated replacement cost ({replaceCurrency})
           </label>
           <div className={styles.inputWithPrefix}>
-            <span className={styles.currencyPrefix} aria-hidden="true">$</span>
+            <span className={styles.currencyPrefix} aria-hidden="true">{currencySymbol(replaceCurrency)}</span>
             <input
               id={`${id}-replace-cost`}
               type="number"
+              inputMode="decimal"
               className={styles.inputPrefixed}
               value={replaceCost}
               onChange={(e) => setReplaceCost(e.target.value)}
@@ -159,7 +172,7 @@ export function ItemEditPanel({ item, onSave }: ItemEditPanelProps) {
               min="0"
               step="0.01"
               disabled={isSaving}
-              aria-label="Estimated replacement cost in US dollars"
+              aria-label={`Estimated replacement cost in ${replaceCurrency}`}
             />
           </div>
         </div>
@@ -195,15 +208,14 @@ export function ItemEditPanel({ item, onSave }: ItemEditPanelProps) {
 
       {/* Save button */}
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.saveButton}
+        <Button
+          variant="primary"
+          size="md"
           onClick={handleSave}
           disabled={!hasChanges || isSaving}
-          aria-disabled={!hasChanges || isSaving}
         >
           {isSaving ? 'Saving...' : 'Save changes'}
-        </button>
+        </Button>
       </div>
     </section>
   )
