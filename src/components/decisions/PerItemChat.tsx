@@ -21,12 +21,16 @@ interface PerItemChatProps {
 // ---------------------------------------------------------------------------
 
 export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
-  const { messages, isStreaming, error, loadHistory, sendMessage, clearError } =
+  const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
     usePerItemChat()
 
   const messageListRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const loadedRef = useRef<string | null>(null)
+
+  // Track whether streaming has ever occurred so we only focus-return post-stream,
+  // not on initial mount.
+  const hasStreamedRef = useRef(false)
 
   // Load conversation history on mount (or when itemId changes)
   useEffect(() => {
@@ -42,9 +46,11 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
     list.scrollTop = list.scrollHeight
   }, [messages, isStreaming])
 
-  // Return focus to input after streaming ends
+  // Return focus to input after streaming ends — but not on initial mount
   useEffect(() => {
-    if (!isStreaming) {
+    if (isStreaming) {
+      hasStreamedRef.current = true
+    } else if (hasStreamedRef.current) {
       inputRef.current?.focus()
     }
   }, [isStreaming])
@@ -94,23 +100,31 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
         </p>
       </div>
 
-      {/* Aria-live region for screen reader announcements */}
-      <div
-        className={styles.srOnly}
-        aria-live="polite"
-        aria-atomic="false"
-        role="log"
-        aria-label="Conversation with Aisling"
-      />
+      {/* Persistent sr-only live region for typing indicator announcements.
+          Using a stable element with toggled text avoids screen reader
+          mount/unmount announcement issues. */}
+      <div className={styles.srOnly} aria-live="polite" role="status">
+        {isStreaming ? 'Aisling is typing' : ''}
+      </div>
 
-      {/* Message list */}
+      {/* Message list — role="log" + aria-live so new messages are announced */}
       <ul
         ref={messageListRef}
         className={styles.messageList}
         aria-label="Conversation messages"
-        role="list"
+        aria-live="polite"
+        role="log"
       >
-        {!hasMessages && !isStreaming && (
+        {isLoadingHistory && (
+          <li className={styles.messageItem}>
+            <div className={styles.welcomeState}>
+              <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+              <p className={styles.welcomeText}>Loading conversation...</p>
+            </div>
+          </li>
+        )}
+
+        {!hasMessages && !isStreaming && !isLoadingHistory && (
           <li className={styles.messageItem}>
             <div className={styles.welcomeState}>
               <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
@@ -130,9 +144,10 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
           </li>
         ))}
 
-        {/* Typing indicator while streaming */}
+        {/* Typing indicator while streaming — purely visual, announcement
+            handled by the sr-only status element above */}
         {isStreaming && (
-          <li className={styles.messageItem} aria-live="polite" aria-label="Aisling is typing">
+          <li className={styles.messageItem}>
             <div className={styles.typingRow}>
               <div className={styles.typingBubble}>
                 <ThinkingDots />
@@ -176,11 +191,11 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
             onKeyDown={handleKeyDown}
             onInput={handleInput}
           />
+          {/* No aria-label — visible "Send" text satisfies WCAG 2.5.3 */}
           <button
             type="submit"
             className={styles.sendButton}
             disabled={isStreaming}
-            aria-label="Send message"
           >
             <Send size={16} aria-hidden="true" />
             <span>Send</span>

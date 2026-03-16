@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { randomUUID } from 'crypto'
 import { BOX_SIZE_CBM, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
 import type { Box, BoxItem, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
@@ -720,7 +721,7 @@ export async function appendConversationMessage(
   content: string
 ): Promise<ItemConversationMessage> {
   const supabase = getAdminClient()
-  const id = `msg_${Date.now()}_${role}`
+  const id = randomUUID()
 
   const { data, error } = await supabase
     .from('item_conversation_message')

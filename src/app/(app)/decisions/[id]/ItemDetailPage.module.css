@@ -97,11 +97,31 @@
   border-radius: 2px;
 }
 
+/* ---- Chat skeleton shown in loading state ---- */
+
+.chatPlaceholder {
+  height: min(480px, 60vh);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-radius: var(--radius-lg, 12px);
+}
+
 /* ---- Desktop ---- */
 
 @media (min-width: 768px) {
   .loadingRoot,
   .stateRoot {
     padding: 24px 24px 48px;
+  }
+
+  .chatPlaceholder {
+    height: 480px;
+  }
+}
+
+/* ---- Reduced motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .backLink {
+    transition: none;
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import type Anthropic from '@anthropic-ai/sdk'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import {
   getOrCreateItemConversation,
@@ -111,12 +112,30 @@ export async function POST(
   // Narrowed to non-null after the guard above
   const profile = maybeProfile
 
+  // Reject early if no API key is configured (SDK path only — CLI mode injects its own key)
+  if (!useCliMode()) {
+    const apiKey = getApiKey(profile)
+    if (!apiKey) {
+      return Response.json(
+        { error: 'No API key configured. Add your Anthropic API key in Settings.' },
+        { status: 503 }
+      )
+    }
+  }
+
   const { id: itemId } = await params
   const body = await req.json()
   const userMessage = body.message as string
 
   if (!userMessage?.trim()) {
     return Response.json({ error: 'Message is required' }, { status: 400 })
+  }
+
+  if (userMessage.length > 4000) {
+    return Response.json(
+      { error: 'Message is too long. Please keep messages under 4,000 characters.' },
+      { status: 400 }
+    )
   }
 
   // Fetch item and verify ownership
@@ -133,10 +152,18 @@ export async function POST(
   // Compose system prompt
   const systemPrompt = await composePerItemChatPrompt(profile, item)
 
-  // Build messages array for LLM (role + content pairs)
-  const llmMessages = messages.map((m) => ({ role: m.role, content: m.content }))
+  // Build messages array for LLM (role + content pairs), trimmed to last 20 to cap context
+  const MAX_CONTEXT_MESSAGES = 20
+  const allLlmMessages = messages.map((m) => ({ role: m.role, content: m.content }))
+  const llmMessages =
+    allLlmMessages.length > MAX_CONTEXT_MESSAGES
+      ? allLlmMessages.slice(-MAX_CONTEXT_MESSAGES)
+      : allLlmMessages
 
   const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+
+  // Read abort signal so we can cancel in-flight work if the client disconnects
+  const { signal } = req
 
   // ─── Tool executor ─────────────────────────────────────────────────────────
 
@@ -199,9 +226,9 @@ export async function POST(
           )
         } else {
           // SDK path — multi-turn tool-use loop
-          const Anthropic = (await import('@anthropic-ai/sdk')).default
+          const AnthropicSDK = (await import('@anthropic-ai/sdk')).default
           let apiKey = getApiKey(profile)
-          const client = new Anthropic({ apiKey })
+          const client = new AnthropicSDK({ apiKey })
 
           const sdkTools = CHAT_TOOLS.map((t) => ({
             name: t.name,
@@ -209,24 +236,30 @@ export async function POST(
             input_schema: t.input_schema,
           }))
 
-          let currentMessages = llmMessages.map((m) => ({
+          let currentMessages: Anthropic.MessageParam[] = llmMessages.map((m) => ({
             role: m.role as 'user' | 'assistant',
             content: m.content,
           }))
 
           for (let round = 0; round < 10; round++) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let response: any
+            // Check abort before each LLM call
+            if (signal.aborted) break
+
+            let response: Anthropic.Message
             try {
-              response = await client.messages.create({
-                model,
-                max_tokens: 4096,
-                system: systemPrompt,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                tools: sdkTools as any,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                messages: currentMessages as any,
-              })
+              response = await client.messages.create(
+                {
+                  model,
+                  max_tokens: 4096,
+                  system: systemPrompt,
+                  // Tool input_schema uses a generic JSON Schema object that the SDK
+                  // types more narrowly — the cast is unavoidable here.
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  tools: sdkTools as any,
+                  messages: currentMessages,
+                },
+                { signal }
+              )
             } catch (err) {
               // Retry once on 401 in development (refreshes keychain token)
               if (
@@ -235,24 +268,25 @@ export async function POST(
                 err.message.includes('401')
               ) {
                 apiKey = refreshAnthropicApiKey()
-                const retryClient = new Anthropic({ apiKey })
-                response = await retryClient.messages.create({
-                  model,
-                  max_tokens: 4096,
-                  system: systemPrompt,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  tools: sdkTools as any,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  messages: currentMessages as any,
-                })
+                const retryClient = new AnthropicSDK({ apiKey })
+                response = await retryClient.messages.create(
+                  {
+                    model,
+                    max_tokens: 4096,
+                    system: systemPrompt,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    tools: sdkTools as any,
+                    messages: currentMessages,
+                  },
+                  { signal }
+                )
               } else {
                 throw err
               }
             }
 
             let hasToolUse = false
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const toolResults: any[] = []
+            const toolResults: Anthropic.ToolResultBlockParam[] = []
 
             for (const block of response.content) {
               if (block.type === 'text') {
@@ -319,19 +353,19 @@ export async function POST(
 
             if (!hasToolUse || response.stop_reason === 'end_turn') break
 
-            // Feed tool results back for the next round
+            // Batch all tool results into a single user message to satisfy the
+            // alternating role constraint (multiple consecutive user messages
+            // would cause a 400 from the API).
             currentMessages = [
               ...currentMessages,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              { role: 'assistant' as const, content: response.content as any },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ...toolResults.map((tr) => ({ role: 'user' as const, content: [tr] as any })),
+              { role: 'assistant' as const, content: response.content },
+              { role: 'user' as const, content: toolResults },
             ]
           }
         }
 
-        // Persist the assistant's full response
-        if (fullAssistantText.trim()) {
+        // Only persist if the client is still connected
+        if (!signal.aborted && fullAssistantText.trim()) {
           await appendConversationMessage(conversation.id, 'assistant', fullAssistantText)
         }
 
@@ -347,6 +381,9 @@ export async function POST(
       } finally {
         controller.close()
       }
+    },
+    cancel() {
+      // Client disconnected — the abort signal handles in-flight cancellation
     },
   })
 

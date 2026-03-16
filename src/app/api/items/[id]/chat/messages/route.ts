@@ -24,8 +24,15 @@ export async function GET(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     if (message.includes('not found') || message.includes('not owned')) {
+      // These are safe to surface — they describe ownership/existence, not internals
       return Response.json({ error: message }, { status: 404 })
     }
-    return Response.json({ error: message }, { status: 500 })
+    // Log full error server-side; return a generic message to avoid leaking
+    // internal details (table names, column names, raw Supabase errors).
+    console.error('[chat-messages] Error:', err)
+    return Response.json(
+      { error: 'Something went wrong loading the conversation.' },
+      { status: 500 }
+    )
   }
 }
