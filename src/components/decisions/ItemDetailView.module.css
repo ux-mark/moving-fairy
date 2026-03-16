@@ -162,26 +162,8 @@
   flex: 1;
   width: 100%;
   min-height: 0;
-}
-
-/* Back bar shown above the fullscreen chat — sticky so keyboard can't push it off */
-.fullscreenBackBar {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  min-height: 52px;
-  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
-  background: var(--color-bg-default, #ffffff);
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-@media (min-width: 768px) {
-  .fullscreenBackBar {
-    padding: 0 24px;
-  }
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* ---- Mobile: chat section breaks out of parent padding to fill full width ---- */

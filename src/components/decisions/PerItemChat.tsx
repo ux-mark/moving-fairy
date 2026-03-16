@@ -63,11 +63,13 @@ export function PerItemChat({
     loadHistory(itemId)
   }, [itemId, loadHistory])
 
-  // Auto-scroll to bottom when messages update or streaming ends
+  // Auto-scroll to bottom when messages update or streaming ends.
+  // Use instant scrolling during streaming to avoid animation buildup jank;
+  // smooth scroll only for the final settled state.
   useEffect(() => {
     const list = messageListRef.current
     if (!list) return
-    list.scrollTop = list.scrollHeight
+    list.scrollTo({ top: list.scrollHeight, behavior: isStreaming ? 'instant' : 'smooth' })
   }, [messages, isStreaming])
 
   // Return focus to input after streaming ends — but not on initial mount
@@ -132,6 +134,7 @@ export function PerItemChat({
         handleSend()
       }
       if (e.key === 'Escape') {
+        e.stopPropagation()
         inputRef.current?.blur()
       }
     },
@@ -188,6 +191,7 @@ export function PerItemChat({
           type="submit"
           className={styles.sendButton}
           disabled={isStreaming}
+          aria-label={isStreaming ? 'Send message (waiting for Aisling to finish)' : 'Send message'}
         >
           <Send size={16} aria-hidden="true" />
           <span>Send</span>
@@ -238,7 +242,6 @@ export function PerItemChat({
           ref={messageListRef}
           className={styles.messageList}
           aria-label="Conversation messages"
-          aria-live="polite"
           role="log"
         >
           {isLoadingHistory && (
@@ -343,7 +346,6 @@ export function PerItemChat({
           ref={messageListRef}
           className={styles.messageList}
           aria-label="Conversation messages"
-          aria-live="polite"
           role="log"
         >
           {isLoadingHistory && (

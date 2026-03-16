@@ -119,15 +119,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   if (isFullscreen) {
     return (
       <div className={styles.fullscreenLayout}>
-        {/* Back to decisions bar */}
-        <nav className={styles.fullscreenBackBar} aria-label="Navigation">
-          <Link href="/decisions" className={styles.backLink}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            Back to decisions
-          </Link>
-        </nav>
-
-        {/* Chat fills the rest of the available content area */}
+        {/* Chat fills all available content area — PerItemChat renders its own "Back to {itemName}" header */}
         <PerItemChat
           itemId={item.id}
           itemName={itemName}
@@ -156,7 +148,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
       {thumbnail && (
         <div className={styles.itemImage}>
           {imageError ? (
-            <div className={styles.imageErrorPlaceholder} role="img" aria-label={`Photo of ${itemName} could not be loaded`}>
+            <div className={styles.imageErrorPlaceholder} role="status">
               <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
               <p className={styles.imageErrorText}>Photo could not be loaded</p>
             </div>

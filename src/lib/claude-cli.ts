@@ -361,6 +361,8 @@ function spawnCliStreaming(
       if (lineBuffer.trim()) processLine(lineBuffer)
 
       console.log(`[claude-cli] Process exited with code ${code}, output length: ${fullText.length}`)
+      if (stderr.trim()) console.log(`[claude-cli] stderr: ${stderr.trim().slice(0, 500)}`)
+      if (fullText.length === 0) console.warn(`[claude-cli] WARNING: Empty response from CLI. lineBuffer remaining: "${lineBuffer.slice(0, 200)}"`)
       if (code !== 0) {
         reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
         return

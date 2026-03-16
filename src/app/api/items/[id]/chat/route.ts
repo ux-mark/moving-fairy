@@ -220,6 +220,7 @@ export async function POST(
       try {
         if (useCliMode()) {
           // CLI path — runCliAgentLoop handles the multi-turn tool-use loop
+          console.log(`[per-item-chat] CLI mode: system prompt length=${systemPrompt.length}, messages=${llmMessages.length}, model=${model}`)
           fullAssistantText = await runCliAgentLoop(
             systemPrompt,
             llmMessages,
@@ -228,6 +229,7 @@ export async function POST(
             controller,
             executeTool
           )
+          console.log(`[per-item-chat] CLI response length=${fullAssistantText.length}`)
         } else {
           // SDK path — multi-turn tool-use loop
           const AnthropicSDK = (await import('@anthropic-ai/sdk')).default

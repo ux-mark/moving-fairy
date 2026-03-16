@@ -4,13 +4,13 @@
 
 | PR | Title | Branch | Date | Status |
 |----|-------|--------|------|--------|
-| [#39](https://github.com/ux-mark/moving-fairy/pull/39) | Fix CLI image assessment: use Read tool instead of broken SDK fallback | `fix/cli-image-assessment` | 2026-03-16 | open |
-| [#30](https://github.com/ux-mark/moving-fairy/pull/30) | Add item-centric UX overhaul plan and agent brief | `feature/item-centric-plan` | 2026-03-15 | open |
+| — | — | — | — | — |
 
 ## Merged
 
 | PR | Title | Branch | Merged | Branch deleted |
 |----|-------|--------|--------|----------------|
+| [#39](https://github.com/ux-mark/moving-fairy/pull/39) | Fix CLI image assessment: use Read tool instead of broken SDK fallback | `fix/cli-image-assessment` | 2026-03-16 | yes |
 | [#38](https://github.com/ux-mark/moving-fairy/pull/38) | Fix auth redirects, dead code cleanup, storage bucket, RLS policies | `fix/qa-sweep-cleanup` | 2026-03-16 | yes |
 | [#29](https://github.com/ux-mark/moving-fairy/pull/29) | Fix 5 issues: welcome-back race, tool_call XML, card images, currency, hook consolidation | `fix/batch-issue-fixes` | 2026-03-15 | yes |
 | [#27](https://github.com/ux-mark/moving-fairy/pull/27) | Include pending decisions in welcome-back prompt | `fix/welcome-back-pending-decisions` | 2026-03-13 | yes |

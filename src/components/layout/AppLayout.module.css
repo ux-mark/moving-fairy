@@ -15,7 +15,7 @@
   .root {
     position: fixed;
     inset: 0;
-    height: 100%;
+    height: 100dvh;
   }
 }
 
