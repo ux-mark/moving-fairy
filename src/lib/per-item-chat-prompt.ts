@@ -81,7 +81,9 @@ function composeItemContext(item: ItemAssessment): string {
 function composeInventorySummary(costSummary: {
   counts_by_verdict: Record<string, number>
   total_estimated_ship_cost: number
-  currency: string
+  ship_currency: string
+  total_estimated_replace_cost?: number
+  replace_currency?: string
 }): string {
   const counts = costSummary.counts_by_verdict
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -98,7 +100,10 @@ function composeInventorySummary(costSummary: {
     lines.push(`- ${verdict}: ${count}`)
   }
 
-  lines.push(`- Estimated total shipping: ${costSummary.currency} ${costSummary.total_estimated_ship_cost}`)
+  lines.push(`- Estimated total shipping: ${costSummary.ship_currency} ${costSummary.total_estimated_ship_cost}`)
+  if (costSummary.total_estimated_replace_cost && costSummary.replace_currency) {
+    lines.push(`- Estimated total replacement: ${costSummary.replace_currency} ${costSummary.total_estimated_replace_cost}`)
+  }
   lines.push('')
 
   return lines.join('\n')
@@ -122,4 +127,10 @@ Rules:
 - Keep responses conversational and concise. This is a focused discussion about one item.
 - You may reference the inventory summary for context (e.g. "You've already got 18 items to ship...").
 - Do NOT ask about other items unless the user brings them up.
+
+Consistency with tool calls:
+- After calling \`render_assessment_card\` and \`update_item_assessment\`, your text response MUST reflect the NEW values. Do not reference the original assessment context in the system prompt — your tool calls are now the source of truth.
+- Never contradict your own tool calls. If you changed the verdict to SHIP in the tool call, your text must explain why SHIP is now the recommendation. Do not hedge, backtrack, or suggest the previous verdict was better.
+- If the user asks you to change something and you agree, commit fully. Either refuse the change with a clear reason, or make the change and stand behind it.
+- The item context above always reflects the latest database state, including any changes the user made outside of chat.
 `.trim()

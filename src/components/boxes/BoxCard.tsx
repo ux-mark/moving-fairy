@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, useId } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -253,7 +254,8 @@ function ItemCombobox({
     items[activeIndex]?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
-  const listboxId = "box-item-combobox-listbox";
+  const reactId = useId();
+  const listboxId = `box-item-combobox-listbox-${reactId}`;
 
   return (
     <div ref={containerRef} className={styles.comboboxWrap}>
@@ -784,6 +786,48 @@ export function BoxCard({
                         ? assessments?.[item.item_assessment_id]
                         : undefined;
                       const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
+                      const itemImageUrl = assessment?.image_url
+                        ? `/api/img?url=${encodeURIComponent(assessment.image_url)}`
+                        : undefined;
+
+                      const thumbNode = itemImageUrl ? (
+                        <img
+                          src={itemImageUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className={styles.itemThumb}
+                        />
+                      ) : (
+                        <div className={styles.itemThumbPlaceholder} aria-hidden="true">
+                          <Package size={16} />
+                        </div>
+                      );
+
+                      const verdictDotNode = (
+                        <span
+                          className={styles.verdictDot}
+                          style={{
+                            background: assessment?.verdict
+                              ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
+                              : "var(--color-border-default)",
+                          }}
+                          aria-hidden="true"
+                        />
+                      );
+
+                      const innerContent = (
+                        <>
+                          {thumbNode}
+                          {verdictDotNode}
+                          <span className={styles.itemName}>{displayName}</span>
+                          {item.quantity > 1 && (
+                            <span className={styles.itemQty}>x{item.quantity}</span>
+                          )}
+                          {assessment && (
+                            <VerdictBadge verdict={assessment.verdict} />
+                          )}
+                        </>
+                      );
 
                       return (
                         <motion.li
@@ -795,26 +839,19 @@ export function BoxCard({
                           exit={{ opacity: 0, x: 12 }}
                           transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
                         >
-                          <div className={styles.itemRowLeft}>
-                            <span
-                              className={styles.verdictDot}
-                              style={{
-                                background: assessment?.verdict
-                                  ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
-                                  : "var(--color-border-default)",
-                              }}
-                              aria-hidden="true"
-                            />
-                            <span className={styles.itemName}>{displayName}</span>
-                            {item.quantity > 1 && (
-                              <span className={styles.itemQty}>x{item.quantity}</span>
-                            )}
-                            {assessment && (
-                              <VerdictBadge
-                                verdict={assessment.verdict}
-                              />
-                            )}
-                          </div>
+                          {assessment?.id ? (
+                            <Link
+                              href={`/decisions/${assessment.id}`}
+                              className={styles.itemLink}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {innerContent}
+                            </Link>
+                          ) : (
+                            <div className={styles.itemRowLeft}>
+                              {innerContent}
+                            </div>
+                          )}
 
                           {!isShipped && onRemoveItem && (
                             <Button

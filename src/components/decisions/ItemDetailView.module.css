@@ -95,19 +95,47 @@
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
   line-height: 0;
+  background: var(--color-bg-subtle, #f9fafb);
 }
 
 .itemImg {
   width: 100%;
-  max-height: 200px;
-  object-fit: cover;
+  max-height: 50vh;
+  min-height: 160px;
+  object-fit: contain;
+  background: var(--color-bg-subtle, #f9fafb);
   display: block;
 }
 
 @media (min-width: 768px) {
   .itemImg {
-    max-height: 320px;
+    max-height: 400px;
   }
+}
+
+/* ---- Image error placeholder ---- */
+
+.imageErrorPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 160px;
+  padding: 32px 24px;
+  background: var(--color-bg-subtle, #f9fafb);
+  text-align: center;
+}
+
+.imageErrorIcon {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.imageErrorText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.4;
 }
 
 /* ---- Card section ---- */
@@ -118,13 +146,47 @@
   gap: 0;
 }
 
-/* ---- Chat section ---- */
+/* ---- Chat section (inline, non-fullscreen) ---- */
 
 .chatSection {
   display: flex;
   flex-direction: column;
+}
+
+/* ---- Chat section (fullscreen) — fills all remaining space ---- */
+
+.chatSectionFullscreen {
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: min(480px, 60vh);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Fullscreen layout: fills the page content area, nav stays above ---- */
+
+.fullscreenLayout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* ---- Mobile: chat section edge-to-edge ---- */
+
+@media (max-width: 767px) {
+  .chatSection {
+    margin-left: -16px;
+    margin-right: -16px;
+    /* width must account for the negative margins: 100% of parent content
+       width plus 32px (16px recovered on each side) = full viewport width.
+       Without this, child elements calculating width: 100% still reference
+       the pre-margin content box and leave a 16px gap on the right. */
+    width: calc(100% + 32px);
+  }
 }
 
 /* ---- Desktop: more breathing room ---- */
@@ -132,10 +194,6 @@
 @media (min-width: 768px) {
   .root {
     padding: 24px 24px 48px;
-  }
-
-  .chatSection {
-    min-height: 480px;
   }
 }
 

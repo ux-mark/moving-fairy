@@ -210,6 +210,9 @@ export default function ItemDetailPage() {
           item={pageState.item}
           onConfirm={handleConfirm}
           onRetry={handleRetry}
+          onItemUpdate={(updated) =>
+            setPageState({ status: 'ready', item: updated })
+          }
         />
       )}
     </AppLayout>

@@ -14,6 +14,7 @@ interface UseItemsReturn {
   addItemByText: (itemName: string) => Promise<ItemAssessment>
   confirmItem: (id: string) => Promise<void>
   retryAssessment: (id: string) => Promise<void>
+  updateVerdict: (id: string, verdict: string) => Promise<void>
 }
 
 export function useItems(profileId?: string): UseItemsReturn {
@@ -38,8 +39,8 @@ export function useItems(profileId?: string): UseItemsReturn {
         ? data
         : (data.items ?? [])
       if (isMountedRef.current) {
-        // Sort newest first
-        setItems([...fetched].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+        // Sort oldest first so the first item uploaded appears at the top
+        setItems([...fetched].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()))
         setError(null)
       }
     } catch (err) {
@@ -60,6 +61,32 @@ export function useItems(profileId?: string): UseItemsReturn {
     return () => {
       isMountedRef.current = false
     }
+  }, [refresh])
+
+  // Polling fallback: refresh every 5s while any item is pending/processing.
+  // This is a safety net in case Realtime misses UPDATE events.
+  useEffect(() => {
+    const hasPending = items.some(
+      (i) => i.processing_status === 'pending' || i.processing_status === 'processing'
+    )
+    if (!hasPending) return
+
+    const id = setInterval(() => {
+      if (isMountedRef.current) refresh()
+    }, 5_000)
+
+    return () => clearInterval(id)
+  }, [items, refresh])
+
+  // Refresh when the tab regains focus (covers missed Realtime events)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isMountedRef.current) {
+        refresh()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [refresh])
 
   // Supabase Realtime subscription
@@ -84,8 +111,8 @@ export function useItems(profileId?: string): UseItemsReturn {
               if (exists) {
                 return prev.map((i) => (i.id === newItem.id ? newItem : i))
               }
-              // Otherwise add to beginning (newest first)
-              return [newItem, ...prev]
+              // Append (oldest first order)
+              return [...prev, newItem]
             })
           } else if (payload.eventType === 'UPDATE') {
             const updatedItem = payload.new as ItemAssessment
@@ -122,11 +149,11 @@ export function useItems(profileId?: string): UseItemsReturn {
     const data = (await createRes.json()) as { item?: ItemAssessment } | ItemAssessment
     const item: ItemAssessment = 'item' in data && data.item ? data.item : (data as ItemAssessment)
 
-    // Optimistically add the pending item
+    // Optimistically add the pending item (append — oldest first order)
     setItems((prev) => {
       const exists = prev.some((i) => i.id === item.id)
       if (exists) return prev
-      return [item, ...prev]
+      return [...prev, item]
     })
 
     // Trigger background assessment (fire and forget — Realtime will update when done)
@@ -147,11 +174,11 @@ export function useItems(profileId?: string): UseItemsReturn {
     const data = (await createRes.json()) as { item?: ItemAssessment } | ItemAssessment
     const item: ItemAssessment = 'item' in data && data.item ? data.item : (data as ItemAssessment)
 
-    // Optimistically add the pending item
+    // Optimistically add the pending item (append — oldest first order)
     setItems((prev) => {
       const exists = prev.some((i) => i.id === item.id)
       if (exists) return prev
-      return [item, ...prev]
+      return [...prev, item]
     })
 
     // Trigger background assessment
@@ -186,6 +213,33 @@ export function useItems(profileId?: string): UseItemsReturn {
     )
   }, [])
 
+  const updateVerdict = useCallback(async (id: string, verdict: string): Promise<void> => {
+    // Optimistic update — apply immediately; Realtime will confirm
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, verdict: verdict as ItemAssessment['verdict'] } : i
+      )
+    )
+
+    const res = await fetch(`/api/items/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verdict }),
+    })
+    if (!res.ok) {
+      // Roll back optimistic update on failure
+      setItems((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i
+          // We don't have the old value anymore, so refresh from server
+          return i
+        })
+      )
+      throw new Error(`Failed to update verdict (${res.status})`)
+    }
+    // Realtime will deliver the confirmed update; nothing more needed here
+  }, [])
+
   return {
     items,
     isLoading,
@@ -195,5 +249,6 @@ export function useItems(profileId?: string): UseItemsReturn {
     addItemByText,
     confirmItem,
     retryAssessment,
+    updateVerdict,
   }
 }

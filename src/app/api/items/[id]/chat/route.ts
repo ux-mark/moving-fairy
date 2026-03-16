@@ -152,9 +152,13 @@ export async function POST(
   // Compose system prompt
   const systemPrompt = await composePerItemChatPrompt(profile, item)
 
-  // Build messages array for LLM (role + content pairs), trimmed to last 20 to cap context
+  // Build messages array for LLM (role + content pairs), trimmed to last 20 to cap context.
+  // System-role messages are display-only notes (e.g. "You changed the verdict to Sell.") —
+  // filter them out before sending to the Anthropic API which only accepts 'user'/'assistant'.
   const MAX_CONTEXT_MESSAGES = 20
-  const allLlmMessages = messages.map((m) => ({ role: m.role, content: m.content }))
+  const allLlmMessages = messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
   const llmMessages =
     allLlmMessages.length > MAX_CONTEXT_MESSAGES
       ? allLlmMessages.slice(-MAX_CONTEXT_MESSAGES)
@@ -216,6 +220,7 @@ export async function POST(
       try {
         if (useCliMode()) {
           // CLI path — runCliAgentLoop handles the multi-turn tool-use loop
+          console.log(`[per-item-chat] CLI mode: system prompt length=${systemPrompt.length}, messages=${llmMessages.length}, model=${model}`)
           fullAssistantText = await runCliAgentLoop(
             systemPrompt,
             llmMessages,
@@ -224,6 +229,7 @@ export async function POST(
             controller,
             executeTool
           )
+          console.log(`[per-item-chat] CLI response length=${fullAssistantText.length}`)
         } else {
           // SDK path — multi-turn tool-use loop
           const AnthropicSDK = (await import('@anthropic-ai/sdk')).default
@@ -369,17 +375,21 @@ export async function POST(
           await appendConversationMessage(conversation.id, 'assistant', fullAssistantText)
         }
 
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        if (!signal.aborted) {
+          try { controller.enqueue(encoder.encode('data: [DONE]\n\n')) } catch { /* controller already closed */ }
+        }
       } catch (err) {
         console.error('[per-item-chat] Error:', err)
         const errorMsg = err instanceof Error ? err.message : 'Unexpected error'
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ __type: 'error', message: errorMsg })}\n\n`
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ __type: 'error', message: errorMsg })}\n\n`
+            )
           )
-        )
+        } catch { /* controller already closed */ }
       } finally {
-        controller.close()
+        try { controller.close() } catch { /* already closed */ }
       }
     },
     cancel() {

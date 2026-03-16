@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Package } from "lucide-react";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import type { Box, ItemAssessment } from "@/types";
@@ -72,12 +73,32 @@ function UnboxedItemRow({
     [item.id, onAddToBox]
   );
 
+  const itemImageUrl = item.image_url
+    ? `/api/img?url=${encodeURIComponent(item.image_url)}`
+    : undefined;
+
   return (
     <li
       className={`${styles.row}${!isLast ? ` ${styles.rowBordered}` : ""}`}
     >
       <div className={styles.rowLeft}>
-        <span className={styles.itemName}>{item.item_name}</span>
+        {itemImageUrl ? (
+          <img
+            src={itemImageUrl}
+            alt=""
+            className={styles.itemThumb}
+          />
+        ) : (
+          <div className={styles.itemThumbPlaceholder} aria-hidden="true">
+            <Package size={16} />
+          </div>
+        )}
+        <Link
+          href={`/decisions/${item.id}`}
+          className={styles.itemLink}
+        >
+          <span className={styles.itemName}>{item.item_name}</span>
+        </Link>
         <VerdictBadge
           verdict={item.verdict}
         />

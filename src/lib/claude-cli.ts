@@ -247,11 +247,16 @@ function spawnCliStreaming(
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
+    // Pass prompt as a positional argument (after --) instead of via stdin.
+    // This eliminates any stdin race condition where the subprocess might
+    // exit before it reads the piped input (seen as empty responses on round 0).
+    const fullArgs = [...commandArgs, '--', prompt]
+    const totalArgBytes = fullArgs.reduce((n, a) => n + Buffer.byteLength(a, 'utf-8'), 0)
     console.log(`[claude-cli] Spawning: ${command} ${commandArgs.join(' ').slice(0, 200)}...`)
-    console.log(`[claude-cli] cwd=/tmp, tools=${commandArgs.includes('--tools') ? commandArgs[commandArgs.indexOf('--tools') + 1] || '(none)' : '(default)'}`)
+    console.log(`[claude-cli] cwd=/tmp, prompt length: ${prompt.length}, total arg bytes: ${totalArgBytes}`)
     // Run in /tmp with a sanitised env so the CLI doesn't write files
     // to the project dir (which would trigger Next.js dev server restarts)
-    const proc = nodeSpawn(command, commandArgs, {
+    const proc = nodeSpawn(command, fullArgs, {
       env: env as NodeJS.ProcessEnv,
       cwd: '/tmp',
     })
@@ -337,7 +342,12 @@ function spawnCliStreaming(
 
     if (proc.stdout) {
       proc.stdout.on('data', (data: Buffer) => {
-        lineBuffer += data.toString()
+        const raw = data.toString()
+        // Log raw chunks while output is sparse — helps diagnose empty-response issues
+        if (fullText.length < 500) {
+          console.log(`[claude-cli] stdout chunk (${raw.length}b): ${raw.slice(0, 200)}`)
+        }
+        lineBuffer += raw
         const lines = lineBuffer.split('\n')
         // Keep the last partial line in the buffer
         lineBuffer = lines.pop() ?? ''
@@ -361,6 +371,8 @@ function spawnCliStreaming(
       if (lineBuffer.trim()) processLine(lineBuffer)
 
       console.log(`[claude-cli] Process exited with code ${code}, output length: ${fullText.length}`)
+      if (stderr.trim()) console.log(`[claude-cli] stderr: ${stderr.trim().slice(0, 500)}`)
+      if (fullText.length === 0) console.warn(`[claude-cli] WARNING: Empty response from CLI. lineBuffer remaining: "${lineBuffer.slice(0, 200)}"`)
       if (code !== 0) {
         reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
         return
@@ -372,8 +384,8 @@ function spawnCliStreaming(
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
+    // Prompt is passed as a positional arg (fullArgs above); no stdin write needed.
     if (proc.stdin) {
-      proc.stdin.write(prompt)
       proc.stdin.end()
     }
 
@@ -393,9 +405,13 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
+    // Pass prompt as a positional argument (after --) instead of via stdin.
+    const fullArgs = [...commandArgs, '--', prompt]
+    const totalArgBytes = fullArgs.reduce((n, a) => n + Buffer.byteLength(a, 'utf-8'), 0)
+    console.log(`[claude-cli:spawnCli] prompt length: ${prompt.length}, total arg bytes: ${totalArgBytes}`)
     // Run in /tmp with a sanitised env so the CLI doesn't write files
     // to the project dir (which would trigger Next.js dev server restarts)
-    const proc = nodeSpawn(command, commandArgs, {
+    const proc = nodeSpawn(command, fullArgs, {
       env: env as NodeJS.ProcessEnv,
       cwd: '/tmp',
     })
@@ -426,8 +442,8 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
+    // Prompt is passed as a positional arg (fullArgs above); no stdin write needed.
     if (proc.stdin) {
-      proc.stdin.write(prompt)
       proc.stdin.end()
     }
 

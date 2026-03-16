@@ -150,6 +150,55 @@
   color: var(--color-text-primary);
 }
 
+/* ============================================================
+   Item thumbnails
+   ============================================================ */
+
+.itemThumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.itemThumbPlaceholder {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-subtle, #f9fafb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ============================================================
+   Item link (tappable item names)
+   ============================================================ */
+
+.itemLink {
+  text-decoration: none;
+  color: inherit;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm, 4px);
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.itemLink:hover .itemName {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.itemLink:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: 2px;
+}
+
 /* ---- Mobile touch targets ---- */
 @media (max-width: 767px) {
   .heading {

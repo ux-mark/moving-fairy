@@ -1,0 +1,35 @@
+/* ItemCard — wrapper that integrates verdict trigger into the card footer */
+
+.cardWrap {
+  position: relative;
+}
+
+/* Verdict trigger — styled to look like a link inside the card's action bar */
+.verdictTrigger {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  min-height: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary, #16a34a);
+  border-radius: var(--radius-sm, 6px);
+  transition: color 150ms ease;
+}
+
+.verdictTrigger:hover {
+  color: var(--color-primary-hover, #15803d);
+  text-decoration: underline;
+}
+
+.verdictTrigger:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}

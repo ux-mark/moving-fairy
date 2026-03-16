@@ -8,6 +8,29 @@
   overflow-x: hidden;
 }
 
+/* iOS Safari belt-and-suspenders: fix the root to the viewport so the nav
+   cannot be pushed off-screen by scroll bounce or viewport resize events.
+   position: fixed + inset: 0 guarantees the container never moves.
+   We intentionally omit height here — with inset: 0, all four edges are
+   anchored to the viewport, so height is already determined. Adding
+   100dvh or 100svh overrides the bottom: 0 constraint and fights with
+   iOS keyboard resize, causing the nav to be pushed off-screen. */
+@media (max-width: 767px) {
+  .root {
+    position: fixed;
+    inset: 0;
+  }
+}
+
+/* Ensure the DS Navigation bar never shrinks in the flex column and always
+   presents white background with a subtle shadow for visual separation.
+   Targets the .nav root class emitted by Navigation.module.css. */
+.root :global(.nav) {
+  flex-shrink: 0;
+  background: var(--color-bg-card, #ffffff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
 /* Skip nav */
 .skipNav {
   position: absolute;
@@ -27,14 +50,18 @@
   border-radius: var(--radius-md);
   background: var(--color-primary, #16a34a);
   padding: 8px 16px;
-  color: #fff;
+  color: var(--color-text-inverse, #ffffff);
   outline: none;
 }
 
-/* Body — single-column content area */
+/* Body — single-column content area.
+   flex-shrink: 0 is NOT set here — .body should grow/shrink to fill remaining
+   space after the nav. The nav override above prevents the nav from shrinking,
+   which is the correct direction: nav is fixed height, body fills the rest. */
 .body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   overflow-x: hidden;
 }

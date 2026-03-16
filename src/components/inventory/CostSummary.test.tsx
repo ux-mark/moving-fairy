@@ -17,7 +17,7 @@ function makeData(overrides: Partial<CostSummaryData> = {}): CostSummaryData {
   return {
     counts_by_verdict: { SHIP: 3, SELL: 2, DONATE: 1 },
     total_estimated_ship_cost: 450,
-    currency: 'USD',
+    ship_currency: 'USD',
     ...overrides,
   }
 }
@@ -111,14 +111,41 @@ describe('CostSummary — compact variant', () => {
 })
 
 describe('CostSummary — currency display', () => {
-  it('formats EUR currency', () => {
+  it('formats EUR ship currency', () => {
     render(
       <CostSummary
-        data={makeData({ total_estimated_ship_cost: 300, currency: 'EUR' })}
+        data={makeData({ total_estimated_ship_cost: 300, ship_currency: 'EUR' })}
         variant="full"
       />
     )
     expect(screen.getByText('EUR')).toBeInTheDocument()
     expect(screen.getByText(/300/)).toBeInTheDocument()
+  })
+
+  it('shows replacement cost when provided', () => {
+    render(
+      <CostSummary
+        data={makeData({
+          total_estimated_replace_cost: 1200,
+          replace_currency: 'EUR',
+        })}
+        variant="full"
+      />
+    )
+    expect(screen.getByText('EUR')).toBeInTheDocument()
+    expect(screen.getByText(/1[,.]?200/)).toBeInTheDocument()
+  })
+
+  it('does not show replacement cost section when total is 0', () => {
+    render(
+      <CostSummary
+        data={makeData({
+          total_estimated_replace_cost: 0,
+          replace_currency: 'EUR',
+        })}
+        variant="full"
+      />
+    )
+    expect(screen.queryByText(/Est. replacement/i)).not.toBeInTheDocument()
   })
 })

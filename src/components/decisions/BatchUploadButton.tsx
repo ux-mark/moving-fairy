@@ -50,13 +50,13 @@ export function BatchUploadButton({ onUpload, disabled }: BatchUploadButtonProps
       />
       <Button
         id="batch-upload-trigger"
-        variant="secondary"
-        size="sm"
+        variant="primary"
+        size="lg"
         onClick={handleClick}
         disabled={disabled || isUploading}
         aria-label="Upload photos of items"
       >
-        <Camera style={{ width: 16, height: 16 }} aria-hidden="true" />
+        <Camera style={{ width: 20, height: 20 }} aria-hidden="true" />
         {isUploading ? 'Uploading...' : 'Upload photos'}
       </Button>
     </>

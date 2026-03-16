@@ -1,27 +1,15 @@
 'use client'
 
 import { RecommendationCard } from '@thefairies/design-system/components'
-import type { RecommendationCardProps } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
-
-// Extend RecommendationCardProps to include forward-compatible props that will
-// be picked up once the DS is updated. Using a local extension avoids any type
-// errors while preserving the intent for reviewers and future DS consumers.
-type RecommendationCardExtendedProps = RecommendationCardProps & {
-  /** Forward-compatible: custom pending state message (DS update pending) */
-  pendingMessage?: string
-  /** Forward-compatible: custom processing state message (DS update pending) */
-  processingMessage?: string
-}
-
-// Badge type extension for fgColor support (DS update pending)
-type ExtendedBadge = { label: string; color: string; fgColor?: string }
+import styles from './ItemCard.module.css'
 
 interface ItemCardProps {
   item: ItemAssessment
   onConfirm: (id: string) => void
   onRetry: (id: string) => void
   onClick: (id: string) => void
+  onVerdictChange?: (() => void) | undefined
 }
 
 // Verdict colours matching the CostSummary palette
@@ -52,11 +40,11 @@ function formatCost(amount: number, currency: string | null): string {
   }).format(amount)
 }
 
-export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
+export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
 
-  const badge: ExtendedBadge | undefined = verdictColors && verdictLabel
+  const badge = verdictColors && verdictLabel
     ? { label: verdictLabel, color: verdictColors.bg, fgColor: verdictColors.fg }
     : undefined
 
@@ -75,10 +63,7 @@ export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
   // Determine the recommendation status based on user_confirmed
   const status = item.user_confirmed ? 'confirmed' : 'idle'
 
-  // Build props object. Forward-compatible props (pendingMessage, processingMessage,
-  // fgColor on badge) will be picked up once the DS is updated.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-compatible DS props not yet in DS types
-  const cardProps: Record<string, any> = {
+  const cardProps: Record<string, unknown> = {
     title: item.item_name || 'New item',
     rationale: item.advice_text ?? '',
     status,
@@ -100,8 +85,22 @@ export function ItemCard({ item, onConfirm, onRetry, onClick }: ItemCardProps) {
   if (thumbnail !== undefined) cardProps.thumbnail = thumbnail
   if (item.processing_status === 'failed') cardProps.onRetry = () => onRetry(item.id)
 
+  const showVerdictTrigger = onVerdictChange && item.processing_status === 'completed' && item.verdict
+
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-compatible props cast until DS is updated
-    <RecommendationCard {...(cardProps as any)} />
+    <div className={styles.cardWrap}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic prop construction */}
+      <RecommendationCard {...(cardProps as any)} />
+      {showVerdictTrigger && (
+        <button
+          type="button"
+          className={styles.verdictTrigger}
+          onClick={(e) => { e.stopPropagation(); onVerdictChange() }}
+          aria-label={`Change verdict for ${item.item_name || 'this item'}`}
+        >
+          Change verdict
+        </button>
+      )}
+    </div>
   )
 }
