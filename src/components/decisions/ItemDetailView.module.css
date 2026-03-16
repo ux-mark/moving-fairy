@@ -113,6 +113,31 @@
   }
 }
 
+/* ---- Image error placeholder ---- */
+
+.imageErrorPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 160px;
+  padding: 32px 24px;
+  background: var(--color-bg-subtle, #f9fafb);
+  text-align: center;
+}
+
+.imageErrorIcon {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.imageErrorText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* ---- Card section ---- */
 
 .cardSection {
@@ -129,60 +154,40 @@
   flex: 1;
 }
 
-/* ---- Full-screen chat overlay ---- */
+/* ---- Fullscreen layout: fills the page content area, nav stays above ---- */
 
-.fullscreenChat {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--color-bg-default, #ffffff);
+.fullscreenLayout {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
 }
 
-.fullscreenHeader {
+/* Back bar shown above the fullscreen chat */
+.fullscreenBackBar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 56px;
   padding: 0 16px;
+  height: 52px;
   border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+  background: var(--color-bg-default, #ffffff);
   flex-shrink: 0;
 }
 
-.fullscreenBackButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-muted, #6b7280);
-  background: none;
-  border: none;
-  cursor: pointer;
-  min-height: 44px;
-  padding: 0;
-  font-family: inherit;
-  transition: color 0.15s ease;
+@media (min-width: 768px) {
+  .fullscreenBackBar {
+    padding: 0 24px;
+  }
 }
 
-.fullscreenBackButton:hover {
-  color: var(--color-text-primary, #111827);
-}
+/* ---- Mobile: chat section breaks out of parent padding to fill full width ---- */
 
-.fullscreenBackButton:focus-visible {
-  outline: 2px solid var(--color-primary, #059669);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-
-.fullscreenThumb {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  object-fit: cover;
-  margin-left: auto;
-  flex-shrink: 0;
+@media (max-width: 767px) {
+  .chatSection {
+    margin-left: -16px;
+    margin-right: -16px;
+  }
 }
 
 /* ---- Desktop: more breathing room ---- */
@@ -196,8 +201,7 @@
 /* ---- Reduced motion ---- */
 
 @media (prefers-reduced-motion: reduce) {
-  .backLink,
-  .fullscreenBackButton {
+  .backLink {
     transition: none;
   }
 }

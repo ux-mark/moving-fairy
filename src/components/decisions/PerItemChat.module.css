@@ -170,6 +170,11 @@
   background: var(--color-bg-default, #ffffff);
 }
 
+/* Extra bottom padding for iPhone safe area when in fullscreen */
+.inputAreaFullscreen {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
 .inputForm {
   display: flex;
   gap: 8px;
@@ -284,15 +289,20 @@
   border: 0;
 }
 
-/* ---- Full-screen overlay ---- */
+/* ---- Full-screen panel (fills available layout space — nav stays visible) ---- */
 
 .fullscreenRoot {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--color-bg-default, #ffffff);
+  flex: 1;
   display: flex;
   flex-direction: column;
+  background: var(--color-bg-default, #ffffff);
+  min-height: 0;
+}
+
+/* Full-screen message list — grow to fill all available vertical space */
+.fullscreenRoot .messageList {
+  flex: 1;
+  min-height: 0;
 }
 
 .fullscreenHeader {
@@ -338,13 +348,6 @@
   object-fit: cover;
   margin-left: auto;
   flex-shrink: 0;
-}
-
-/* Full-screen message list — takes all available space */
-
-.fullscreenRoot .messageList {
-  flex: 1;
-  min-height: 0;
 }
 
 /* ---- Desktop: tighter padding ---- */

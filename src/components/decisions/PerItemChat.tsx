@@ -18,6 +18,11 @@ interface PerItemChatProps {
   thumbnailUrl?: string | undefined
   onAssessmentUpdated?: ((updated: ItemAssessment) => void) | undefined
   fullscreenTriggerRef?: React.RefObject<HTMLButtonElement | null> | undefined
+  /** Controlled fullscreen state — managed by the parent */
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
+  /** Increment to trigger a history re-fetch (e.g. after saving an edit). */
+  chatRefreshTrigger?: number | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -30,25 +35,26 @@ export function PerItemChat({
   thumbnailUrl,
   onAssessmentUpdated,
   fullscreenTriggerRef,
+  isFullscreen = false,
+  onToggleFullscreen,
+  chatRefreshTrigger,
 }: PerItemChatProps) {
   const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
-    usePerItemChat(onAssessmentUpdated ? { onAssessmentUpdated } : undefined)
+    usePerItemChat({
+      ...(onAssessmentUpdated ? { onAssessmentUpdated } : {}),
+      ...(chatRefreshTrigger !== undefined ? { refreshTrigger: chatRefreshTrigger } : {}),
+    })
 
   const messageListRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const loadedRef = useRef<string | null>(null)
 
-  // Collapsed / full-screen state
+  // Collapsed state (only meaningful in non-fullscreen mode)
   const [isCollapsed, setIsCollapsed] = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Track whether streaming has ever occurred so we only focus-return post-stream,
   // not on initial mount.
   const hasStreamedRef = useRef(false)
-
-  // Focus trap elements for full-screen modal
-  const fullscreenRef = useRef<HTMLDivElement>(null)
-  const fullscreenCloseRef = useRef<HTMLButtonElement>(null)
 
   // Load conversation history on mount (or when itemId changes)
   useEffect(() => {
@@ -84,54 +90,28 @@ export function PerItemChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingHistory])
 
-  // Full-screen: focus first element on open, return focus on close
+  // Focus the input when entering fullscreen
   useEffect(() => {
     if (isFullscreen) {
-      fullscreenCloseRef.current?.focus()
+      inputRef.current?.focus()
     } else if (fullscreenTriggerRef?.current) {
       fullscreenTriggerRef.current.focus()
     }
   }, [isFullscreen, fullscreenTriggerRef])
 
-  // Full-screen: trap focus within overlay and handle Escape
+  // Handle Escape key to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        setIsFullscreen(false)
-        return
-      }
-
-      if (e.key !== 'Tab') return
-
-      const overlay = fullscreenRef.current
-      if (!overlay) return
-
-      const focusable = overlay.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-
-      if (!first || !last) return
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
+        onToggleFullscreen?.()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen])
+  }, [isFullscreen, onToggleFullscreen])
 
   const handleSend = useCallback(() => {
     const value = inputRef.current?.value.trim() ?? ''
@@ -173,7 +153,7 @@ export function PerItemChat({
   // ---------------------------------------------------------------------------
 
   const inputArea = (
-    <div className={styles.inputArea}>
+    <div className={`${styles.inputArea}${isFullscreen ? ` ${styles.inputAreaFullscreen}` : ''}`}>
       {error && (
         <div className={styles.errorBanner} role="alert">
           <p className={styles.errorText}>{error}</p>
@@ -217,16 +197,13 @@ export function PerItemChat({
   )
 
   // ---------------------------------------------------------------------------
-  // Full-screen overlay
+  // Full-screen layout (fills parent container — nav remains visible above)
   // ---------------------------------------------------------------------------
 
   if (isFullscreen) {
     return (
-      <div
-        ref={fullscreenRef}
+      <section
         className={styles.fullscreenRoot}
-        role="dialog"
-        aria-modal="true"
         aria-label={`Chat with Aisling about ${itemName}`}
       >
         {/* Persistent sr-only live region */}
@@ -237,10 +214,9 @@ export function PerItemChat({
         {/* Full-screen header */}
         <div className={styles.fullscreenHeader}>
           <button
-            ref={fullscreenCloseRef}
             type="button"
             className={styles.fullscreenBackButton}
-            onClick={() => setIsFullscreen(false)}
+            onClick={onToggleFullscreen}
             aria-label={`Back to ${itemName}`}
           >
             <ArrowLeft size={16} aria-hidden="true" />
@@ -303,7 +279,7 @@ export function PerItemChat({
         </ul>
 
         {inputArea}
-      </div>
+      </section>
     )
   }
 
@@ -331,7 +307,7 @@ export function PerItemChat({
               ref={fullscreenTriggerRef as React.RefObject<HTMLButtonElement>}
               type="button"
               className={styles.headerIconButton}
-              onClick={() => setIsFullscreen(true)}
+              onClick={onToggleFullscreen}
               aria-label="Open full-screen chat"
               title="Full-screen chat"
             >
