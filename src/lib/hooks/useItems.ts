@@ -39,8 +39,8 @@ export function useItems(profileId?: string): UseItemsReturn {
         ? data
         : (data.items ?? [])
       if (isMountedRef.current) {
-        // Sort newest first
-        setItems([...fetched].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+        // Sort oldest first so the first item uploaded appears at the top
+        setItems([...fetched].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()))
         setError(null)
       }
     } catch (err) {
@@ -111,8 +111,8 @@ export function useItems(profileId?: string): UseItemsReturn {
               if (exists) {
                 return prev.map((i) => (i.id === newItem.id ? newItem : i))
               }
-              // Otherwise add to beginning (newest first)
-              return [newItem, ...prev]
+              // Append (oldest first order)
+              return [...prev, newItem]
             })
           } else if (payload.eventType === 'UPDATE') {
             const updatedItem = payload.new as ItemAssessment
@@ -149,11 +149,11 @@ export function useItems(profileId?: string): UseItemsReturn {
     const data = (await createRes.json()) as { item?: ItemAssessment } | ItemAssessment
     const item: ItemAssessment = 'item' in data && data.item ? data.item : (data as ItemAssessment)
 
-    // Optimistically add the pending item
+    // Optimistically add the pending item (append — oldest first order)
     setItems((prev) => {
       const exists = prev.some((i) => i.id === item.id)
       if (exists) return prev
-      return [item, ...prev]
+      return [...prev, item]
     })
 
     // Trigger background assessment (fire and forget — Realtime will update when done)
@@ -174,11 +174,11 @@ export function useItems(profileId?: string): UseItemsReturn {
     const data = (await createRes.json()) as { item?: ItemAssessment } | ItemAssessment
     const item: ItemAssessment = 'item' in data && data.item ? data.item : (data as ItemAssessment)
 
-    // Optimistically add the pending item
+    // Optimistically add the pending item (append — oldest first order)
     setItems((prev) => {
       const exists = prev.some((i) => i.id === item.id)
       if (exists) return prev
-      return [item, ...prev]
+      return [...prev, item]
     })
 
     // Trigger background assessment

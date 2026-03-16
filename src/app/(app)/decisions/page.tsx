@@ -23,9 +23,13 @@ export default function DecisionsPage() {
 
   const { items, isLoading, error, refresh, addItemByPhoto, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadingCount, setUploadingCount] = useState(0)
 
   const handleUploadPhotos = async (files: File[]) => {
     setUploadError(null)
+    // Show skeleton placeholders immediately
+    setUploadingCount(files.length)
+
     const uploads = files.map(async (file) => {
       const formData = new FormData()
       formData.append('file', file)
@@ -33,10 +37,15 @@ export default function DecisionsPage() {
       if (!uploadRes.ok) throw new Error('Upload failed')
       const data = await uploadRes.json() as { url?: string }
       if (!data.url) throw new Error('No URL returned')
-      return addItemByPhoto(data.url)
+      const item = await addItemByPhoto(data.url)
+      // Reduce skeleton count as each item is created
+      setUploadingCount((prev) => Math.max(0, prev - 1))
+      return item
     })
 
     const results = await Promise.allSettled(uploads)
+    // Clear any remaining skeletons
+    setUploadingCount(0)
     const failures = results.filter((r) => r.status === 'rejected')
     if (failures.length > 0) {
       setUploadError(
@@ -81,6 +90,7 @@ export default function DecisionsPage() {
         onRefresh={refresh}
         onItemClick={(id) => router.push(`/decisions/${id}`)}
         onVerdictChange={handleVerdictChange}
+        uploadingCount={uploadingCount}
       />
     </AppLayout>
   )

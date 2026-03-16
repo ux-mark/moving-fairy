@@ -30,6 +30,8 @@ interface DecisionsListProps {
   onItemClick: (id: string) => void
   onRefresh?: () => void
   onVerdictChange?: (id: string, verdict: string) => Promise<void>
+  /** Number of files currently being uploaded — drives skeleton placeholders */
+  uploadingCount?: number
 }
 
 function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
@@ -85,6 +87,7 @@ export function DecisionsList({
   onItemClick,
   onRefresh,
   onVerdictChange,
+  uploadingCount = 0,
 }: DecisionsListProps) {
   const hasItems = items.length > 0
   const costSummary = deriveCostSummary(items)
@@ -97,13 +100,13 @@ export function DecisionsList({
   // Filter state
   const [activeFilter, setActiveFilter] = useState<Verdict | null>(null)
 
-  // Sort: processing/pending first, then by created_at descending
+  // Sort: processing/pending first, then by created_at ascending (first uploaded = top)
   const sortedItems = [...items].sort((a, b) => {
     const isProcessingA = a.processing_status === 'pending' || a.processing_status === 'processing'
     const isProcessingB = b.processing_status === 'pending' || b.processing_status === 'processing'
     if (isProcessingA && !isProcessingB) return -1
     if (!isProcessingA && isProcessingB) return 1
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   })
 
   // Apply active filter — only filter completed items with a verdict
@@ -142,8 +145,8 @@ export function DecisionsList({
         {items.length > 0 ? `${items.length} item${items.length !== 1 ? 's' : ''}` : ''}
       </span>
 
-      {/* Entry bar — only shown when items exist */}
-      {hasItems && (
+      {/* Entry bar — shown when items exist or uploads are in progress */}
+      {(hasItems || uploadingCount > 0) && (
         <div className={styles.entryBar}>
           <BatchUploadButton onUpload={onUploadPhotos} disabled={isLoading} />
           <TextAddInput onSubmit={onAddByText} disabled={isLoading} />
@@ -207,7 +210,7 @@ export function DecisionsList({
               </div>
             )}
           </div>
-        ) : !hasItems ? (
+        ) : !hasItems && uploadingCount === 0 ? (
           <div className={styles.welcomeRoot}>
             {/* Hidden BatchUploadButton provides the file input; its trigger id is used by the welcome CTA */}
             <div aria-hidden="true" style={{ display: 'none' }}>
@@ -255,7 +258,7 @@ export function DecisionsList({
               </div>
             )}
           </div>
-        ) : filteredItems.length === 0 ? (
+        ) : filteredItems.length === 0 && uploadingCount === 0 ? (
           /* Empty filter state */
           <div className={styles.emptyFilter} role="status">
             <p className={styles.emptyFilterText}>
@@ -278,6 +281,12 @@ export function DecisionsList({
             className={styles.cardList}
             aria-label="Your items"
           >
+            {/* Skeleton placeholders for files currently uploading */}
+            {uploadingCount > 0 && Array.from({ length: uploadingCount }, (_, i) => (
+              <li key={`uploading-${i}`} className={styles.cardItem} aria-label="Uploading item">
+                <RecommendationCardSkeleton />
+              </li>
+            ))}
             {filteredItems.map((item) => (
               <li key={item.id} className={styles.cardItem}>
                 <div className={styles.cardWrapper}>
