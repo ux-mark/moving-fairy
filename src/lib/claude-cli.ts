@@ -51,9 +51,10 @@ interface ToolCall {
 export async function callCli(
   prompt: string,
   systemPrompt: string | null,
-  model: string
+  model: string,
+  options?: { addDirs?: string[] }
 ): Promise<string> {
-  const args = buildCliArgs(systemPrompt, model)
+  const args = buildCliArgs(systemPrompt, model, undefined, options?.addDirs)
   return spawnCli(args, prompt)
 }
 
@@ -165,7 +166,7 @@ export async function runCliAgentLoop(
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[]): string[] {
+function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[], addDirs?: string[]): string[] {
   const cmd = [
     'claude',
     '--print',
@@ -179,6 +180,11 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
 
   if (systemPrompt) {
     cmd.push('--system-prompt', systemPrompt)
+  }
+
+  // Grant access to additional directories (e.g., /tmp for temp image files)
+  if (addDirs && addDirs.length > 0) {
+    cmd.push('--add-dir', ...addDirs)
   }
 
   // Block native CLI tools that could write to the project directory and

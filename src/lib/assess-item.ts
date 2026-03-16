@@ -5,6 +5,7 @@ import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
 import { callCli, useCliMode, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import type { UserProfile } from '@/types/database'
+import { writeFile, unlink } from 'fs/promises'
 
 // ─── render_assessment_card tool schema ──────────────────────────────────────
 
@@ -259,8 +260,8 @@ async function callSdkWithRetry(
  *
  * Mode selection:
  * - CLI mode (dev default): calls the claude CLI subprocess via callCli().
- *   Images require SDK mode — items with ONLY an image (no text name) are
- *   automatically routed to SDK mode.
+ *   For images: downloads to a temp file, instructs the model to use the
+ *   Read tool (vision-capable) to view it. No API key needed.
  * - SDK mode (prod + FORCE_SDK): calls the Anthropic SDK directly.
  */
 export async function assessItem(itemId: string, profileId: string): Promise<void> {
@@ -283,32 +284,33 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
 
     const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
 
-    console.log(
-      `[assess-item] Assessing item "${item.item_name}" (${itemId}) ` +
-        `| route: ${profile.departure_country} → ${profile.arrival_country}` +
-        `${profile.onward_country ? ` → ${profile.onward_country}` : ''}` +
-        ` | has_image: ${Boolean(item.image_url)} | mode: ${useCliMode() ? 'cli' : 'sdk'}`
-    )
-
-    // 3. Compose system prompt via Aisling's prompt module
-    const systemPrompt = composeAssessmentPrompt(profile)
-
-    // 4. Determine LLM mode
-    // CLI mode cannot view images — force SDK when item has ONLY an image
+    const hasImage = Boolean(item.image_url)
     const itemHasTextName =
       item.item_name &&
       item.item_name !== 'Untitled' &&
       item.item_name !== 'Untitled item' &&
       item.item_name.trim() !== ''
 
-    const hasImage = Boolean(item.image_url)
-    const imageOnlyItem = hasImage && !itemHasTextName
-    const useSdk = !useCliMode() || imageOnlyItem
+    // 3. Determine LLM mode
+    // CLI mode (dev): uses the `claude` CLI subprocess — no API key needed.
+    //   For images: downloads to a temp file, tells the CLI to Read it (vision).
+    // SDK mode (prod / FORCE_SDK): calls the Anthropic SDK directly with tool_use.
+    const useSdk = !useCliMode()
+
+    console.log(
+      `[assess-item] Assessing item "${item.item_name}" (${itemId}) ` +
+        `| route: ${profile.departure_country} → ${profile.arrival_country}` +
+        `${profile.onward_country ? ` → ${profile.onward_country}` : ''}` +
+        ` | has_image: ${hasImage} | mode: ${useSdk ? 'sdk' : 'cli'}`
+    )
+
+    // 4. Compose system prompt via Aisling's prompt module
+    const systemPrompt = composeAssessmentPrompt(profile)
 
     let card: AssessmentCardInput | null = null
 
     if (useSdk) {
-      // ── SDK path ───────────────────────────────────────────────────────────
+      // ── SDK path (production) ──────────────────────────────────────────────
       // Build user message content — include image if available
       const userContent: unknown[] = []
 
@@ -355,24 +357,70 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
 
       card = await callSdkWithRetry(systemPrompt, userContent, profile, model)
     } else {
-      // ── CLI path ───────────────────────────────────────────────────────────
-      // Prepend tool instructions to the system prompt (CLI doesn't have native tool_use)
+      // ── CLI path (dev) ─────────────────────────────────────────────────────
+      // The CLI subprocess uses the developer's Claude subscription — no API key.
+      // For images: download to a temp file, instruct the model to use the
+      // Read tool (which supports vision) to view it.
       const toolInstructions = buildCliToolInstructions([RENDER_ASSESSMENT_CARD_TOOL])
       const fullSystemPrompt = toolInstructions + '\n\n' + systemPrompt
 
-      // Build text prompt — CLI cannot view images
-      let userPrompt = `Assess this item: ${item.item_name}`
-      if (item.item_description) {
-        userPrompt += `\n\n${item.item_description}`
-      }
-      if (hasImage) {
-        userPrompt +=
-          '\n\n(A photo has been uploaded for this item but is not available in this mode. ' +
-          'Base your assessment on the item name and description above.)'
+      let userPrompt: string
+      let imageTmpPath: string | null = null
+
+      if (hasImage && item.image_url) {
+        // Download image to temp file so the CLI's Read tool can view it
+        imageTmpPath = `/tmp/assess-${itemId}.webp`
+        try {
+          const imgResponse = await fetch(item.image_url)
+          if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`)
+          const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
+          await writeFile(imageTmpPath, imgBuffer)
+          console.log(`[assess-item] Saved image for CLI to ${imageTmpPath} (${imgBuffer.length} bytes)`)
+        } catch (imgErr) {
+          console.warn(`[assess-item] Could not download image for item ${itemId}:`, imgErr)
+          imageTmpPath = null
+        }
       }
 
-      const responseText = await callCli(userPrompt, fullSystemPrompt, model)
+      if (imageTmpPath && itemHasTextName) {
+        // Has both image and text name
+        userPrompt =
+          `First, use the Read tool to view the image at ${imageTmpPath} — it shows the item.\n\n` +
+          `The item is called: ${item.item_name}` +
+          (item.item_description ? `\n\n${item.item_description}` : '') +
+          '\n\nBased on both the image and the name, assess this item.'
+      } else if (imageTmpPath) {
+        // Image only (no text name)
+        userPrompt =
+          `Use the Read tool to view the image at ${imageTmpPath}.\n\n` +
+          'Identify the item in the photo and assess it.'
+      } else if (itemHasTextName) {
+        // Text only (no image, or image download failed)
+        userPrompt = `Assess this item: ${item.item_name}`
+        if (item.item_description) {
+          userPrompt += `\n\n${item.item_description}`
+        }
+      } else {
+        // No image, no text name — nothing to assess
+        console.error(
+          `[assess-item] Item ${itemId} has neither a name nor an image — cannot assess`
+        )
+        await updateItemAssessment(
+          itemId,
+          { processing_status: ProcessingStatus.FAILED },
+          profileId
+        )
+        return
+      }
+
+      const cliOptions = imageTmpPath ? { addDirs: ['/tmp'] } : undefined
+      const responseText = await callCli(userPrompt, fullSystemPrompt, model, cliOptions)
       card = extractAssessmentCardFromCli(responseText)
+
+      // Clean up temp image file
+      if (imageTmpPath) {
+        unlink(imageTmpPath).catch(() => {})
+      }
     }
 
     // 5. Parse and persist the assessment card
