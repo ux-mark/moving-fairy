@@ -149,7 +149,7 @@ function AssessmentCard({
   async function handleConfirm() {
     setConfirmState("saving");
     try {
-      const res = await fetch("/api/assessments", {
+      const res = await fetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
