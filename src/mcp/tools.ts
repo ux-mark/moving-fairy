@@ -314,27 +314,32 @@ export async function deleteItemAssessment(
 export async function getCostSummary(userProfileId: string): Promise<{
   counts_by_verdict: Record<string, number>
   total_estimated_ship_cost: number
-  currency: string
+  ship_currency: string
+  total_estimated_replace_cost: number
+  replace_currency: string
 }> {
   const supabase = getAdminClient()
 
-  // Get departure country to determine authoritative currency
+  // Get departure and arrival countries to determine authoritative currencies
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('departure_country')
+    .select('departure_country, arrival_country')
     .eq('id', userProfileId)
     .single()
 
   const currencyMap: Record<string, string> = {
     US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
   }
-  const departureCurrency = profile?.departure_country
+  const shipCurrency = profile?.departure_country
     ? currencyMap[profile.departure_country.toUpperCase()] ?? 'USD'
     : 'USD'
+  const replaceCurrency = profile?.arrival_country
+    ? currencyMap[profile.arrival_country.toUpperCase()] ?? 'EUR'
+    : 'EUR'
 
   const { data, error } = await supabase
     .from('item_assessment')
-    .select('verdict, estimated_ship_cost')
+    .select('verdict, estimated_ship_cost, estimated_replace_cost')
     .eq('user_profile_id', userProfileId)
     .eq('processing_status', 'completed')
 
@@ -343,15 +348,25 @@ export async function getCostSummary(userProfileId: string): Promise<{
   const records = data ?? []
   const counts_by_verdict: Record<string, number> = {}
   let total_estimated_ship_cost = 0
+  let total_estimated_replace_cost = 0
 
   for (const r of records) {
     counts_by_verdict[r.verdict] = (counts_by_verdict[r.verdict] ?? 0) + 1
     if (r.estimated_ship_cost) {
       total_estimated_ship_cost += r.estimated_ship_cost
     }
+    if (r.estimated_replace_cost) {
+      total_estimated_replace_cost += r.estimated_replace_cost
+    }
   }
 
-  return { counts_by_verdict, total_estimated_ship_cost, currency: departureCurrency }
+  return {
+    counts_by_verdict,
+    total_estimated_ship_cost,
+    ship_currency: shipCurrency,
+    total_estimated_replace_cost,
+    replace_currency: replaceCurrency,
+  }
 }
 
 // ─── Box ───────────────────────────────────────────────────────────────────
