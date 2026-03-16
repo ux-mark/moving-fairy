@@ -36,7 +36,7 @@ export async function GET() {
   const responseCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = []
 
   const response = NextResponse.redirect(
-    new URL('/inventory', process.env.NEXTAUTH_URL || 'http://localhost:3333')
+    new URL('/decisions', 'http://localhost:3333')
   )
 
   const supabase = createServerClient(
