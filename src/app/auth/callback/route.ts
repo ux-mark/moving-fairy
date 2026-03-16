@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (profile) {
-          return redirectTo('/inventory', request)
+          return redirectTo('/decisions', request)
         } else {
           return redirectTo('/onboarding', request)
         }
