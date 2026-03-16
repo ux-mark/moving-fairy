@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { Send } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { usePerItemChat } from '@/lib/hooks/usePerItemChat'
+import type { ItemAssessment } from '@/types'
 import styles from './PerItemChat.module.css'
 
 // ---------------------------------------------------------------------------
@@ -14,23 +15,40 @@ import styles from './PerItemChat.module.css'
 interface PerItemChatProps {
   itemId: string
   itemName: string
+  thumbnailUrl?: string | undefined
+  onAssessmentUpdated?: ((updated: ItemAssessment) => void) | undefined
+  fullscreenTriggerRef?: React.RefObject<HTMLButtonElement | null> | undefined
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
+export function PerItemChat({
+  itemId,
+  itemName,
+  thumbnailUrl,
+  onAssessmentUpdated,
+  fullscreenTriggerRef,
+}: PerItemChatProps) {
   const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
-    usePerItemChat()
+    usePerItemChat(onAssessmentUpdated ? { onAssessmentUpdated } : undefined)
 
   const messageListRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const loadedRef = useRef<string | null>(null)
 
+  // Collapsed / full-screen state
+  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
   // Track whether streaming has ever occurred so we only focus-return post-stream,
   // not on initial mount.
   const hasStreamedRef = useRef(false)
+
+  // Focus trap elements for full-screen modal
+  const fullscreenRef = useRef<HTMLDivElement>(null)
+  const fullscreenCloseRef = useRef<HTMLButtonElement>(null)
 
   // Load conversation history on mount (or when itemId changes)
   useEffect(() => {
@@ -55,14 +73,75 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
     }
   }, [isStreaming])
 
+  // Auto-expand when conversation history loads (the send path already calls
+  // setIsCollapsed(false) directly, so this only needs to cover loaded history).
+  useEffect(() => {
+    if (messages.length > 0) {
+      setIsCollapsed(false)
+    }
+    // We only want to run this when history first loads — messages going from
+    // 0 → N. After that, handleSend keeps the panel expanded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingHistory])
+
+  // Full-screen: focus first element on open, return focus on close
+  useEffect(() => {
+    if (isFullscreen) {
+      fullscreenCloseRef.current?.focus()
+    } else if (fullscreenTriggerRef?.current) {
+      fullscreenTriggerRef.current.focus()
+    }
+  }, [isFullscreen, fullscreenTriggerRef])
+
+  // Full-screen: trap focus within overlay and handle Escape
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false)
+        return
+      }
+
+      if (e.key !== 'Tab') return
+
+      const overlay = fullscreenRef.current
+      if (!overlay) return
+
+      const focusable = overlay.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (!first || !last) return
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen])
+
   const handleSend = useCallback(() => {
     const value = inputRef.current?.value.trim() ?? ''
     if (!value || isStreaming) return
     if (inputRef.current) inputRef.current.value = ''
-    // Reset textarea height
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
     }
+    // Auto-expand on first send
+    setIsCollapsed(false)
     sendMessage(itemId, value)
   }, [itemId, isStreaming, sendMessage])
 
@@ -85,79 +164,16 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [])
 
-  const hasMessages = messages.length > 0
+  // Filter out card messages — assessment updates appear in the edit panel instead
+  const visibleMessages = messages.filter((m) => m.type !== 'card')
+  const hasMessages = visibleMessages.length > 0
 
-  return (
-    <section
-      className={styles.root}
-      aria-label={`Chat with Aisling about ${itemName}`}
-    >
-      {/* Header */}
-      <div className={styles.header}>
-        <h2 className={styles.headerTitle}>Chat with Aisling</h2>
-        <p className={styles.headerSubtitle}>
-          Ask Aisling anything about this item — she can revise her assessment based on what you tell her.
-        </p>
-      </div>
+  // ---------------------------------------------------------------------------
+  // Shared input area (used in both normal and full-screen layouts)
+  // ---------------------------------------------------------------------------
 
-      {/* Persistent sr-only live region for typing indicator announcements.
-          Using a stable element with toggled text avoids screen reader
-          mount/unmount announcement issues. */}
-      <div className={styles.srOnly} aria-live="polite" role="status">
-        {isStreaming ? 'Aisling is typing' : ''}
-      </div>
-
-      {/* Message list — role="log" + aria-live so new messages are announced */}
-      <ul
-        ref={messageListRef}
-        className={styles.messageList}
-        aria-label="Conversation messages"
-        aria-live="polite"
-        role="log"
-      >
-        {isLoadingHistory && (
-          <li className={styles.messageItem}>
-            <div className={styles.welcomeState}>
-              <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
-              <p className={styles.welcomeText}>Loading conversation...</p>
-            </div>
-          </li>
-        )}
-
-        {!hasMessages && !isStreaming && !isLoadingHistory && (
-          <li className={styles.messageItem}>
-            <div className={styles.welcomeState}>
-              <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
-              <p className={styles.welcomeText}>
-                Ask Aisling anything about this item. She can answer questions, give more detail, or revise her recommendation if you share more context.
-              </p>
-            </div>
-          </li>
-        )}
-
-        {messages.map((message) => (
-          <li key={message.id} className={styles.messageItem}>
-            <MessageBubble
-              message={message}
-              onSendMessage={(text) => sendMessage(itemId, text)}
-            />
-          </li>
-        ))}
-
-        {/* Typing indicator while streaming — purely visual, announcement
-            handled by the sr-only status element above */}
-        {isStreaming && (
-          <li className={styles.messageItem}>
-            <div className={styles.typingRow}>
-              <div className={styles.typingBubble}>
-                <ThinkingDots />
-              </div>
-            </div>
-          </li>
-        )}
-      </ul>
-
-      {/* Error banner */}
+  const inputArea = (
+    <div className={styles.inputArea}>
       {error && (
         <div className={styles.errorBanner} role="alert">
           <p className={styles.errorText}>{error}</p>
@@ -171,37 +187,231 @@ export function PerItemChat({ itemId, itemName }: PerItemChatProps) {
           </button>
         </div>
       )}
-
-      {/* Input area */}
-      <div className={styles.inputArea}>
-        <form
-          className={styles.inputForm}
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleSend()
-          }}
+      <form
+        className={styles.inputForm}
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleSend()
+        }}
+      >
+        <textarea
+          ref={inputRef}
+          className={styles.textarea}
+          placeholder="Ask Aisling about this item..."
+          disabled={isStreaming}
+          rows={1}
+          aria-label="Message to Aisling"
+          onKeyDown={handleKeyDown}
+          onInput={handleInput}
+        />
+        <button
+          type="submit"
+          className={styles.sendButton}
+          disabled={isStreaming}
         >
-          <textarea
-            ref={inputRef}
-            className={styles.textarea}
-            placeholder="Ask Aisling about this item..."
-            disabled={isStreaming}
-            rows={1}
-            aria-label="Message to Aisling"
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-          />
-          {/* No aria-label — visible "Send" text satisfies WCAG 2.5.3 */}
+          <Send size={16} aria-hidden="true" />
+          <span>Send</span>
+        </button>
+      </form>
+    </div>
+  )
+
+  // ---------------------------------------------------------------------------
+  // Full-screen overlay
+  // ---------------------------------------------------------------------------
+
+  if (isFullscreen) {
+    return (
+      <div
+        ref={fullscreenRef}
+        className={styles.fullscreenRoot}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Chat with Aisling about ${itemName}`}
+      >
+        {/* Persistent sr-only live region */}
+        <div className={styles.srOnly} aria-live="polite" role="status">
+          {isStreaming ? 'Aisling is typing' : ''}
+        </div>
+
+        {/* Full-screen header */}
+        <div className={styles.fullscreenHeader}>
           <button
-            type="submit"
-            className={styles.sendButton}
-            disabled={isStreaming}
+            ref={fullscreenCloseRef}
+            type="button"
+            className={styles.fullscreenBackButton}
+            onClick={() => setIsFullscreen(false)}
+            aria-label={`Back to ${itemName}`}
           >
-            <Send size={16} aria-hidden="true" />
-            <span>Send</span>
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>Back to {itemName}</span>
           </button>
-        </form>
+          {thumbnailUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumbnailUrl}
+              alt=""
+              className={styles.fullscreenThumb}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+
+        {/* Message list */}
+        <ul
+          ref={messageListRef}
+          className={styles.messageList}
+          aria-label="Conversation messages"
+          aria-live="polite"
+          role="log"
+        >
+          {isLoadingHistory && (
+            <li className={styles.messageItem}>
+              <div className={styles.welcomeState}>
+                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <p className={styles.welcomeText}>Loading conversation...</p>
+              </div>
+            </li>
+          )}
+          {!hasMessages && !isStreaming && !isLoadingHistory && (
+            <li className={styles.messageItem}>
+              <div className={styles.welcomeState}>
+                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <p className={styles.welcomeText}>
+                  Ask Aisling anything about this item. She can answer questions, give more detail, or revise her recommendation if you share more context.
+                </p>
+              </div>
+            </li>
+          )}
+          {visibleMessages.map((message) => (
+            <li key={message.id} className={styles.messageItem}>
+              <MessageBubble
+                message={message}
+                onSendMessage={(text) => sendMessage(itemId, text)}
+              />
+            </li>
+          ))}
+          {isStreaming && (
+            <li className={styles.messageItem}>
+              <div className={styles.typingRow}>
+                <div className={styles.typingBubble}>
+                  <ThinkingDots />
+                </div>
+              </div>
+            </li>
+          )}
+        </ul>
+
+        {inputArea}
       </div>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Normal (collapsible) layout
+  // ---------------------------------------------------------------------------
+
+  return (
+    <section
+      className={styles.root}
+      aria-label={`Chat with Aisling about ${itemName}`}
+    >
+      {/* Persistent sr-only live region */}
+      <div className={styles.srOnly} aria-live="polite" role="status">
+        {isStreaming ? 'Aisling is typing' : ''}
+      </div>
+
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerRow}>
+          <h2 className={styles.headerTitle}>Chat with Aisling</h2>
+          <div className={styles.headerActions}>
+            {/* Full-screen toggle */}
+            <button
+              ref={fullscreenTriggerRef as React.RefObject<HTMLButtonElement>}
+              type="button"
+              className={styles.headerIconButton}
+              onClick={() => setIsFullscreen(true)}
+              aria-label="Open full-screen chat"
+              title="Full-screen chat"
+            >
+              <Maximize2 size={16} aria-hidden="true" />
+            </button>
+            {/* Collapse toggle */}
+            <button
+              type="button"
+              className={styles.headerIconButton}
+              onClick={() => setIsCollapsed((c) => !c)}
+              aria-expanded={!isCollapsed}
+              aria-controls="per-item-chat-messages"
+              aria-label={isCollapsed ? 'Expand chat' : 'Collapse chat'}
+            >
+              {isCollapsed
+                ? <ChevronDown size={16} aria-hidden="true" />
+                : <ChevronUp size={16} aria-hidden="true" />
+              }
+            </button>
+          </div>
+        </div>
+        {!isCollapsed && (
+          <p className={styles.headerSubtitle}>
+            Ask Aisling anything about this item — she can revise her assessment based on what you tell her.
+          </p>
+        )}
+      </div>
+
+      {/* Message list — hidden when collapsed */}
+      {!isCollapsed && (
+        <ul
+          id="per-item-chat-messages"
+          ref={messageListRef}
+          className={styles.messageList}
+          aria-label="Conversation messages"
+          aria-live="polite"
+          role="log"
+        >
+          {isLoadingHistory && (
+            <li className={styles.messageItem}>
+              <div className={styles.welcomeState}>
+                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <p className={styles.welcomeText}>Loading conversation...</p>
+              </div>
+            </li>
+          )}
+
+          {!hasMessages && !isStreaming && !isLoadingHistory && (
+            <li className={styles.messageItem}>
+              <div className={styles.welcomeState}>
+                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <p className={styles.welcomeText}>
+                  Ask Aisling anything about this item. She can answer questions, give more detail, or revise her recommendation if you share more context.
+                </p>
+              </div>
+            </li>
+          )}
+
+          {visibleMessages.map((message) => (
+            <li key={message.id} className={styles.messageItem}>
+              <MessageBubble
+                message={message}
+                onSendMessage={(text) => sendMessage(itemId, text)}
+              />
+            </li>
+          ))}
+
+          {isStreaming && (
+            <li className={styles.messageItem}>
+              <div className={styles.typingRow}>
+                <div className={styles.typingBubble}>
+                  <ThinkingDots />
+                </div>
+              </div>
+            </li>
+          )}
+        </ul>
+      )}
+
+      {inputArea}
     </section>
   )
 }
