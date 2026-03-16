@@ -104,12 +104,22 @@ function DecisionCard({
   // Build cost metadata lines
   const costLines: string[] = [];
   if (assessment.estimated_ship_cost != null) {
-    const sym = assessment.currency ?? "USD";
-    costLines.push(`Ship cost: ${sym} ${assessment.estimated_ship_cost.toFixed(2)}`);
+    const cur = assessment.currency ?? "USD";
+    const formatted = new Intl.NumberFormat("en-IE", {
+      style: "currency",
+      currency: cur,
+      maximumFractionDigits: 0,
+    }).format(assessment.estimated_ship_cost);
+    costLines.push(`Est. shipping: ${formatted}`);
   }
   if (assessment.estimated_replace_cost != null) {
-    const sym = assessment.replace_currency ?? "USD";
-    costLines.push(`Replace cost: ${sym} ${assessment.estimated_replace_cost.toFixed(2)}`);
+    const cur = assessment.replace_currency ?? "EUR";
+    const formatted = new Intl.NumberFormat("en-IE", {
+      style: "currency",
+      currency: cur,
+      maximumFractionDigits: 0,
+    }).format(assessment.estimated_replace_cost);
+    costLines.push(`Est. replacement: ${formatted}`);
   }
 
   // Immediately PATCH when the verdict pill changes

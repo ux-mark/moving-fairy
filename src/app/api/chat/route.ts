@@ -737,7 +737,7 @@ When calling save_item_assessment, always set currency="${departureCurrency}" an
         const ship = counts['SHIP'] ?? 0
         const sell = counts['SELL'] ?? 0
         const decideLater = counts['DECIDE_LATER'] ?? 0
-        summaryText = `They have ${total} items assessed — ${ship} to ship, ${sell} to sell, ${decideLater} still to decide on. Estimated shipping cost: ${costData.currency} ${costData.total_estimated_ship_cost.toLocaleString()}.`
+        summaryText = `They have ${total} items assessed — ${ship} to ship, ${sell} to sell, ${decideLater} still to decide on. Estimated shipping cost: ${costData.ship_currency} ${costData.total_estimated_ship_cost.toLocaleString()}.`
       } catch {
         summaryText = 'They have previously assessed items.'
       }

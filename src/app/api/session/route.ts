@@ -35,7 +35,7 @@ export async function GET() {
       carry_count: counts['CARRY'] ?? 0,
       decide_later_count: counts['DECIDE_LATER'] ?? 0,
       total_cost: costData.total_estimated_ship_cost,
-      currency: costData.currency,
+      currency: costData.ship_currency,
     }
   } catch {
     // Non-fatal — return empty summary

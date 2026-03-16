@@ -34,7 +34,7 @@ interface InventoryState {
 const EMPTY_COST: CostSummaryData = {
   counts_by_verdict: {},
   total_estimated_ship_cost: 0,
-  currency: "EUR",
+  ship_currency: "USD",
 };
 
 export function useInventory() {
@@ -124,17 +124,27 @@ export function useInventory() {
 function deriveCostSummary(assessments: ItemAssessment[]): CostSummaryData {
   const counts_by_verdict: Record<string, number> = {};
   let totalShipCost = 0;
+  let totalReplaceCost = 0;
 
   for (const a of assessments) {
     counts_by_verdict[a.verdict] = (counts_by_verdict[a.verdict] ?? 0) + 1;
-    if (a.verdict === "SHIP" && a.estimated_ship_cost !== null) {
+    if (a.estimated_ship_cost != null) {
       totalShipCost += a.estimated_ship_cost;
     }
+    if (a.estimated_replace_cost != null) {
+      totalReplaceCost += a.estimated_replace_cost;
+    }
   }
+
+  // Derive currencies from items — use the first item with a currency as representative
+  const shipCurrency = assessments.find((i) => i.currency)?.currency ?? "USD";
+  const replaceCurrency = assessments.find((i) => i.replace_currency)?.replace_currency ?? "EUR";
 
   return {
     counts_by_verdict,
     total_estimated_ship_cost: Math.round(totalShipCost),
-    currency: "EUR",
+    ship_currency: shipCurrency,
+    total_estimated_replace_cost: Math.round(totalReplaceCost),
+    replace_currency: replaceCurrency,
   };
 }

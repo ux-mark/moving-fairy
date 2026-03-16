@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 export interface CostSummaryData {
   counts_by_verdict: Record<string, number>;
   total_estimated_ship_cost: number;
-  currency: string;
+  ship_currency: string;
+  total_estimated_replace_cost?: number;
+  replace_currency?: string;
 }
 
 interface CostSummaryProps {
@@ -22,8 +24,8 @@ interface CostSummaryProps {
 
 // DS token colours per verdict
 const VERDICT_COLORS: Record<string, { bgColor: string; fgColor: string }> = {
-  SHIP: { bgColor: "var(--verdict-ship-bg, #d1fae5)", fgColor: "var(--verdict-ship-fg, #065f46)" },
-  CARRY: { bgColor: "var(--verdict-carry-bg, #d1fae5)", fgColor: "var(--verdict-carry-fg, #065f46)" },
+  SHIP: { bgColor: "var(--verdict-ship-bg, #dcfce7)", fgColor: "var(--verdict-ship-fg, #166534)" },
+  CARRY: { bgColor: "var(--verdict-carry-bg, #dbeafe)", fgColor: "var(--verdict-carry-fg, #1e40af)" },
   SELL: { bgColor: "var(--verdict-sell-bg, #fef3c7)", fgColor: "var(--verdict-sell-fg, #92400e)" },
   DONATE: { bgColor: "var(--verdict-donate-bg, #f3f4f6)", fgColor: "var(--verdict-donate-fg, #374151)" },
   DISCARD: { bgColor: "var(--verdict-discard-bg, #f3f4f6)", fgColor: "var(--verdict-discard-fg, #374151)" },
@@ -61,8 +63,21 @@ function formatCurrency(amount: number, currency: string): string {
 }
 
 export function CostSummary({ data, variant, className }: CostSummaryProps) {
-  const { counts_by_verdict, total_estimated_ship_cost, currency } = data;
-  const formattedCost = formatCurrency(total_estimated_ship_cost, currency);
+  const {
+    counts_by_verdict,
+    total_estimated_ship_cost,
+    ship_currency,
+    total_estimated_replace_cost,
+    replace_currency,
+  } = data;
+  const formattedShipCost = formatCurrency(total_estimated_ship_cost, ship_currency);
+  const showReplaceCost =
+    total_estimated_replace_cost != null &&
+    total_estimated_replace_cost > 0 &&
+    replace_currency != null;
+  const formattedReplaceCost = showReplaceCost
+    ? formatCurrency(total_estimated_replace_cost!, replace_currency!)
+    : null;
   const totalItems = Object.values(counts_by_verdict).reduce((sum, n) => sum + n, 0);
 
   const tags: CostStripTag[] = Object.entries(counts_by_verdict)
@@ -84,14 +99,21 @@ export function CostSummary({ data, variant, className }: CostSummaryProps) {
     });
 
   if (variant === "compact") {
+    const ariaLabel = [
+      `Estimated shipping: ${formattedShipCost}`,
+      formattedReplaceCost ? `Estimated replacement: ${formattedReplaceCost}` : null,
+      `${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`,
+    ]
+      .filter(Boolean)
+      .join(", ");
     return (
       <div
         className={cn(styles.compact, className)}
-        aria-label={`Estimated shipping cost: ${formattedCost}, ${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`}
+        aria-label={ariaLabel}
       >
         <div className={styles.compactCost} aria-hidden="true">
           <TrendingUp style={{ width: 14, height: 14, color: "var(--color-text-muted)" }} />
-          <AnimatedNumber value={formattedCost} />
+          <AnimatedNumber value={formattedShipCost} />
         </div>
         <span className={styles.compactItems} aria-hidden="true">
           <Package style={{ width: 14, height: 14 }} />
@@ -103,18 +125,33 @@ export function CostSummary({ data, variant, className }: CostSummaryProps) {
     );
   }
 
+  const fullAriaLabel = [
+    `Estimated shipping: ${formattedShipCost} ${ship_currency}`,
+    formattedReplaceCost ? `Estimated replacement: ${formattedReplaceCost} ${replace_currency}` : null,
+    `${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div
       className={cn(styles.full, className)}
-      aria-label={`Estimated shipping cost: ${formattedCost} ${currency}, ${totalItems} ${totalItems === 1 ? "item" : "items"} assessed`}
+      aria-label={fullAriaLabel}
       role="region"
     >
       <div className={styles.mainRow}>
         <div className={styles.totalLabelBlock}>
-          <p className={styles.totalLabel}>Est. Shipping</p>
-          <AnimatedNumber value={formattedCost} className={styles.totalValue ?? ""} />
-          <p className={styles.currencyLabel}>{currency}</p>
+          <p className={styles.totalLabel}>Est. shipping</p>
+          <AnimatedNumber value={formattedShipCost} className={styles.totalValue ?? ""} />
+          <p className={styles.currencyLabel}>{ship_currency}</p>
         </div>
+        {showReplaceCost && (
+          <div className={styles.totalLabelBlock}>
+            <p className={styles.totalLabel}>Est. replacement</p>
+            <AnimatedNumber value={formattedReplaceCost!} className={styles.totalValue ?? ""} />
+            <p className={styles.currencyLabel}>{replace_currency}</p>
+          </div>
+        )}
         <span className={styles.itemCount}>
           <AnimatedNumber value={totalItems} /> {totalItems === 1 ? "item" : "items"}
         </span>

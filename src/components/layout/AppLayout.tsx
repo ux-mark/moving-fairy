@@ -213,7 +213,7 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
             <InventoryPreview
               itemCount={totalItems}
               estimatedCost={costSummary!.total_estimated_ship_cost}
-              currency={costSummary!.currency}
+              currency={costSummary!.ship_currency}
               onExpand={openMobileInventory}
             />
           )}
