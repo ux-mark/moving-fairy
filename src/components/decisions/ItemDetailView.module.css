@@ -146,12 +146,23 @@
   gap: 0;
 }
 
-/* ---- Chat section ---- */
+/* ---- Chat section (inline, non-fullscreen) ---- */
 
 .chatSection {
   display: flex;
   flex-direction: column;
   flex: 1;
+  overflow: hidden;
+}
+
+/* ---- Chat section (fullscreen) — fills all remaining space ---- */
+
+.chatSectionFullscreen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ---- Fullscreen layout: fills the page content area, nav stays above ---- */
@@ -166,12 +177,14 @@
   overflow: hidden;
 }
 
-/* ---- Mobile: chat section breaks out of parent padding to fill full width ---- */
+/* ---- Mobile: chat section edge-to-edge ---- */
 
 @media (max-width: 767px) {
   .chatSection {
     margin-left: -16px;
     margin-right: -16px;
+    /* Contain the wider-than-parent content */
+    max-width: 100vw;
   }
 }
 

@@ -7,6 +7,8 @@
   border: 1px solid var(--color-border-default, #e5e7eb);
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---- Header ---- */
@@ -356,6 +358,16 @@
   object-fit: cover;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+/* ---- Mobile: edge-to-edge chat, no border-radius ---- */
+
+@media (max-width: 767px) {
+  .root {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
 }
 
 /* ---- Desktop: tighter padding ---- */

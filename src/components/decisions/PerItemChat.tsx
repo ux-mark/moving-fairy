@@ -122,10 +122,13 @@ export function PerItemChat({
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
     }
-    // Auto-expand on first send
+    // Auto-expand to fullscreen on send so the user stays in the chat view
+    if (!isFullscreen && onToggleFullscreen) {
+      onToggleFullscreen()
+    }
     setIsCollapsed(false)
     sendMessage(itemId, value)
-  }, [itemId, isStreaming, sendMessage])
+  }, [itemId, isStreaming, isFullscreen, onToggleFullscreen, sendMessage])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
