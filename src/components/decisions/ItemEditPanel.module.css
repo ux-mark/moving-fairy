@@ -178,6 +178,31 @@
   color: var(--color-error, #dc2626);
 }
 
+/* ---- Post-save navigation CTAs ---- */
+
+.navCtas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navCtas > * {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.allDoneText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  text-align: center;
+  margin: 0;
+  padding: 12px 0;
+  line-height: 1.4;
+}
+
 /* ---- Actions ---- */
 
 .actions {
@@ -224,7 +249,9 @@
   .select,
   .textarea,
   .inputPrefixed,
-  .saveButton {
+  .saveButton,
+  .navCtas {
     transition: none;
+    animation: none;
   }
 }

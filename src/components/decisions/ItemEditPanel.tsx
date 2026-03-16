@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useId } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Button } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import type { Verdict } from '@/lib/constants'
@@ -28,6 +29,9 @@ interface ItemEditPanelProps {
   shipCurrency?: string
   replaceCurrency?: string
   onSave: (updates: Partial<ItemAssessment>) => Promise<void>
+  onNavigateBack?: () => void
+  onNavigateNext?: () => void
+  hasNextItem?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -42,8 +46,9 @@ function currencySymbol(code: string): string {
   return CURRENCY_SYMBOLS[code] ?? code
 }
 
-export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave }: ItemEditPanelProps) {
+export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onNavigateBack, onNavigateNext, hasNextItem }: ItemEditPanelProps) {
   const id = useId()
+  const prefersReducedMotion = useReducedMotion()
 
   const [name, setName] = useState(item.item_name || '')
   const [verdict, setVerdict] = useState<string>(item.verdict || '')
@@ -53,6 +58,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [showNavCtas, setShowNavCtas] = useState(false)
 
   const hasChanges =
     name !== (item.item_name || '') ||
@@ -65,6 +71,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     setIsSaving(true)
     setSaveError(null)
     setSaveSuccess(false)
+    setShowNavCtas(false)
     try {
       await onSave({
         item_name: name,
@@ -74,13 +81,17 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         advice_text: description,
       })
       setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 3000)
+      if (onNavigateBack) {
+        setShowNavCtas(true)
+      } else {
+        setTimeout(() => setSaveSuccess(false), 3000)
+      }
     } catch {
       setSaveError('Failed to save changes. Please try again.')
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, onSave])
+  }, [name, verdict, shipCost, replaceCost, description, onSave, onNavigateBack])
 
   // Allow external reset when item data updates (e.g. after Aisling reassesses)
   // We deliberately don't include a deep equality check — the parent calls
@@ -205,6 +216,40 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
           <p className={styles.feedbackText}>Changes saved.</p>
         </div>
       )}
+
+      {/* Post-save navigation CTAs */}
+      <AnimatePresence>
+        {showNavCtas && (
+          <motion.div
+            className={styles.navCtas}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {onNavigateBack && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={onNavigateBack}
+              >
+                Back to decisions
+              </Button>
+            )}
+            {onNavigateNext && hasNextItem ? (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={onNavigateNext}
+              >
+                Next item
+              </Button>
+            ) : hasNextItem === false ? (
+              <p className={styles.allDoneText} aria-live="polite">All done for now</p>
+            ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Save button */}
       <div className={styles.actions}>

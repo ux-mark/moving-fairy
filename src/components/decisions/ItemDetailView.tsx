@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Camera } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { ItemEditPanel } from './ItemEditPanel'
@@ -26,7 +27,9 @@ interface ItemDetailViewProps {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for interface compatibility; confirm flow will be re-added in a follow-up
 export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRetry, onItemUpdate }: ItemDetailViewProps) {
+  const router = useRouter()
   const [item, setItem] = useState<ItemAssessment>(initialItem)
+  const [imageError, setImageError] = useState(false)
 
   // Keep local item in sync when parent polls and provides a newer version
   // (identified by updated_at changing, so we don't lose local edits on
@@ -50,6 +53,13 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
     : undefined
 
   // ---------------------------------------------------------------------------
+  // Chat refresh trigger — incremented after a save so the injected system
+  // message becomes visible in the chat without requiring a page reload.
+  // ---------------------------------------------------------------------------
+
+  const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0)
+
+  // ---------------------------------------------------------------------------
   // Inline save handler
   // ---------------------------------------------------------------------------
 
@@ -68,6 +78,10 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
     const updated = await res.json() as ItemAssessment
     setItem(updated)
     onItemUpdate?.(updated)
+
+    // Trigger chat history re-fetch so the injected system message appears.
+    // Small delay lets the server-side system message write complete first.
+    setTimeout(() => setChatRefreshTrigger((n) => n + 1), 300)
   }, [item.id, onItemUpdate])
 
   // ---------------------------------------------------------------------------
@@ -80,10 +94,53 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   }, [onItemUpdate])
 
   // ---------------------------------------------------------------------------
-  // Full-screen chat: focus management
+  // Post-save navigation
   // ---------------------------------------------------------------------------
 
+  const handleNavigateBack = useCallback(() => {
+    router.push('/decisions')
+  }, [router])
+
+  // ---------------------------------------------------------------------------
+  // Fullscreen chat state — lifted up so ItemDetailView controls the layout
+  // ---------------------------------------------------------------------------
+
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const fullscreenTriggerRef = useRef<HTMLButtonElement>(null)
+
+  const handleToggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev)
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // Fullscreen layout: back bar + chat filling remaining space
+  // ---------------------------------------------------------------------------
+
+  if (isFullscreen) {
+    return (
+      <div className={styles.fullscreenLayout}>
+        {/* Back to decisions bar */}
+        <nav className={styles.fullscreenBackBar} aria-label="Navigation">
+          <Link href="/decisions" className={styles.backLink}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back to decisions
+          </Link>
+        </nav>
+
+        {/* Chat fills the rest of the available content area */}
+        <PerItemChat
+          itemId={item.id}
+          itemName={itemName}
+          thumbnailUrl={thumbnail}
+          onAssessmentUpdated={handleAssessmentUpdated}
+          fullscreenTriggerRef={fullscreenTriggerRef}
+          isFullscreen={true}
+          onToggleFullscreen={handleToggleFullscreen}
+          chatRefreshTrigger={chatRefreshTrigger}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className={styles.root}>
@@ -98,12 +155,20 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
       {/* Item image — larger, scrollable, object-fit: contain */}
       {thumbnail && (
         <div className={styles.itemImage}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={thumbnail}
-            alt={itemName}
-            className={styles.itemImg}
-          />
+          {imageError ? (
+            <div className={styles.imageErrorPlaceholder} role="img" aria-label={`Photo of ${itemName} could not be loaded`}>
+              <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
+              <p className={styles.imageErrorText}>Photo could not be loaded</p>
+            </div>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={thumbnail}
+              alt={itemName}
+              className={styles.itemImg}
+              onError={() => setImageError(true)}
+            />
+          )}
         </div>
       )}
 
@@ -152,6 +217,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
             shipCurrency={item.currency ?? 'USD'}
             replaceCurrency={item.replace_currency ?? 'EUR'}
             onSave={handleSave}
+            onNavigateBack={handleNavigateBack}
           />
         )}
       </div>
@@ -164,6 +230,9 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
           thumbnailUrl={thumbnail}
           onAssessmentUpdated={handleAssessmentUpdated}
           fullscreenTriggerRef={fullscreenTriggerRef}
+          isFullscreen={false}
+          onToggleFullscreen={handleToggleFullscreen}
+          chatRefreshTrigger={chatRefreshTrigger}
         />
       </div>
     </div>
