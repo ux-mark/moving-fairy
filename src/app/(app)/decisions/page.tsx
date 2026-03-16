@@ -21,7 +21,7 @@ export default function DecisionsPage() {
       })
   }, [])
 
-  const { items, isLoading, error, refresh, addItemByPhoto, addItemByText, confirmItem, retryAssessment } = useItems(profileId)
+  const { items, isLoading, error, refresh, addItemByPhoto, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleUploadPhotos = async (files: File[]) => {
@@ -62,6 +62,10 @@ export default function DecisionsPage() {
     retryAssessment(id).catch(console.error)
   }
 
+  const handleVerdictChange = async (id: string, verdict: string) => {
+    await updateVerdict(id, verdict)
+  }
+
   return (
     <AppLayout>
       <DecisionsList
@@ -76,6 +80,7 @@ export default function DecisionsPage() {
         onRetry={handleRetry}
         onRefresh={refresh}
         onItemClick={(id) => router.push(`/decisions/${id}`)}
+        onVerdictChange={handleVerdictChange}
       />
     </AppLayout>
   )

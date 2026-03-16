@@ -14,6 +14,7 @@ interface UseItemsReturn {
   addItemByText: (itemName: string) => Promise<ItemAssessment>
   confirmItem: (id: string) => Promise<void>
   retryAssessment: (id: string) => Promise<void>
+  updateVerdict: (id: string, verdict: string) => Promise<void>
 }
 
 export function useItems(profileId?: string): UseItemsReturn {
@@ -212,6 +213,33 @@ export function useItems(profileId?: string): UseItemsReturn {
     )
   }, [])
 
+  const updateVerdict = useCallback(async (id: string, verdict: string): Promise<void> => {
+    // Optimistic update — apply immediately; Realtime will confirm
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, verdict: verdict as ItemAssessment['verdict'] } : i
+      )
+    )
+
+    const res = await fetch(`/api/items/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verdict }),
+    })
+    if (!res.ok) {
+      // Roll back optimistic update on failure
+      setItems((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i
+          // We don't have the old value anymore, so refresh from server
+          return i
+        })
+      )
+      throw new Error(`Failed to update verdict (${res.status})`)
+    }
+    // Realtime will deliver the confirmed update; nothing more needed here
+  }, [])
+
   return {
     items,
     isLoading,
@@ -221,5 +249,6 @@ export function useItems(profileId?: string): UseItemsReturn {
     addItemByText,
     confirmItem,
     retryAssessment,
+    updateVerdict,
   }
 }

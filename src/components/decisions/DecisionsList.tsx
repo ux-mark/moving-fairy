@@ -1,17 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Sparkles, Camera } from 'lucide-react'
 import {
   RecommendationCardSkeleton,
   Button,
 } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+import type { Verdict } from '@/lib/constants'
 import { CostSummary } from '@/components/inventory/CostSummary'
 import type { CostSummaryData } from '@/components/inventory/CostSummary'
 import { ItemCard } from './ItemCard'
 import { BatchUploadButton } from './BatchUploadButton'
 import { TextAddInput } from './TextAddInput'
+import { VerdictPicker } from './VerdictPicker'
+import { VerdictFilterTabs } from './VerdictFilterTabs'
 import styles from './DecisionsList.module.css'
 
 interface DecisionsListProps {
@@ -26,6 +29,7 @@ interface DecisionsListProps {
   onRetry: (id: string) => void
   onItemClick: (id: string) => void
   onRefresh?: () => void
+  onVerdictChange?: (id: string, verdict: string) => Promise<void>
 }
 
 function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
@@ -59,6 +63,15 @@ function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
   }
 }
 
+const VERDICT_LABELS: Record<string, string> = {
+  SHIP:    'Shipping',
+  CARRY:   'Carrying',
+  SELL:    'Selling',
+  DONATE:  'Donating',
+  DISCARD: 'Discarding',
+  REVISIT: 'Decide later',
+}
+
 export function DecisionsList({
   items,
   isLoading,
@@ -71,11 +84,18 @@ export function DecisionsList({
   onRetry,
   onItemClick,
   onRefresh,
+  onVerdictChange,
 }: DecisionsListProps) {
   const hasItems = items.length > 0
   const costSummary = deriveCostSummary(items)
   const hasCostData = Object.values(costSummary.counts_by_verdict).some((n) => n > 0)
   const [showWelcomeTextInput, setShowWelcomeTextInput] = useState(false)
+
+  // VerdictPicker state: which item's picker is open
+  const [verdictPickerItemId, setVerdictPickerItemId] = useState<string | null>(null)
+
+  // Filter state
+  const [activeFilter, setActiveFilter] = useState<Verdict | null>(null)
 
   // Sort: processing/pending first, then by created_at descending
   const sortedItems = [...items].sort((a, b) => {
@@ -85,6 +105,35 @@ export function DecisionsList({
     if (!isProcessingA && isProcessingB) return 1
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
+
+  // Apply active filter — only filter completed items with a verdict
+  const filteredItems = activeFilter === null
+    ? sortedItems
+    : sortedItems.filter(item => item.verdict === activeFilter)
+
+  const handleVerdictTrigger = useCallback((id: string) => {
+    setVerdictPickerItemId(prev => prev === id ? null : id)
+  }, [])
+
+  const handleVerdictClose = useCallback(() => {
+    setVerdictPickerItemId(null)
+  }, [])
+
+  const handleVerdictChange = useCallback(async (itemId: string, verdict: Verdict) => {
+    if (onVerdictChange) {
+      await onVerdictChange(itemId, verdict)
+    }
+  }, [onVerdictChange])
+
+  // Count only completed items for the filter tabs
+  const completedCounts = items
+    .filter(i => i.processing_status === 'completed' && i.verdict)
+    .reduce<Record<string, number>>((acc, item) => {
+      if (item.verdict) acc[item.verdict] = (acc[item.verdict] ?? 0) + 1
+      return acc
+    }, {})
+
+  const hasFilterableItems = Object.values(completedCounts).some(n => n > 0)
 
   return (
     <div className={styles.root}>
@@ -122,6 +171,17 @@ export function DecisionsList({
       {hasItems && hasCostData && (
         <div className={styles.costSummaryWrap}>
           <CostSummary data={costSummary} variant="compact" />
+        </div>
+      )}
+
+      {/* Verdict filter tabs — only when there are completed items */}
+      {hasItems && hasFilterableItems && (
+        <div className={styles.filterTabsWrap}>
+          <VerdictFilterTabs
+            countsByVerdict={completedCounts}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+          />
         </div>
       )}
 
@@ -195,16 +255,66 @@ export function DecisionsList({
               </div>
             )}
           </div>
+        ) : filteredItems.length === 0 ? (
+          /* Empty filter state */
+          <div className={styles.emptyFilter} role="status">
+            <p className={styles.emptyFilterText}>
+              {activeFilter
+                ? `No items ${VERDICT_LABELS[activeFilter]?.toLowerCase() ?? 'in this category'} yet.`
+                : 'No items yet.'}
+            </p>
+            <button
+              type="button"
+              className={styles.emptyFilterClear}
+              onClick={() => setActiveFilter(null)}
+            >
+              Show all items
+            </button>
+          </div>
         ) : (
-          <ul className={styles.cardList} aria-label="Your items">
-            {sortedItems.map((item) => (
+          <ul
+            id="decisions-list"
+            role="tabpanel"
+            className={styles.cardList}
+            aria-label="Your items"
+          >
+            {filteredItems.map((item) => (
               <li key={item.id} className={styles.cardItem}>
-                <ItemCard
-                  item={item}
-                  onConfirm={onConfirm}
-                  onRetry={onRetry}
-                  onClick={onItemClick}
-                />
+                <div className={styles.cardWrapper}>
+                  <ItemCard
+                    item={item}
+                    onConfirm={onConfirm}
+                    onRetry={onRetry}
+                    onClick={onItemClick}
+                  />
+
+                  {/* Verdict picker trigger — only for completed items with a verdict and when onVerdictChange is provided */}
+                  {onVerdictChange && item.processing_status === 'completed' && item.verdict && (
+                    <div className={styles.verdictTriggerWrap}>
+                      <button
+                        type="button"
+                        className={styles.verdictTrigger}
+                        onClick={() => handleVerdictTrigger(item.id)}
+                        aria-expanded={verdictPickerItemId === item.id}
+                        aria-haspopup="listbox"
+                        aria-label={`Change verdict for ${item.item_name || 'this item'}: currently ${item.verdict}`}
+                      >
+                        <span className={styles.verdictTriggerDot} aria-hidden="true" />
+                        Change verdict
+                      </button>
+
+                      {verdictPickerItemId === item.id && (
+                        <VerdictPicker
+                          currentVerdict={item.verdict}
+                          isOpen={true}
+                          onClose={handleVerdictClose}
+                          onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
+                          {...(item.item_name ? { itemName: item.item_name } : {})}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

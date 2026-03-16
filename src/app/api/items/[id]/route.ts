@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { deleteItemAssessment, getItemAssessment, updateItemAssessment } from '@/mcp'
+import { deleteItemAssessment, getItemAssessment, updateItemAssessment, appendItemEditSystemMessages } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import type { Verdict } from '@/lib/constants'
 import { ProcessingStatus } from '@/lib/constants'
@@ -34,6 +34,8 @@ interface PatchItemBody {
   verdict?: string
   advice_text?: string
   user_confirmed?: boolean
+  estimated_ship_cost?: number
+  currency?: string
   estimated_replace_cost?: number
   replace_currency?: string
   processing_status?: ProcessingStatus
@@ -68,6 +70,8 @@ export async function PATCH(
     if (body.verdict !== undefined) changes.verdict = body.verdict as Verdict
     if (body.advice_text !== undefined) changes.advice_text = body.advice_text
     if (body.user_confirmed !== undefined) changes.user_confirmed = body.user_confirmed
+    if (body.estimated_ship_cost !== undefined) changes.estimated_ship_cost = body.estimated_ship_cost
+    if (body.currency !== undefined) changes.currency = body.currency
     if (body.estimated_replace_cost !== undefined) changes.estimated_replace_cost = body.estimated_replace_cost
     if (body.replace_currency !== undefined) changes.replace_currency = body.replace_currency
     if (body.processing_status !== undefined) changes.processing_status = body.processing_status
@@ -78,7 +82,27 @@ export async function PATCH(
       return Response.json({ ok: false, error: 'Nothing to update' }, { status: 400 })
     }
 
+    // Capture the current state before updating so we can diff meaningful fields
+    // and inject system messages into the conversation.
+    const isMeaningfulEdit =
+      body.verdict !== undefined ||
+      body.item_name !== undefined ||
+      body.estimated_ship_cost !== undefined ||
+      body.estimated_replace_cost !== undefined ||
+      body.advice_text !== undefined
+
+    const before = isMeaningfulEdit
+      ? await getItemAssessment(id, profile.id)
+      : null
+
     const item = await updateItemAssessment(id, changes, profile.id)
+
+    // Best-effort: persist system messages for any meaningful field changes.
+    // This runs after the response data is ready so it doesn't block the reply.
+    if (before) {
+      void appendItemEditSystemMessages(id, profile.id, before, item)
+    }
+
     return Response.json(item)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'

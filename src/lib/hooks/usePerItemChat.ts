@@ -15,6 +15,11 @@ export type { ChatMessage }
 interface UsePerItemChatOptions {
   /** Called when Aisling updates the item assessment during chat. */
   onAssessmentUpdated?: ((updated: ItemAssessment) => void) | undefined
+  /**
+   * Increment this value to trigger a history re-fetch. Useful after the user
+   * saves an edit so the injected system message appears immediately.
+   */
+  refreshTrigger?: number | undefined
 }
 
 interface UsePerItemChatReturn {
@@ -47,6 +52,9 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
   // making sendMessage recreate on every isStreaming change.
   const isStreamingRef = useRef(false)
 
+  // Track the itemId for use in the refreshTrigger effect
+  const currentItemIdRef = useRef<string | null>(null)
+
   // Cleanup: abort any in-flight stream on unmount
   useEffect(() => {
     return () => {
@@ -55,6 +63,7 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
   }, [])
 
   const loadHistory = useCallback(async (itemId: string) => {
+    currentItemIdRef.current = itemId
     setIsLoadingHistory(true)
     try {
       const res = await fetch(`/api/items/${itemId}/chat/messages`)
@@ -76,6 +85,20 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
       setIsLoadingHistory(false)
     }
   }, [])
+
+  // Re-fetch history when refreshTrigger increments (e.g. after an item save
+  // injects a system message). Skip the initial mount (trigger === 0 or
+  // undefined) — loadHistory is called explicitly by the component on mount.
+  const refreshTrigger = options?.refreshTrigger
+  const prevRefreshTriggerRef = useRef(refreshTrigger)
+  useEffect(() => {
+    if (prevRefreshTriggerRef.current === refreshTrigger) return
+    prevRefreshTriggerRef.current = refreshTrigger
+    // Only refresh if we have an item loaded and the trigger actually changed
+    if (refreshTrigger !== undefined && refreshTrigger > 0 && currentItemIdRef.current) {
+      void loadHistory(currentItemIdRef.current)
+    }
+  }, [refreshTrigger, loadHistory])
 
   // sendMessage does NOT include isStreaming in its dep array — we read the ref
   // instead to avoid stale closures and unnecessary re-renders.

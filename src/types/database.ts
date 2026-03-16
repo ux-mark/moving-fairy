@@ -82,7 +82,7 @@ export interface ItemConversation {
 export interface ItemConversationMessage {
   id: string
   item_conversation_id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   created_at: string
 }

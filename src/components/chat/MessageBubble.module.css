@@ -118,6 +118,16 @@
   color: var(--color-text-primary);
 }
 
+/* ---- System note (centered, muted — no bubble) ---- */
+
+.systemNote {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  text-align: center;
+  padding: 8px 16px;
+  line-height: 1.4;
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 767px) {
   .assistantText {

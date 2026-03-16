@@ -265,6 +265,15 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
     );
   }
 
+  // ---- Case B: System note — centered, muted, no bubble ----
+  if (message.role === "system") {
+    return (
+      <div className={styles.systemNote} role="status">
+        {message.content}
+      </div>
+    );
+  }
+
   const isUser = message.role === "user";
 
   // ---- User message: green pill, right-aligned ----

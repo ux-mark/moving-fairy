@@ -46,6 +46,12 @@
   gap: 0;
 }
 
+/* Filter tabs strip */
+.filterTabsWrap {
+  /* Slight negative horizontal margin so chips align with the card edges */
+  margin: -4px 0 0;
+}
+
 /* Card list */
 .cardList {
   list-style: none;
@@ -58,6 +64,94 @@
 
 .cardItem {
   display: block;
+}
+
+/* Wrapper for card + verdict trigger */
+.cardWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Verdict change trigger — small text link below the card */
+.verdictTriggerWrap {
+  position: relative;
+}
+
+.verdictTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  min-height: 36px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: var(--radius-sm, 6px);
+  transition: color 150ms ease;
+}
+
+.verdictTrigger:hover {
+  color: var(--color-text-primary, #111827);
+}
+
+.verdictTrigger:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.verdictTriggerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted, #9ca3af);
+  flex-shrink: 0;
+  transition: background 150ms ease;
+}
+
+.verdictTrigger:hover .verdictTriggerDot {
+  background: var(--color-text-primary, #374151);
+}
+
+/* Empty filter state */
+.emptyFilter {
+  padding: 32px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.emptyFilterText {
+  font-size: 16px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.emptyFilterClear {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 16px;
+  min-height: 44px;
+  border-radius: var(--radius-md, 8px);
+  text-decoration: underline;
+}
+
+.emptyFilterClear:hover {
+  color: var(--color-primary-hover, #15803d);
+}
+
+.emptyFilterClear:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
 }
 
 /* Empty state wrapper */

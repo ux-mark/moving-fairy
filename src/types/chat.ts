@@ -23,7 +23,7 @@ interface CardData {
 
 export interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   /** Only present on user messages that include uploaded images */
   imageUrls?: string[]
