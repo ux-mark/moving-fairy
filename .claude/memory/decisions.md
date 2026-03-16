@@ -14,6 +14,13 @@
 - **Decision**: Use `sharp` to auto-rotate (EXIF), resize longest edge to 1024px (without enlargement), convert to WebP at 80% quality. This runs server-side in the upload route.
 - **Consequences**: Adds `sharp` as a dependency (native binary). Output is typically 50-200KB per image, well-suited for base64 embedding in Claude API calls.
 
+## ADR-004: Verdict normalisation in assess-item.ts (2026-03-16)
+
+- **Status**: accepted
+- **Context**: The DB enum was renamed from `DECIDE_LATER` to `REVISIT`, but LLM output is non-deterministic — Aisling may still return legacy values, especially if any prompt fragment references old names. A raw cast (`card.verdict as Verdict`) caused Postgres enum errors.
+- **Decision**: `assess-item.ts` now normalises the verdict before writing to DB: strips whitespace, uppercases, and maps `DECIDE_LATER`/`DECIDE LATER` → `REVISIT`. This is a defensive layer — the prompt (`aisling.md`) was also updated, but normalisation ensures resilience to LLM drift.
+- **Consequences**: Any future verdict renames need updating in two places: the prompt AND the normalisation map in `assess-item.ts:384-389`.
+
 ## ADR-003: box_item.item_name is nullable — canonical name lives on item_assessment (2026-03-13)
 
 - **Status**: accepted

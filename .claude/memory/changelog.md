@@ -1,11 +1,15 @@
 # Changelog
 
-## 2026-03-16 — QA sweep: fix auth redirects, dead code cleanup, storage bucket, RLS
+## 2026-03-16 — QA sweep: auth redirects, dead code, storage, RLS, assessment pipeline
 
-- **What**: Full QA audit after item-centric overhaul. Fixed critical auth redirects (all pointed to retired `/inventory` route — users got 404 after login), removed 10 dead files (InventoryPanel, DecisionsPanel, ItemEditPanel, useInventory, chat/inventory redirect pages), fixed broken `/api/assessments` → `/api/items` API call in MessageBubble, added SQL migration for `item-images` storage bucket, fixed RLS policies on `item_conversation` tables.
+- **What**: Full QA audit after item-centric overhaul. Four commits:
+  1. **Dead code removal**: Deleted 10 files from pre-overhaul architecture (InventoryPanel, DecisionsPanel, ItemEditPanel, useInventory, chat/inventory redirect pages). Fixed `/api/assessments` → `/api/items` in MessageBubble.
+  2. **Auth + infra**: Fixed all 4 auth redirects (`/inventory` → `/decisions` in landing page, auth callback, onboarding, test-auth). Added SQL migration for `item-images` storage bucket. Fixed RLS policies on `item_conversation` tables to join through `user_profile.auth_user_id`.
+  3. **Assessment pipeline fix**: Fixed Aisling returning "DECIDE LATER" instead of "REVISIT" — updated two stale references in `aisling.md`. Added verdict normalisation in `assess-item.ts` (maps legacy values to valid enum). Fixed photo-only items routing to CLI mode (can't see images) by adding "Untitled item" to the text-name exclusion list.
 - **PR**: https://github.com/ux-mark/moving-fairy/pull/38
-- **Files**: 10 deleted, 5 modified, 2 new migrations
+- **Files**: 10 deleted, 7 modified, 2 new migrations
 - **Quality**: typecheck clean, build clean, 107 tests passing
+- **Key files changed**: `src/lib/assess-item.ts` (verdict normalisation + SDK routing), `.claude/agents/aisling.md` (REVISIT references), `src/app/page.tsx`, `src/app/auth/callback/route.ts`, `src/components/onboarding/OnboardingWizard.tsx`, `src/components/chat/MessageBubble.tsx`
 
 ## 2026-03-15 -- Fix CLI image assessment quality + plan item-centric overhaul
 
