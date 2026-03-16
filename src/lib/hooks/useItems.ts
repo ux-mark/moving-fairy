@@ -62,6 +62,32 @@ export function useItems(profileId?: string): UseItemsReturn {
     }
   }, [refresh])
 
+  // Polling fallback: refresh every 5s while any item is pending/processing.
+  // This is a safety net in case Realtime misses UPDATE events.
+  useEffect(() => {
+    const hasPending = items.some(
+      (i) => i.processing_status === 'pending' || i.processing_status === 'processing'
+    )
+    if (!hasPending) return
+
+    const id = setInterval(() => {
+      if (isMountedRef.current) refresh()
+    }, 5_000)
+
+    return () => clearInterval(id)
+  }, [items, refresh])
+
+  // Refresh when the tab regains focus (covers missed Realtime events)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isMountedRef.current) {
+        refresh()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [refresh])
+
   // Supabase Realtime subscription
   useEffect(() => {
     const channel = supabase
