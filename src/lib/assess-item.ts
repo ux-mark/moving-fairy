@@ -298,6 +298,7 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
     const itemHasTextName =
       item.item_name &&
       item.item_name !== 'Untitled' &&
+      item.item_name !== 'Untitled item' &&
       item.item_name.trim() !== ''
 
     const hasImage = Boolean(item.image_url)
@@ -381,7 +382,11 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
       if (card.action) adviceText += `\n${card.action}`
       if (card.import_note) adviceText += `\n\u26a0\ufe0f ${card.import_note}`
 
-      const verdict = card.verdict as Verdict
+      // Normalise verdict — LLM may return legacy values or variants
+      const rawVerdict = card.verdict.replace(/\s+/g, '_').toUpperCase()
+      const verdict: Verdict = (rawVerdict === 'DECIDE_LATER' || rawVerdict === 'DECIDE LATER')
+        ? Verdict.REVISIT
+        : (rawVerdict as Verdict)
 
       await updateItemAssessment(
         itemId,
