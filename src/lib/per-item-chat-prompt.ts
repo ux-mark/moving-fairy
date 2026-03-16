@@ -81,7 +81,9 @@ function composeItemContext(item: ItemAssessment): string {
 function composeInventorySummary(costSummary: {
   counts_by_verdict: Record<string, number>
   total_estimated_ship_cost: number
-  currency: string
+  ship_currency: string
+  total_estimated_replace_cost?: number
+  replace_currency?: string
 }): string {
   const counts = costSummary.counts_by_verdict
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -98,7 +100,10 @@ function composeInventorySummary(costSummary: {
     lines.push(`- ${verdict}: ${count}`)
   }
 
-  lines.push(`- Estimated total shipping: ${costSummary.currency} ${costSummary.total_estimated_ship_cost}`)
+  lines.push(`- Estimated total shipping: ${costSummary.ship_currency} ${costSummary.total_estimated_ship_cost}`)
+  if (costSummary.total_estimated_replace_cost && costSummary.replace_currency) {
+    lines.push(`- Estimated total replacement: ${costSummary.replace_currency} ${costSummary.total_estimated_replace_cost}`)
+  }
   lines.push('')
 
   return lines.join('\n')

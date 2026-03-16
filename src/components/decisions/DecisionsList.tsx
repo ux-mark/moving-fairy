@@ -31,6 +31,7 @@ interface DecisionsListProps {
 function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
   const counts_by_verdict: Record<string, number> = {}
   let totalShipCost = 0
+  let totalReplaceCost = 0
 
   for (const item of items) {
     if (item.processing_status !== 'completed') continue
@@ -40,12 +41,21 @@ function deriveCostSummary(items: ItemAssessment[]): CostSummaryData {
     if (item.verdict === 'SHIP' && item.estimated_ship_cost != null) {
       totalShipCost += item.estimated_ship_cost
     }
+    if (item.estimated_replace_cost != null) {
+      totalReplaceCost += item.estimated_replace_cost
+    }
   }
+
+  const completedItems = items.filter(i => i.processing_status === 'completed')
+  const shipCurrency = completedItems.find(i => i.currency)?.currency ?? 'USD'
+  const replaceCurrency = completedItems.find(i => i.replace_currency)?.replace_currency ?? 'EUR'
 
   return {
     counts_by_verdict,
     total_estimated_ship_cost: Math.round(totalShipCost),
-    currency: 'EUR',
+    ship_currency: shipCurrency,
+    total_estimated_replace_cost: Math.round(totalReplaceCost),
+    replace_currency: replaceCurrency,
   }
 }
 
