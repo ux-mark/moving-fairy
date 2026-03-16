@@ -4,7 +4,7 @@
 
 | PR | Title | Branch | Date | Status |
 |----|-------|--------|------|--------|
-| — | — | — | — | — |
+| [#40](https://github.com/ux-mark/moving-fairy/pull/40) | UX overhaul QA: chat layout, verdict editing, upload feedback, accessibility | `qa/ux-overhaul` | 2026-03-16 | open |
 
 ## Merged
 

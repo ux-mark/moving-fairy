@@ -181,6 +181,11 @@
   .chatSection {
     margin-left: -16px;
     margin-right: -16px;
+    /* width must account for the negative margins: 100% of parent content
+       width plus 32px (16px recovered on each side) = full viewport width.
+       Without this, child elements calculating width: 100% still reference
+       the pre-margin content box and leave a 16px gap on the right. */
+    width: calc(100% + 32px);
   }
 }
 

@@ -10,12 +10,15 @@
 
 /* iOS Safari belt-and-suspenders: fix the root to the viewport so the nav
    cannot be pushed off-screen by scroll bounce or viewport resize events.
-   position: fixed + inset: 0 guarantees the container never moves. */
+   position: fixed + inset: 0 guarantees the container never moves.
+   We intentionally omit height here — with inset: 0, all four edges are
+   anchored to the viewport, so height is already determined. Adding
+   100dvh or 100svh overrides the bottom: 0 constraint and fights with
+   iOS keyboard resize, causing the nav to be pushed off-screen. */
 @media (max-width: 767px) {
   .root {
     position: fixed;
     inset: 0;
-    height: 100dvh;
   }
 }
 
