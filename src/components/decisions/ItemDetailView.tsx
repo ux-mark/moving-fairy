@@ -1,10 +1,11 @@
 'use client'
 
+import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
-import { ItemCard } from './ItemCard'
+import { ItemEditPanel } from './ItemEditPanel'
 import { PerItemChat } from './PerItemChat'
 import styles from './ItemDetailView.module.css'
 
@@ -16,13 +17,28 @@ interface ItemDetailViewProps {
   item: ItemAssessment
   onConfirm: (itemId: string) => Promise<void>
   onRetry: (itemId: string) => Promise<void>
+  onItemUpdate?: (updated: ItemAssessment) => void
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for interface compatibility; confirm flow will be re-added in a follow-up
+export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRetry, onItemUpdate }: ItemDetailViewProps) {
+  const [item, setItem] = useState<ItemAssessment>(initialItem)
+
+  // Keep local item in sync when parent polls and provides a newer version
+  // (identified by updated_at changing, so we don't lose local edits on
+  // spurious re-renders with the same timestamp).
+  useEffect(() => {
+    if (initialItem.updated_at !== item.updated_at) {
+      setItem(initialItem)
+    }
+    // We intentionally depend only on initialItem — we check updated_at internally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialItem])
+
   const isCompleted = item.processing_status === 'completed'
   const isPending = item.processing_status === 'pending'
   const isProcessing = item.processing_status === 'processing'
@@ -32,6 +48,42 @@ export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps
   const thumbnail = item.image_url
     ? `/api/img?url=${encodeURIComponent(item.image_url)}`
     : undefined
+
+  // ---------------------------------------------------------------------------
+  // Inline save handler
+  // ---------------------------------------------------------------------------
+
+  const handleSave = useCallback(async (updates: Partial<ItemAssessment>) => {
+    const res = await fetch(`/api/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+
+    if (!res.ok) {
+      const data = await res.json() as { error?: string }
+      throw new Error(data.error ?? 'Failed to save changes')
+    }
+
+    const updated = await res.json() as ItemAssessment
+    setItem(updated)
+    onItemUpdate?.(updated)
+  }, [item.id, onItemUpdate])
+
+  // ---------------------------------------------------------------------------
+  // Assessment update callback (from PerItemChat when Aisling reassesses)
+  // ---------------------------------------------------------------------------
+
+  const handleAssessmentUpdated = useCallback((updated: ItemAssessment) => {
+    setItem(updated)
+    onItemUpdate?.(updated)
+  }, [onItemUpdate])
+
+  // ---------------------------------------------------------------------------
+  // Full-screen chat: focus management
+  // ---------------------------------------------------------------------------
+
+  const fullscreenTriggerRef = useRef<HTMLButtonElement>(null)
 
   return (
     <div className={styles.root}>
@@ -43,7 +95,7 @@ export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps
         </Link>
       </nav>
 
-      {/* Item image — shown larger than the card thumbnail */}
+      {/* Item image — larger, scrollable, object-fit: contain */}
       {thumbnail && (
         <div className={styles.itemImage}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -65,7 +117,7 @@ export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps
         </div>
       )}
 
-      {/* Assessment card section */}
+      {/* Assessment / edit section */}
       <div className={styles.cardSection}>
         {(isPending || isProcessing) && (
           <div className={styles.processingState} aria-busy="true">
@@ -94,20 +146,23 @@ export function ItemDetailView({ item, onConfirm, onRetry }: ItemDetailViewProps
         )}
 
         {isCompleted && (
-          <ItemCard
+          <ItemEditPanel
+            key={item.updated_at}
             item={item}
-            onConfirm={() => onConfirm(item.id)}
-            onRetry={() => onRetry(item.id)}
-            onClick={() => {
-              // Already on detail view — no-op
-            }}
+            onSave={handleSave}
           />
         )}
       </div>
 
-      {/* Per-item chat */}
+      {/* Per-item chat (collapsible + full-screen) */}
       <div className={styles.chatSection}>
-        <PerItemChat itemId={item.id} itemName={itemName} />
+        <PerItemChat
+          itemId={item.id}
+          itemName={itemName}
+          thumbnailUrl={thumbnail}
+          onAssessmentUpdated={handleAssessmentUpdated}
+          fullscreenTriggerRef={fullscreenTriggerRef}
+        />
       </div>
     </div>
   )

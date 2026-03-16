@@ -3,9 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemConversationMessage } from '@/types/database'
 import type { ChatMessage } from '@/types/chat'
+import type { ItemAssessment } from '@/types'
 
 // Re-export for convenience so existing imports still resolve
 export type { ChatMessage }
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+interface UsePerItemChatOptions {
+  /** Called when Aisling updates the item assessment during chat. */
+  onAssessmentUpdated?: ((updated: ItemAssessment) => void) | undefined
+}
 
 interface UsePerItemChatReturn {
   messages: ChatMessage[]
@@ -21,12 +31,17 @@ interface UsePerItemChatReturn {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function usePerItemChat(): UsePerItemChatReturn {
+export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Use a ref for the callback so sendMessage doesn't need to recreate
+  // when the parent re-renders with a new function identity.
+  const onAssessmentUpdatedRef = useRef(options?.onAssessmentUpdated)
+  onAssessmentUpdatedRef.current = options?.onAssessmentUpdated
 
   // Ref-based streaming guard — prevents stale closure issues and avoids
   // making sendMessage recreate on every isStreaming change.
@@ -112,6 +127,8 @@ export function usePerItemChat(): UsePerItemChatReturn {
       const decoder = new TextDecoder()
       let buffer = ''
       let streamDone = false
+      // Track whether we need to re-fetch the item after streaming ends
+      let assessmentWasUpdated = false
 
       while (!streamDone) {
         const { done, value } = await reader.read()
@@ -155,29 +172,27 @@ export function usePerItemChat(): UsePerItemChatReturn {
           if (typeof parsed !== 'object' || parsed === null) continue
           const obj = parsed as Record<string, unknown>
 
-          // Card event — render inline assessment card
+          // Card event — do NOT add to messages; assessment update
+          // will be reflected in the edit panel via onAssessmentUpdated.
           if (obj.__type === 'card') {
-            const card = {
-              item: String(obj.item ?? ''),
-              verdict: String(obj.verdict ?? ''),
-              confidence: Number(obj.confidence ?? 0),
-              rationale: String(obj.rationale ?? ''),
-              action: String(obj.action ?? ''),
-              ...(obj.import_note !== undefined ? { import_note: String(obj.import_note) } : {}),
-              ...(obj.item_description !== undefined ? { item_description: String(obj.item_description) } : {}),
-              ...(obj.image_url !== undefined ? { image_url: String(obj.image_url) } : {}),
-              ...(obj.voltage_compatible !== undefined ? { voltage_compatible: Boolean(obj.voltage_compatible) } : {}),
-              ...(obj.needs_transformer !== undefined ? { needs_transformer: Boolean(obj.needs_transformer) } : {}),
-              ...(obj.estimated_ship_cost_usd !== undefined ? { estimated_ship_cost_usd: Number(obj.estimated_ship_cost_usd) } : {}),
-              ...(obj.currency !== undefined ? { currency: String(obj.currency) } : {}),
-              ...(obj.estimated_replace_cost_usd !== undefined ? { estimated_replace_cost_usd: Number(obj.estimated_replace_cost_usd) } : {}),
-              ...(obj.replace_currency !== undefined ? { replace_currency: String(obj.replace_currency) } : {}),
+            // Skip rendering cards in chat — they appear in the edit panel
+            continue
+          }
+
+          // Tool result event — detect when update_item_assessment completed
+          if (obj.__type === 'tool_result') {
+            if (obj.name === 'update_item_assessment') {
+              const result = obj.result as Record<string, unknown> | undefined
+              if (result?.ok === true) {
+                assessmentWasUpdated = true
+              }
             }
-            const cardMessageId = `card-${Date.now()}-${Math.random()}`
-            setMessages((prev) => [
-              ...prev,
-              { id: cardMessageId, role: 'assistant', content: '', type: 'card', card },
-            ])
+            // tool_result and tool_call are observability-only — skip rendering
+            continue
+          }
+
+          // tool_call — skip
+          if (obj.__type === 'tool_call') {
             continue
           }
 
@@ -185,14 +200,27 @@ export function usePerItemChat(): UsePerItemChatReturn {
           if (obj.__type === 'error') {
             throw new Error(String(obj.message ?? 'An error occurred'))
           }
-
-          // tool_call and tool_result are observability events — skip
         }
       }
 
       // Cancel reader if we broke out of the while loop on [DONE]
       if (streamDone) {
         reader.cancel().catch(() => undefined)
+      }
+
+      // After streaming is done, re-fetch the item to get the updated assessment
+      // and notify the parent so the edit panel reflects the changes.
+      if (assessmentWasUpdated && onAssessmentUpdatedRef.current) {
+        try {
+          const updatedRes = await fetch(`/api/items/${itemId}`)
+          if (updatedRes.ok) {
+            const updated = await updatedRes.json() as ItemAssessment
+            onAssessmentUpdatedRef.current(updated)
+          }
+        } catch {
+          // Non-critical — the edit panel will show stale data until next page load.
+          // User can refresh manually.
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
