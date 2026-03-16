@@ -6,7 +6,7 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 16px 40px;
+  padding: 16px 16px 80px; /* 80px clears the sticky 56px chat bar + breathing room */
   gap: 24px;
   box-sizing: border-box;
   min-height: 100%;
@@ -113,6 +113,30 @@
   }
 }
 
+/* ---- No image placeholder (completed item with no image_url) ---- */
+
+.noImagePlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  background: var(--color-bg-subtle, #f9fafb);
+  border-radius: var(--radius-lg, 12px);
+  text-align: center;
+}
+
+.noImageIcon {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.noImageText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
 /* ---- Image error placeholder ---- */
 
 .imageErrorPlaceholder {
@@ -146,11 +170,84 @@
   gap: 0;
 }
 
-/* ---- Chat section (inline, non-fullscreen) ---- */
+/* ---- Item content wrapper (non-fullscreen) — clears sticky chat bar ---- */
 
-.chatSection {
+.itemContent {
+  display: contents;
+}
+
+/* ---- Sticky chat bottom sheet ---- */
+
+.chatSheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-bg-card, #ffffff);
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.chatSheetExpanded {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-bg-card, #ffffff);
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  height: calc(100dvh - 56px);
+  max-height: calc(100dvh - 56px);
   display: flex;
   flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.chatBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  box-sizing: border-box;
+}
+
+.chatBar:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: -2px;
+}
+
+.chatBarIcon {
+  color: var(--color-primary, #059669);
+  flex-shrink: 0;
+}
+
+.chatBarText {
+  flex: 1;
+  text-align: left;
+}
+
+.chatBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatBodyHidden {
+  display: none;
 }
 
 /* ---- Chat section (fullscreen) — fills all remaining space ---- */
@@ -175,25 +272,11 @@
   overflow: hidden;
 }
 
-/* ---- Mobile: chat section edge-to-edge ---- */
-
-@media (max-width: 767px) {
-  .chatSection {
-    margin-left: -16px;
-    margin-right: -16px;
-    /* width must account for the negative margins: 100% of parent content
-       width plus 32px (16px recovered on each side) = full viewport width.
-       Without this, child elements calculating width: 100% still reference
-       the pre-margin content box and leave a 16px gap on the right. */
-    width: calc(100% + 32px);
-  }
-}
-
 /* ---- Desktop: more breathing room ---- */
 
 @media (min-width: 768px) {
   .root {
-    padding: 24px 24px 48px;
+    padding: 24px 24px 96px;
   }
 }
 

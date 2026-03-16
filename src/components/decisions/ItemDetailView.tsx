@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { ItemEditPanel } from './ItemEditPanel'
@@ -28,8 +28,26 @@ interface ItemDetailViewProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for interface compatibility; confirm flow will be re-added in a follow-up
 export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRetry, onItemUpdate }: ItemDetailViewProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const from = searchParams.get('from')
+  const backHref = from === 'boxes' ? '/boxes' : '/decisions'
+  const backLabel = from === 'boxes' ? 'Back to boxes' : 'Back to decisions'
+
   const [item, setItem] = useState<ItemAssessment>(initialItem)
   const [imageError, setImageError] = useState(false)
+
+  // ---------------------------------------------------------------------------
+  // Box data for assignment selector
+  // ---------------------------------------------------------------------------
+
+  const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
+
+  useEffect(() => {
+    fetch('/api/boxes')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setBoxes(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
 
   // Keep local item in sync when parent polls and provides a newer version
   useEffect(() => {
@@ -91,8 +109,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // ---------------------------------------------------------------------------
 
   const handleNavigateBack = useCallback(() => {
-    router.push('/decisions')
-  }, [router])
+    router.push(backHref)
+  }, [router, backHref])
 
   // ---------------------------------------------------------------------------
   // Fullscreen chat state — lifted up so ItemDetailView controls the layout.
@@ -101,6 +119,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // ---------------------------------------------------------------------------
 
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isChatExpanded, setIsChatExpanded] = useState(false)
   const fullscreenTriggerRef = useRef<HTMLButtonElement>(null)
 
   const handleToggleFullscreen = useCallback(() => {
@@ -112,19 +131,25 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // PerItemChat stays mounted in the same tree position at all times.
   // ---------------------------------------------------------------------------
 
+  // Derive box data for ItemEditPanel
+  const currentBoxId = boxes.find(box =>
+    box.items?.some(bi => bi.item_assessment_id === item.id)
+  )?.id ?? ''
+  const availableBoxes = boxes.filter(b => b.status === 'packing')
+
   return (
     <div className={isFullscreen ? styles.fullscreenLayout : styles.root}>
       {/* Item content — hidden during fullscreen chat */}
       {!isFullscreen && (
-        <>
+        <div className={styles.itemContent}>
           <nav aria-label="Breadcrumb">
-            <Link href="/decisions" className={styles.backLink}>
+            <Link href={backHref} className={styles.backLink}>
               <ArrowLeft size={16} aria-hidden="true" />
-              Back to decisions
+              {backLabel}
             </Link>
           </nav>
 
-          {thumbnail && (
+          {thumbnail ? (
             <div className={styles.itemImage}>
               {imageError ? (
                 <div className={styles.imageErrorPlaceholder} role="status">
@@ -141,7 +166,12 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 />
               )}
             </div>
-          )}
+          ) : isCompleted ? (
+            <div className={styles.noImagePlaceholder}>
+              <Camera size={24} aria-hidden="true" className={styles.noImageIcon} />
+              <p className={styles.noImageText}>No photo for this item</p>
+            </div>
+          ) : null}
 
           {item.needs_clarification && (
             <div className={styles.clarificationNotice} role="note">
@@ -187,24 +217,55 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 replaceCurrency={item.replace_currency ?? 'EUR'}
                 onSave={handleSave}
                 onNavigateBack={handleNavigateBack}
+                backLabel={backLabel}
+                availableBoxes={availableBoxes}
+                currentBoxId={currentBoxId}
               />
             )}
           </div>
-        </>
+        </div>
       )}
 
-      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen toggle */}
-      <div className={isFullscreen ? styles.chatSectionFullscreen : styles.chatSection}>
-        <PerItemChat
-          itemId={item.id}
-          itemName={itemName}
-          thumbnailUrl={thumbnail}
-          onAssessmentUpdated={handleAssessmentUpdated}
-          fullscreenTriggerRef={fullscreenTriggerRef}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={handleToggleFullscreen}
-          chatRefreshTrigger={chatRefreshTrigger}
-        />
+      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen/sheet toggle */}
+      <div className={
+        isFullscreen
+          ? styles.chatSectionFullscreen
+          : isChatExpanded
+            ? styles.chatSheetExpanded
+            : styles.chatSheet
+      }>
+        {/* Collapsed bar — shown only when not fullscreen and chat is collapsed */}
+        {!isFullscreen && !isChatExpanded && (
+          <button
+            type="button"
+            className={styles.chatBar}
+            onClick={() => setIsChatExpanded(true)}
+            aria-label="Open chat with Aisling"
+          >
+            <Sparkles size={18} aria-hidden="true" className={styles.chatBarIcon} />
+            <span className={styles.chatBarText}>Chat with Aisling</span>
+            <ChevronUp size={16} aria-hidden="true" />
+          </button>
+        )}
+
+        {/* Chat body — hidden (not unmounted) when sheet is collapsed */}
+        <div className={
+          !isFullscreen && !isChatExpanded
+            ? styles.chatBodyHidden
+            : styles.chatBody
+        }>
+          <PerItemChat
+            itemId={item.id}
+            itemName={itemName}
+            thumbnailUrl={thumbnail}
+            onAssessmentUpdated={handleAssessmentUpdated}
+            fullscreenTriggerRef={fullscreenTriggerRef}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={handleToggleFullscreen}
+            chatRefreshTrigger={chatRefreshTrigger}
+            onCollapse={() => setIsChatExpanded(false)}
+          />
+        </div>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Sparkles, Camera } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { Sparkles, Camera, ChevronDown } from 'lucide-react'
 import {
   RecommendationCardSkeleton,
   Button,
@@ -113,6 +113,22 @@ export function DecisionsList({
   const filteredItems = activeFilter === null
     ? sortedItems
     : sortedItems.filter(item => item.verdict === activeFilter)
+
+  // Split filtered items into undecided and decided
+  const { undecidedItems, decidedItems } = useMemo(() => {
+    const undecided: ItemAssessment[] = []
+    const decided: ItemAssessment[] = []
+
+    for (const item of filteredItems) {
+      if (item.user_confirmed) {
+        decided.push(item)
+      } else {
+        undecided.push(item)
+      }
+    }
+
+    return { undecidedItems: undecided, decidedItems: decided }
+  }, [filteredItems])
 
   const handleVerdictTrigger = useCallback((id: string) => {
     setVerdictPickerItemId(prev => prev === id ? null : id)
@@ -275,45 +291,91 @@ export function DecisionsList({
             </button>
           </div>
         ) : (
-          <ul
-            id="decisions-list"
-            role="tabpanel"
-            className={styles.cardList}
-            aria-label="Your items"
-          >
-            {/* Skeleton placeholders for files currently uploading */}
-            {uploadingCount > 0 && Array.from({ length: uploadingCount }, (_, i) => (
-              <li key={`uploading-${i}`} className={styles.cardItem} aria-label="Uploading item">
-                <RecommendationCardSkeleton />
-              </li>
-            ))}
-            {filteredItems.map((item) => (
-              <li key={item.id} className={styles.cardItem}>
-                <div className={styles.cardWrapper}>
-                  <ItemCard
-                    item={item}
-                    onConfirm={onConfirm}
-                    onRetry={onRetry}
-                    onClick={onItemClick}
-                    onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
-                  />
+          <>
+            {/* Active items — undecided */}
+            <ul
+              id="decisions-list"
+              role="tabpanel"
+              className={styles.cardList}
+              aria-label="Items to review"
+            >
+              {/* Skeleton placeholders for files currently uploading */}
+              {uploadingCount > 0 && Array.from({ length: uploadingCount }, (_, i) => (
+                <li key={`uploading-${i}`} className={styles.cardItem} aria-label="Uploading item">
+                  <RecommendationCardSkeleton />
+                </li>
+              ))}
+              {undecidedItems.map((item) => (
+                <li key={item.id} className={styles.cardItem}>
+                  <div className={styles.cardWrapper}>
+                    <ItemCard
+                      item={item}
+                      onConfirm={onConfirm}
+                      onRetry={onRetry}
+                      onClick={onItemClick}
+                      onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
+                    />
+                    {verdictPickerItemId === item.id && item.verdict && (
+                      <div className={styles.verdictTriggerWrap}>
+                        <VerdictPicker
+                          currentVerdict={item.verdict}
+                          isOpen={true}
+                          onClose={handleVerdictClose}
+                          onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
+                          {...(item.item_name ? { itemName: item.item_name } : {})}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
 
-                  {/* Verdict picker — rendered outside the card so it can overlay */}
-                  {verdictPickerItemId === item.id && item.verdict && (
-                    <div className={styles.verdictTriggerWrap}>
-                      <VerdictPicker
-                        currentVerdict={item.verdict}
-                        isOpen={true}
-                        onClose={handleVerdictClose}
-                        onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
-                        {...(item.item_name ? { itemName: item.item_name } : {})}
-                      />
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+            {/* All filtered items decided — message when filter active */}
+            {undecidedItems.length === 0 && decidedItems.length > 0 && activeFilter && (
+              <p className={styles.allDecidedText}>
+                All {VERDICT_LABELS[activeFilter]?.toLowerCase() ?? 'filtered'} items are decided.
+              </p>
+            )}
+
+            {/* Decided items — collapsed accordion */}
+            {decidedItems.length > 0 && (
+              <details className={styles.decidedSection}>
+                <summary className={styles.decidedSummary}>
+                  <span className={styles.decidedLabel}>
+                    Decided ({decidedItems.length} {decidedItems.length === 1 ? 'item' : 'items'})
+                  </span>
+                  <ChevronDown size={16} className={styles.decidedChevron} aria-hidden="true" />
+                </summary>
+                <ul className={styles.cardList} aria-label="Decided items">
+                  {decidedItems.map((item) => (
+                    <li key={item.id} className={styles.cardItem}>
+                      <div className={styles.cardWrapper}>
+                        <ItemCard
+                          item={item}
+                          onConfirm={onConfirm}
+                          onRetry={onRetry}
+                          onClick={onItemClick}
+                          onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
+                        />
+                        {verdictPickerItemId === item.id && item.verdict && (
+                          <div className={styles.verdictTriggerWrap}>
+                            <VerdictPicker
+                              currentVerdict={item.verdict}
+                              isOpen={true}
+                              onClose={handleVerdictClose}
+                              onVerdictChange={(verdict) => handleVerdictChange(item.id, verdict)}
+                              {...(item.item_name ? { itemName: item.item_name } : {})}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
         )}
       </div>
     </div>

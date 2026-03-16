@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { RecommendationCardSkeleton } from '@thefairies/design-system/components'
@@ -33,6 +33,10 @@ type PageState =
 
 export default function ItemDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const from = searchParams.get('from')
+  const backHref = from === 'boxes' ? '/boxes' : '/decisions'
+  const backLabel = from === 'boxes' ? 'Back to boxes' : 'Back to decisions'
   const id = typeof params.id === 'string' ? params.id : params.id?.[0] ?? ''
   const [pageState, setPageState] = useState<PageState>({ status: 'loading' })
 
@@ -166,9 +170,9 @@ export default function ItemDetailPage() {
       {pageState.status === 'not-found' && (
         <div className={styles.stateRoot}>
           <div className={styles.stateContent}>
-            <Link href="/decisions" className={styles.backLink}>
+            <Link href={backHref} className={styles.backLink}>
               <ArrowLeft size={16} aria-hidden="true" />
-              Back to decisions
+              {backLabel}
             </Link>
             <div className={styles.notFoundState}>
               <p className={styles.stateTitle}>Item not found</p>
@@ -187,9 +191,9 @@ export default function ItemDetailPage() {
       {pageState.status === 'error' && (
         <div className={styles.stateRoot}>
           <div className={styles.stateContent}>
-            <Link href="/decisions" className={styles.backLink}>
+            <Link href={backHref} className={styles.backLink}>
               <ArrowLeft size={16} aria-hidden="true" />
-              Back to decisions
+              {backLabel}
             </Link>
             <div className={styles.errorState} role="alert">
               <p className={styles.stateTitle}>Something went wrong</p>

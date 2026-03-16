@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { Plus } from "lucide-react";
 import {
-  Button,
   EmptyState,
 } from "@thefairies/design-system/components";
 
@@ -13,8 +12,6 @@ import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { ShipAllButton } from "@/components/boxes/ShipAllButton";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
-
-import { cn } from "@/lib/utils";
 
 import styles from "./BoxList.module.css";
 
@@ -180,6 +177,20 @@ export function BoxList({
   return (
     <>
       <div className={styles.list}>
+        {/* Top action row — ghost "New box" link */}
+        {onCreateBox && (
+          <div className={styles.topAction}>
+            <button
+              type="button"
+              className={styles.newBoxLink}
+              onClick={() => setCreatePanelOpen(true)}
+            >
+              <Plus style={{ width: 14, height: 14 }} aria-hidden />
+              New box
+            </button>
+          </div>
+        )}
+
         {/* Ship all button */}
         {shippableBoxCount > 0 && onShipAll && (
           <div className={styles.shipAllRow}>
@@ -247,17 +258,16 @@ export function BoxList({
           />
         )}
 
-        {/* New box button — always visible at bottom */}
+        {/* New box link — bottom of list */}
         {onCreateBox && (
-          <Button
-            variant="primary"
-            size="lg"
-            className={cn(styles.newBoxButton, "ctaLift")}
+          <button
+            type="button"
+            className={styles.newBoxLink}
             onClick={() => setCreatePanelOpen(true)}
           >
-            <Plus style={{ width: 16, height: 16 }} />
+            <Plus style={{ width: 14, height: 14 }} aria-hidden />
             New box
-          </Button>
+          </button>
         )}
       </div>
 
