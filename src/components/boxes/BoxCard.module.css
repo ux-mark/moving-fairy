@@ -28,13 +28,13 @@
   text-align: left;
   cursor: pointer;
   user-select: none;
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-card, #ffffff);
   border: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .header:hover {
-  background: var(--color-bg-hover, #edeef0);
+  background: var(--color-bg-subtle, #f9fafb);
 }
 
 /* Collapsed card: header IS the whole card — all corners rounded */
@@ -481,6 +481,57 @@
 .dimensionNote {
   font-size: 14px;
   color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Item thumbnails
+   ============================================================ */
+
+.itemThumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.itemThumbPlaceholder {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-subtle, #f9fafb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ============================================================
+   Item link (tappable item rows)
+   ============================================================ */
+
+.itemLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  min-height: 44px;
+  padding: 4px 0;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.itemLink:hover {
+  background: var(--color-bg-hover, #f3f4f6);
+}
+
+.itemLink:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 /* ---- Mobile touch targets and sizing ---- */
