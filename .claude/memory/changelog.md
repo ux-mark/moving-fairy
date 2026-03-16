@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-16 — QA sweep: fix auth redirects, dead code cleanup, storage bucket, RLS
+
+- **What**: Full QA audit after item-centric overhaul. Fixed critical auth redirects (all pointed to retired `/inventory` route — users got 404 after login), removed 10 dead files (InventoryPanel, DecisionsPanel, ItemEditPanel, useInventory, chat/inventory redirect pages), fixed broken `/api/assessments` → `/api/items` API call in MessageBubble, added SQL migration for `item-images` storage bucket, fixed RLS policies on `item_conversation` tables.
+- **PR**: https://github.com/ux-mark/moving-fairy/pull/38
+- **Files**: 10 deleted, 5 modified, 2 new migrations
+- **Quality**: typecheck clean, build clean, 107 tests passing
+
 ## 2026-03-15 -- Fix CLI image assessment quality + plan item-centric overhaul
 
 - **What**: Fixed CLI image assessment quality (filtered tools to only `render_assessment_card`, stripped conversation history from image calls, added SDK 401 retry). Created comprehensive plan for item-centric UX overhaul — shifting from chat-centric to decisions-as-home with background processing, per-item chat, and box sticker scanning.

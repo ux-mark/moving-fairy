@@ -1,5 +1,20 @@
 # Known Issues
 
+## ISSUE-014: All auth redirects pointed to dead /inventory route
+- **Severity**: Critical
+- **Status**: FIXED (PR #38, 2026-03-16)
+- **Detail**: Landing page, auth callback, onboarding, test-auth all redirected to `/inventory` (retired). Changed to `/decisions`.
+
+## ISSUE-013: Storage bucket not created by migrations
+- **Severity**: High
+- **Status**: FIXED (PR #38, 2026-03-16)
+- **Detail**: `item-images` bucket configured in config.toml only. Added SQL migration for production.
+
+## ISSUE-012: Conversation RLS policies compared wrong IDs
+- **Severity**: Medium
+- **Status**: FIXED (PR #38, 2026-03-16)
+- **Detail**: `item_conversation` RLS compared `user_profile_id = auth.uid()` but these are different IDs. Fixed to join through `user_profile.auth_user_id`.
+
 ## ISSUE-001: Pre-existing lint errors in worktree generated types
 
 - **Severity**: low

@@ -4,6 +4,7 @@
 
 | PR | Title | Branch | Date | Status |
 |----|-------|--------|------|--------|
+| [#38](https://github.com/ux-mark/moving-fairy/pull/38) | Fix auth redirects, dead code cleanup, storage bucket, RLS policies | `fix/qa-sweep-cleanup` | 2026-03-16 | open |
 | [#30](https://github.com/ux-mark/moving-fairy/pull/30) | Add item-centric UX overhaul plan and agent brief | `feature/item-centric-plan` | 2026-03-15 | open |
 
 ## Merged
