@@ -65,7 +65,7 @@ export function StickerThumbnail({
   if (imgError) {
     return (
       <div className={styles.wrap}>
-        <div className={styles.errorPlaceholder} aria-label="Photo could not be loaded">
+        <div className={styles.errorPlaceholder} role="img" aria-label="Photo could not be loaded">
           <ImageOff style={{ width: 24, height: 24 }} aria-hidden />
           <span className={styles.errorText}>Photo could not be loaded</span>
         </div>

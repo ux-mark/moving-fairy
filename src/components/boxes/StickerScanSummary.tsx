@@ -26,6 +26,16 @@ function buildCompleteMessage({
   StickerScanSummaryProps,
   "totalFound" | "matchedCount" | "newCount" | "flaggedCount" | "illegibleCount"
 >): React.ReactNode {
+  if (totalFound === 0) {
+    return (
+      <>
+        Aisling could not find any item names on this sticker. The handwriting
+        may be too faint or the photo too blurry. Try taking another photo in
+        better light.
+      </>
+    );
+  }
+
   const itemWord = totalFound === 1 ? "item" : "items";
   const base = `Found ${totalFound} ${itemWord} on your sticker.`;
 
@@ -109,7 +119,7 @@ export function StickerScanSummary({
                 Found{" "}
                 <motion.span
                   key={totalFound}
-                  initial={prefersReducedMotion ? false : { scale: 1.15 }}
+                  initial={prefersReducedMotion ? false : { scale: 1.05 }}
                   animate={{ scale: 1 }}
                   transition={
                     prefersReducedMotion

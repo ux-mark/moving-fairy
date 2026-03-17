@@ -619,6 +619,217 @@ function SizeEditor({
 }
 
 // ---------------------------------------------------------------------------
+// Merged item list — interleaves flagged and regular items alphabetically
+// ---------------------------------------------------------------------------
+
+type MergedListEntry =
+  | { type: "flagged"; key: string; name: string; flagged: FlaggedItem }
+  | { type: "regular"; key: string; name: string; item: BoxItem };
+
+function MergedItemList({
+  items,
+  flaggedItems,
+  flaggedItemIds,
+  assessments,
+  box,
+  isShipped,
+  onRemoveItem,
+  onShipAnyway,
+  onRemoveFlaggedItem,
+  resolvingItemIds,
+  prefersReducedMotion,
+}: {
+  items: BoxItem[];
+  flaggedItems: FlaggedItem[];
+  flaggedItemIds: Set<string>;
+  assessments?: Record<string, ItemAssessment> | undefined;
+  box: Box;
+  isShipped: boolean;
+  onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
+  onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
+  onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  resolvingItemIds?: Set<string> | undefined;
+  prefersReducedMotion: boolean | null;
+}) {
+  // Build a unified list of entries sorted alphabetically by name
+  const entries = useMemo(() => {
+    const merged: MergedListEntry[] = [];
+
+    // Add flagged items
+    for (const flagged of flaggedItems) {
+      merged.push({
+        type: "flagged",
+        key: `flagged-${flagged.item_assessment_id}`,
+        name: flagged.item_name,
+        flagged,
+      });
+    }
+
+    // Add regular items (excluding those in the flagged set)
+    for (const item of items) {
+      if (item.item_assessment_id && flaggedItemIds.has(item.item_assessment_id)) {
+        continue;
+      }
+      const assessment = item.item_assessment_id
+        ? assessments?.[item.item_assessment_id]
+        : undefined;
+      const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
+      merged.push({
+        type: "regular",
+        key: item.id,
+        name: displayName,
+        item,
+      });
+    }
+
+    // Sort alphabetically by name
+    merged.sort((a, b) => a.name.localeCompare(b.name));
+    return merged;
+  }, [items, flaggedItems, flaggedItemIds, assessments]);
+
+  return (
+    <ul className={styles.itemList}>
+      <AnimatePresence mode="popLayout">
+        {entries.map((entry) => {
+          if (entry.type === "flagged") {
+            return (
+              <motion.li
+                key={entry.key}
+                layout
+                className={styles.itemRow}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.15 }
+                }
+              >
+                <FlaggedItemCard
+                  itemName={entry.flagged.item_name}
+                  itemId={entry.flagged.item_assessment_id}
+                  verdict={entry.flagged.verdict}
+                  boxId={box.id}
+                  boxLabel={box.label}
+                  onShipAnyway={onShipAnyway ?? (() => undefined)}
+                  onRemoveFromBox={onRemoveFlaggedItem ?? (() => undefined)}
+                  isResolving={
+                    resolvingItemIds?.has(entry.flagged.item_assessment_id) ?? false
+                  }
+                />
+              </motion.li>
+            );
+          }
+
+          const { item } = entry;
+          const assessment = item.item_assessment_id
+            ? assessments?.[item.item_assessment_id]
+            : undefined;
+          const displayName = entry.name;
+          const itemImageUrl = assessment?.image_url
+            ? `/api/img?url=${encodeURIComponent(assessment.image_url)}`
+            : undefined;
+
+          const thumbNode = itemImageUrl ? (
+            <img
+              src={itemImageUrl}
+              alt=""
+              aria-hidden="true"
+              className={styles.itemThumb}
+            />
+          ) : (
+            <div
+              className={styles.itemThumbPlaceholder}
+              aria-hidden="true"
+            >
+              <Package size={16} />
+            </div>
+          );
+
+          const verdictDotNode = (
+            <span
+              className={styles.verdictDot}
+              style={{
+                background: assessment?.verdict
+                  ? `var(--verdict-${assessment.verdict
+                      .toLowerCase()
+                      .replace("_", "-")})`
+                  : "var(--color-border-default)",
+              }}
+              aria-hidden="true"
+            />
+          );
+
+          const innerContent = (
+            <>
+              {thumbNode}
+              {verdictDotNode}
+              <span className={styles.itemName}>
+                {displayName}
+              </span>
+              {item.quantity > 1 && (
+                <span className={styles.itemQty}>
+                  x{item.quantity}
+                </span>
+              )}
+              {assessment && (
+                <VerdictBadge verdict={assessment.verdict} />
+              )}
+            </>
+          );
+
+          return (
+            <motion.li
+              key={entry.key}
+              layout
+              className={styles.itemRow}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.15 }
+              }
+            >
+              {assessment?.id ? (
+                <Link
+                  href={`/decisions/${assessment.id}?from=boxes`}
+                  className={styles.itemLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {innerContent}
+                </Link>
+              ) : (
+                <div className={styles.itemRowLeft}>
+                  {innerContent}
+                </div>
+              )}
+
+              {!isShipped && onRemoveItem && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveItem(box.id, item.id);
+                  }}
+                  aria-label={`Remove ${displayName} from ${box.label}`}
+                  className={styles.removeItemButton ?? ""}
+                >
+                  <XIcon style={{ width: 16, height: 16 }} />
+                </Button>
+              )}
+            </motion.li>
+          );
+        })}
+      </AnimatePresence>
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // BoxCard
 // ---------------------------------------------------------------------------
 
@@ -679,7 +890,13 @@ export function BoxCard({
     box.box_type !== BoxType.CHECKED_LUGGAGE;
 
   const handleToggle = useCallback(() => {
-    setIsOpen((prev) => !prev);
+    setIsOpen((prev) => {
+      if (!prev) {
+        // Opening: reset isAnimating so overflow is clipped during enter animation
+        setIsAnimating(true);
+      }
+      return !prev;
+    });
   }, []);
 
   const handleKeyDown = useCallback(
@@ -892,6 +1109,17 @@ export function BoxCard({
                     {...(scanResult.errorMessage
                       ? { errorMessage: scanResult.errorMessage }
                       : {})}
+                    {...(scanResult.status === "error" && onScanSticker
+                      ? {
+                          onRetry: () => {
+                            // Open the file picker so the user can retake/reselect
+                            const input = document.querySelector<HTMLInputElement>(
+                              `input[aria-label="Take a photo of the box sticker for ${box.label}"]`
+                            );
+                            input?.click();
+                          },
+                        }
+                      : {})}
                   />
                 )}
 
@@ -900,177 +1128,22 @@ export function BoxCard({
                   <p className={styles.emptyMessage}>
                     {scanResult && scanResult.status !== "complete" && scanResult.status !== "error"
                       ? "Aisling is reading your sticker. Items will appear here as they are identified."
-                      : "No items in this box yet."}
+                      : "No items in this box yet. Scan your box sticker or add items manually."}
                   </p>
                 ) : (
-                  <ul className={styles.itemList}>
-                    <AnimatePresence mode="popLayout">
-                      {/* Flagged items — rendered inline, in alphabetical order with regular items */}
-                      {flaggedItems
-                        .slice()
-                        .sort((a, b) => a.item_name.localeCompare(b.item_name))
-                        .map((flagged) => (
-                          <motion.li
-                            key={`flagged-${flagged.item_assessment_id}`}
-                            layout
-                            className={styles.itemRow}
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: 12 }}
-                            transition={
-                              prefersReducedMotion
-                                ? { duration: 0 }
-                                : { duration: 0.15 }
-                            }
-                          >
-                            <FlaggedItemCard
-                              itemName={flagged.item_name}
-                              itemId={flagged.item_assessment_id}
-                              verdict={flagged.verdict}
-                              boxId={box.id}
-                              boxLabel={box.label}
-                              onShipAnyway={onShipAnyway ?? (() => undefined)}
-                              onRemoveFromBox={
-                                onRemoveFlaggedItem ?? (() => undefined)
-                              }
-                              isResolving={
-                                resolvingItemIds?.has(
-                                  flagged.item_assessment_id
-                                ) ?? false
-                              }
-                            />
-                          </motion.li>
-                        ))}
-
-                      {/* Regular items — skip items that are in the flagged set */}
-                      {[...items]
-                        .sort((a, b) => {
-                          const nameA =
-                            (a.item_assessment_id
-                              ? assessments?.[a.item_assessment_id]?.item_name
-                              : undefined) ??
-                            a.item_name ??
-                            "";
-                          const nameB =
-                            (b.item_assessment_id
-                              ? assessments?.[b.item_assessment_id]?.item_name
-                              : undefined) ??
-                            b.item_name ??
-                            "";
-                          return nameA.localeCompare(nameB);
-                        })
-                        .filter(
-                          (item) =>
-                            !item.item_assessment_id ||
-                            !flaggedItemIds.has(item.item_assessment_id)
-                        )
-                        .map((item) => {
-                          const assessment = item.item_assessment_id
-                            ? assessments?.[item.item_assessment_id]
-                            : undefined;
-                          const displayName =
-                            assessment?.item_name ??
-                            item.item_name ??
-                            "Unnamed item";
-                          const itemImageUrl = assessment?.image_url
-                            ? `/api/img?url=${encodeURIComponent(assessment.image_url)}`
-                            : undefined;
-
-                          const thumbNode = itemImageUrl ? (
-                            <img
-                              src={itemImageUrl}
-                              alt=""
-                              aria-hidden="true"
-                              className={styles.itemThumb}
-                            />
-                          ) : (
-                            <div
-                              className={styles.itemThumbPlaceholder}
-                              aria-hidden="true"
-                            >
-                              <Package size={16} />
-                            </div>
-                          );
-
-                          const verdictDotNode = (
-                            <span
-                              className={styles.verdictDot}
-                              style={{
-                                background: assessment?.verdict
-                                  ? `var(--verdict-${assessment.verdict
-                                      .toLowerCase()
-                                      .replace("_", "-")})`
-                                  : "var(--color-border-default)",
-                              }}
-                              aria-hidden="true"
-                            />
-                          );
-
-                          const innerContent = (
-                            <>
-                              {thumbNode}
-                              {verdictDotNode}
-                              <span className={styles.itemName}>
-                                {displayName}
-                              </span>
-                              {item.quantity > 1 && (
-                                <span className={styles.itemQty}>
-                                  x{item.quantity}
-                                </span>
-                              )}
-                              {assessment && (
-                                <VerdictBadge verdict={assessment.verdict} />
-                              )}
-                            </>
-                          );
-
-                          return (
-                            <motion.li
-                              key={item.id}
-                              layout
-                              className={styles.itemRow}
-                              initial={{ opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, x: 12 }}
-                              transition={
-                                prefersReducedMotion
-                                  ? { duration: 0 }
-                                  : { duration: 0.15 }
-                              }
-                            >
-                              {assessment?.id ? (
-                                <Link
-                                  href={`/decisions/${assessment.id}?from=boxes`}
-                                  className={styles.itemLink}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {innerContent}
-                                </Link>
-                              ) : (
-                                <div className={styles.itemRowLeft}>
-                                  {innerContent}
-                                </div>
-                              )}
-
-                              {!isShipped && onRemoveItem && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemoveItem(box.id, item.id);
-                                  }}
-                                  aria-label={`Remove ${displayName} from ${box.label}`}
-                                  className={styles.removeItemButton ?? ""}
-                                >
-                                  <XIcon style={{ width: 16, height: 16 }} />
-                                </Button>
-                              )}
-                            </motion.li>
-                          );
-                        })}
-                    </AnimatePresence>
-                  </ul>
+                  <MergedItemList
+                    items={items}
+                    flaggedItems={flaggedItems}
+                    flaggedItemIds={flaggedItemIds}
+                    assessments={assessments}
+                    box={box}
+                    isShipped={isShipped}
+                    onRemoveItem={onRemoveItem}
+                    onShipAnyway={onShipAnyway}
+                    onRemoveFlaggedItem={onRemoveFlaggedItem}
+                    resolvingItemIds={resolvingItemIds}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
                 )}
 
                 {/* Add to this box — unified combobox */}

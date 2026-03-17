@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-03-17 — UX polish: image display, currencies, chat layout, box list
+
+- **What**: Fixed item detail image not displaying on iOS Safari (`.itemImage` wrapper with `overflow: hidden` collapsed to zero height — removed wrapper, applied border-radius directly to img). Fixed currency labels to derive from user profile (departure/arrival countries). Updated Aisling prompt for dual currencies. Replaced `position: fixed` chat bar with flexbox layout. Fixed chat expand squishing content (now hides item content when expanded). Removed duplicate "New box" button. Fixed image proxy middleware auth redirect and hostname mismatch.
+- **PR**: https://github.com/ux-mark/moving-fairy/pull/41
+- **Files**: 18 files modified across components, API routes, proxy, and constants
+- **Key root cause**: iOS Safari collapses a `div` with `overflow: hidden` to zero height when its only child is an `<img>` that hasn't established intrinsic dimensions yet.
+
 ## 2026-03-16 — QA sweep: auth redirects, dead code, storage, RLS, assessment pipeline
 
 - **What**: Full QA audit after item-centric overhaul. Four commits:
