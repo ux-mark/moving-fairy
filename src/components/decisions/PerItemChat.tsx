@@ -322,6 +322,16 @@ export function PerItemChat({
         {isStreaming ? 'Aisling is typing' : ''}
       </div>
 
+      {/* Back nav — visible when sheet is expanded and item content is hidden */}
+      {backHref && (
+        <div className={styles.fullscreenNavRow}>
+          <Link href={backHref} className={styles.fullscreenBackLink}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>{backLabel ?? 'Back'}</span>
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerRow}>
