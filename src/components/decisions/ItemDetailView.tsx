@@ -180,22 +180,20 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
           </nav>
 
           {thumbnail ? (
-            <div className={styles.itemImage}>
-              {imageError ? (
-                <div className={styles.imageErrorPlaceholder} role="status">
-                  <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
-                  <p className={styles.imageErrorText}>Photo could not be loaded</p>
-                </div>
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={thumbnail}
-                  alt={itemName}
-                  style={{ width: '100%', maxHeight: '50vh', minHeight: '160px', objectFit: 'contain' as const, display: 'block', background: 'var(--color-bg-subtle, #f9fafb)' }}
-                  onError={() => setImageError(true)}
-                />
-              )}
-            </div>
+            imageError ? (
+              <div className={styles.imageErrorPlaceholder} role="status">
+                <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
+                <p className={styles.imageErrorText}>Photo could not be loaded</p>
+              </div>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={thumbnail}
+                alt={itemName}
+                className={styles.itemImg}
+                onError={() => setImageError(true)}
+              />
+            )
           ) : isCompleted ? (
             <div className={styles.noImagePlaceholder}>
               <Camera size={24} aria-hidden="true" className={styles.noImageIcon} />

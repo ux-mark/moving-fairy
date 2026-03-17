@@ -90,13 +90,6 @@
 
 /* ---- Item image ---- */
 
-.itemImage {
-  border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
-  line-height: 0;
-  background: var(--color-bg-subtle, #f9fafb);
-}
-
 .itemImg {
   width: 100%;
   max-height: 50vh;
@@ -104,6 +97,7 @@
   object-fit: contain;
   background: var(--color-bg-subtle, #f9fafb);
   display: block;
+  border-radius: var(--radius-lg, 12px);
 }
 
 @media (min-width: 768px) {
