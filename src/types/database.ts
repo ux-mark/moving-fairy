@@ -1,4 +1,4 @@
-import type { BoxSize, BoxStatus, BoxType, Country, ItemSource, OnwardTimeline, ProcessingStatus, Verdict } from '@/lib/constants'
+import type { BoxScanStatus, BoxSize, BoxStatus, BoxType, Country, ItemSource, OnwardTimeline, ProcessingStatus, Verdict } from '@/lib/constants'
 
 export interface TransformerEquipment {
   owned: boolean
@@ -70,6 +70,21 @@ export interface BoxItem {
   from_handwritten_list: boolean
   needs_assessment: boolean
   created_at: string
+}
+
+export interface BoxScan {
+  id: string
+  box_id: string
+  status: BoxScanStatus
+  total_found: number
+  matched_count: number
+  new_count: number
+  flagged_count: number
+  illegible_count: number
+  illegible_entries: string[]
+  flagged_items: Array<{ item_assessment_id: string; verdict: string; item_name: string }>
+  created_at: string
+  updated_at: string
 }
 
 export interface ItemConversation {
