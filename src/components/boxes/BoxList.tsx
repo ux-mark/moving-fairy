@@ -177,20 +177,6 @@ export function BoxList({
   return (
     <>
       <div className={styles.list}>
-        {/* Top action row — ghost "New box" link */}
-        {onCreateBox && (
-          <div className={styles.topAction}>
-            <button
-              type="button"
-              className={styles.newBoxLink}
-              onClick={() => setCreatePanelOpen(true)}
-            >
-              <Plus style={{ width: 14, height: 14 }} aria-hidden />
-              New box
-            </button>
-          </div>
-        )}
-
         {/* Ship all button */}
         {shippableBoxCount > 0 && onShipAll && (
           <div className={styles.shipAllRow}>

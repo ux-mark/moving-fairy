@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+import { COUNTRY_CURRENCY } from '@/lib/constants'
 import { ItemEditPanel } from './ItemEditPanel'
 import { PerItemChat } from './PerItemChat'
 import styles from './ItemDetailView.module.css'
@@ -39,6 +40,27 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // ---------------------------------------------------------------------------
   // Box data for assignment selector
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // User profile for currency derivation
+  // ---------------------------------------------------------------------------
+
+  const [shipCurrency, setShipCurrency] = useState(item.currency ?? 'USD')
+  const [replaceCurrency, setReplaceCurrency] = useState(item.replace_currency ?? 'EUR')
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { ok?: boolean; profile?: { departure_country?: string; arrival_country?: string } } | null) => {
+        if (data?.ok && data.profile) {
+          const dep = data.profile.departure_country
+          const arr = data.profile.arrival_country
+          if (dep) setShipCurrency(COUNTRY_CURRENCY[dep] ?? 'USD')
+          if (arr) setReplaceCurrency(COUNTRY_CURRENCY[arr] ?? 'EUR')
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
 
@@ -213,8 +235,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
               <ItemEditPanel
                 key={item.updated_at}
                 item={item}
-                shipCurrency={item.currency ?? 'USD'}
-                replaceCurrency={item.replace_currency ?? 'EUR'}
+                shipCurrency={shipCurrency}
+                replaceCurrency={replaceCurrency}
                 onSave={handleSave}
                 onNavigateBack={handleNavigateBack}
                 backLabel={backLabel}

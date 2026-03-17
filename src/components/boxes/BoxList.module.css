@@ -59,12 +59,6 @@
   width: 100%;
 }
 
-/* Top action row */
-.topAction {
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* Ghost "New box" link button */
 .newBoxLink {
   display: inline-flex;
