@@ -6,10 +6,9 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 16px 40px;
-  gap: 24px;
-  box-sizing: border-box;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 /* ---- Back navigation ---- */
@@ -91,13 +90,6 @@
 
 /* ---- Item image ---- */
 
-.itemImage {
-  border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
-  line-height: 0;
-  background: var(--color-bg-subtle, #f9fafb);
-}
-
 .itemImg {
   width: 100%;
   max-height: 50vh;
@@ -105,12 +97,37 @@
   object-fit: contain;
   background: var(--color-bg-subtle, #f9fafb);
   display: block;
+  border-radius: var(--radius-lg, 12px);
 }
 
 @media (min-width: 768px) {
   .itemImg {
     max-height: 400px;
   }
+}
+
+/* ---- No image placeholder (completed item with no image_url) ---- */
+
+.noImagePlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  background: var(--color-bg-subtle, #f9fafb);
+  border-radius: var(--radius-lg, 12px);
+  text-align: center;
+}
+
+.noImageIcon {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.noImageText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
 }
 
 /* ---- Image error placeholder ---- */
@@ -146,11 +163,83 @@
   gap: 0;
 }
 
-/* ---- Chat section (inline, non-fullscreen) ---- */
+/* ---- Item content wrapper (non-fullscreen) — scrollable content area ---- */
 
-.chatSection {
+.itemContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* ---- Chat bottom sheet (collapsed) ---- */
+
+.chatSheet {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  background: var(--color-bg-card, #ffffff);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- Chat bottom sheet (expanded) ---- */
+
+.chatSheetExpanded {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  background: var(--color-bg-card, #ffffff);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.chatBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  box-sizing: border-box;
+}
+
+.chatBar:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: -2px;
+}
+
+.chatBarIcon {
+  color: var(--color-primary, #059669);
+  flex-shrink: 0;
+}
+
+.chatBarText {
+  flex: 1;
+  text-align: left;
+}
+
+.chatBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatBodyHidden {
+  display: none;
 }
 
 /* ---- Chat section (fullscreen) — fills all remaining space ---- */
@@ -175,25 +264,11 @@
   overflow: hidden;
 }
 
-/* ---- Mobile: chat section edge-to-edge ---- */
-
-@media (max-width: 767px) {
-  .chatSection {
-    margin-left: -16px;
-    margin-right: -16px;
-    /* width must account for the negative margins: 100% of parent content
-       width plus 32px (16px recovered on each side) = full viewport width.
-       Without this, child elements calculating width: 100% still reference
-       the pre-margin content box and leave a 16px gap on the right. */
-    width: calc(100% + 32px);
-  }
-}
-
-/* ---- Desktop: more breathing room ---- */
+/* ---- Desktop: more breathing room in the scrollable content area ---- */
 
 @media (min-width: 768px) {
-  .root {
-    padding: 24px 24px 48px;
+  .itemContent {
+    padding: 24px;
   }
 }
 

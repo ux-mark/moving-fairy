@@ -9,6 +9,8 @@ const PUBLIC_PATHS = [
   '/auth/signup',
   '/auth/callback',
   '/auth/verify',
+  // Image proxy has its own SSRF protection — no auth needed
+  '/api/img',
   // Test-only sign-in endpoint (only active in development)
   ...(process.env.NODE_ENV === 'development' ? ['/api/test-auth'] : []),
 ]

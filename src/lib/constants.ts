@@ -66,6 +66,16 @@ export const BoxStatus = {
 } as const
 export type BoxStatus = (typeof BoxStatus)[keyof typeof BoxStatus]
 
+/** Map country code → default currency code */
+export const COUNTRY_CURRENCY: Record<string, string> = {
+  US: 'USD',
+  IE: 'EUR',
+  AU: 'AUD',
+  CA: 'CAD',
+  UK: 'GBP',
+  NZ: 'NZD',
+}
+
 export const BOX_SIZE_CBM: Record<BoxSize, number> = {
   XS: 0.04,
   S: 0.07,

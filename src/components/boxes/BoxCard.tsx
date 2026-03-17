@@ -714,16 +714,18 @@ export function BoxCard({
               ) : (
                 <span className={styles.boxLabel}>{box.label}</span>
               )}
-              {showSize && onUpdateBox && isPacking ? (
-                <SizeEditor
-                  currentSize={box.size!}
-                  onSizeChange={handleSizeChange}
-                  disabled={isShipped}
-                />
-              ) : showSize ? (
-                <BoxSizeBadge size={box.size!} />
-              ) : null}
-              <BoxStatusBadge status={box.status} />
+              <div className={styles.badgeGroup}>
+                {showSize && onUpdateBox && isPacking ? (
+                  <SizeEditor
+                    currentSize={box.size!}
+                    onSizeChange={handleSizeChange}
+                    disabled={isShipped}
+                  />
+                ) : showSize ? (
+                  <BoxSizeBadge size={box.size!} />
+                ) : null}
+                <BoxStatusBadge status={box.status} />
+              </div>
             </div>
             <div className={styles.headerMeta}>
               <motion.span
@@ -841,7 +843,7 @@ export function BoxCard({
                         >
                           {assessment?.id ? (
                             <Link
-                              href={`/decisions/${assessment.id}`}
+                              href={`/decisions/${assessment.id}?from=boxes`}
                               className={styles.itemLink}
                               onClick={(e) => e.stopPropagation()}
                             >

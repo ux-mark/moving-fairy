@@ -148,12 +148,14 @@ function composeProfileSection(profile: UserProfile): string {
     lines.push(`- **Transformer**: not owned`)
   }
 
-  // Currency context
+  // Dual currency context — shipping costs in departure currency, replacement costs in arrival currency
   const currencyMap: Record<string, string> = {
     US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
   }
-  const currency = currencyMap[profile.departure_country] ?? 'USD'
-  lines.push(`- **Display currency**: ${currency} (all monetary values in responses)`)
+  const shipCurrency = currencyMap[profile.departure_country] ?? 'USD'
+  const replaceCurrency = currencyMap[profile.arrival_country] ?? 'EUR'
+  lines.push(`- **Shipping cost currency**: ${shipCurrency} (estimated_ship_cost_usd field — costs to ship FROM ${profile.departure_country})`)
+  lines.push(`- **Replacement cost currency**: ${replaceCurrency} (estimated_replace_cost_usd field — cost to replace AT ${profile.arrival_country})`)
 
   lines.push('')
 

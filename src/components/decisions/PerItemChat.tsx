@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft } from 'lucide-react'
+import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, X as XIcon } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { usePerItemChat } from '@/lib/hooks/usePerItemChat'
@@ -23,6 +23,8 @@ interface PerItemChatProps {
   onToggleFullscreen?: () => void
   /** Increment to trigger a history re-fetch (e.g. after saving an edit). */
   chatRefreshTrigger?: number | undefined
+  /** Called when the user closes the chat sheet (non-fullscreen only). */
+  onCollapse?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -38,6 +40,7 @@ export function PerItemChat({
   isFullscreen = false,
   onToggleFullscreen,
   chatRefreshTrigger,
+  onCollapse,
 }: PerItemChatProps) {
   const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
     usePerItemChat({
@@ -319,7 +322,7 @@ export function PerItemChat({
             >
               <Maximize2 size={16} aria-hidden="true" />
             </button>
-            {/* Collapse toggle */}
+            {/* Collapse toggle (inline expand/collapse) */}
             <button
               type="button"
               className={styles.headerIconButton}
@@ -333,6 +336,18 @@ export function PerItemChat({
                 : <ChevronUp size={16} aria-hidden="true" />
               }
             </button>
+            {/* Close sheet button — only shown when parent provides onCollapse */}
+            {onCollapse && (
+              <button
+                type="button"
+                className={styles.headerIconButton}
+                onClick={onCollapse}
+                aria-label="Close chat"
+                title="Close chat"
+              >
+                <XIcon size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
         {!isCollapsed && (

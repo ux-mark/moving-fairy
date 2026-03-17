@@ -20,6 +20,14 @@ const VERDICT_OPTIONS: { value: Verdict; label: string }[] = [
   { value: 'REVISIT', label: 'Decide later' },
 ]
 
+const CURRENCY_CONTEXT: Record<string, string> = {
+  USD: 'from the US',
+  EUR: 'in Ireland',
+  AUD: 'in Australia',
+  GBP: 'in the UK',
+  CAD: 'in Canada',
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -32,6 +40,9 @@ interface ItemEditPanelProps {
   onNavigateBack?: () => void
   onNavigateNext?: () => void
   hasNextItem?: boolean
+  availableBoxes?: Array<{id: string, label: string}>
+  currentBoxId?: string
+  backLabel?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -46,7 +57,7 @@ function currencySymbol(code: string): string {
   return CURRENCY_SYMBOLS[code] ?? code
 }
 
-export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onNavigateBack, onNavigateNext, hasNextItem }: ItemEditPanelProps) {
+export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onNavigateBack, onNavigateNext, hasNextItem, availableBoxes, currentBoxId, backLabel = 'Back to decisions' }: ItemEditPanelProps) {
   const id = useId()
   const prefersReducedMotion = useReducedMotion()
 
@@ -55,6 +66,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const [shipCost, setShipCost] = useState(item.estimated_ship_cost?.toString() ?? '')
   const [replaceCost, setReplaceCost] = useState(item.estimated_replace_cost?.toString() ?? '')
   const [description, setDescription] = useState(item.advice_text || '')
+  const [boxId, setBoxId] = useState(currentBoxId ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -65,7 +77,8 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     verdict !== (item.verdict || '') ||
     shipCost !== (item.estimated_ship_cost?.toString() ?? '') ||
     replaceCost !== (item.estimated_replace_cost?.toString() ?? '') ||
-    description !== (item.advice_text || '')
+    description !== (item.advice_text || '') ||
+    boxId !== (currentBoxId ?? '')
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -80,6 +93,28 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         estimated_replace_cost: replaceCost ? parseFloat(replaceCost) : null,
         advice_text: description,
       })
+
+      // Handle box assignment separately — only when verdict is SHIP or CARRY
+      // and the box selection has changed
+      if (boxId !== (currentBoxId ?? '') && boxId && (verdict === 'SHIP' || verdict === 'CARRY')) {
+        try {
+          const boxRes = await fetch(`/api/boxes/${boxId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_assessment_id: item.id }),
+          })
+          if (!boxRes.ok) {
+            setSaveError('Changes saved, but box assignment failed. Try again from the boxes page.')
+            setIsSaving(false)
+            return
+          }
+        } catch {
+          setSaveError('Changes saved, but box assignment failed. Try again from the boxes page.')
+          setIsSaving(false)
+          return
+        }
+      }
+
       setSaveSuccess(true)
       if (onNavigateBack) {
         setShowNavCtas(true)
@@ -91,7 +126,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, onSave, onNavigateBack])
+  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, item.id, onSave, onNavigateBack])
 
   // Allow external reset when item data updates (e.g. after Aisling reassesses)
   // We deliberately don't include a deep equality check — the parent calls
@@ -142,11 +177,32 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         </select>
       </div>
 
+      {/* Box assignment — only for SHIP or CARRY verdicts */}
+      {(verdict === 'SHIP' || verdict === 'CARRY') && availableBoxes && availableBoxes.length > 0 && (
+        <div className={styles.field}>
+          <label htmlFor={`${id}-box`} className={styles.label}>
+            Assign to a box
+          </label>
+          <select
+            id={`${id}-box`}
+            className={styles.select}
+            value={boxId}
+            onChange={(e) => setBoxId(e.target.value)}
+            disabled={isSaving}
+          >
+            <option value="">Not assigned to a box</option>
+            {availableBoxes.map((box) => (
+              <option key={box.id} value={box.id}>{box.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Costs */}
       <div className={styles.costsRow}>
         <div className={styles.field}>
           <label htmlFor={`${id}-ship-cost`} className={styles.label}>
-            Estimated shipping cost ({shipCurrency})
+            Shipping cost {CURRENCY_CONTEXT[shipCurrency] ? `(${CURRENCY_CONTEXT[shipCurrency]})` : `(${shipCurrency})`}
           </label>
           <div className={styles.inputWithPrefix}>
             <span className={styles.currencyPrefix} aria-hidden="true">{currencySymbol(shipCurrency)}</span>
@@ -168,7 +224,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
 
         <div className={styles.field}>
           <label htmlFor={`${id}-replace-cost`} className={styles.label}>
-            Estimated replacement cost ({replaceCurrency})
+            Replacement cost {CURRENCY_CONTEXT[replaceCurrency] ? `(${CURRENCY_CONTEXT[replaceCurrency]})` : `(${replaceCurrency})`}
           </label>
           <div className={styles.inputWithPrefix}>
             <span className={styles.currencyPrefix} aria-hidden="true">{currencySymbol(replaceCurrency)}</span>
@@ -233,7 +289,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
                 size="md"
                 onClick={onNavigateBack}
               >
-                Back to decisions
+                {backLabel}
               </Button>
             )}
             {onNavigateNext && hasNextItem ? (

@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+import { COUNTRY_CURRENCY } from '@/lib/constants'
 import { ItemEditPanel } from './ItemEditPanel'
 import { PerItemChat } from './PerItemChat'
 import styles from './ItemDetailView.module.css'
@@ -28,8 +29,52 @@ interface ItemDetailViewProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for interface compatibility; confirm flow will be re-added in a follow-up
 export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRetry, onItemUpdate }: ItemDetailViewProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const from = searchParams.get('from')
+  const backHref = from === 'boxes' ? '/boxes' : '/decisions'
+  const backLabel = from === 'boxes' ? 'Back to boxes' : 'Back to decisions'
+
   const [item, setItem] = useState<ItemAssessment>(initialItem)
   const [imageError, setImageError] = useState(false)
+
+  // Reset image error state when the image URL changes (e.g. after a poll delivers the URL)
+  useEffect(() => {
+    setImageError(false)
+  }, [item.image_url])
+
+  // ---------------------------------------------------------------------------
+  // Box data for assignment selector
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // User profile for currency derivation
+  // ---------------------------------------------------------------------------
+
+  const [shipCurrency, setShipCurrency] = useState(item.currency ?? 'USD')
+  const [replaceCurrency, setReplaceCurrency] = useState(item.replace_currency ?? 'EUR')
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { ok?: boolean; profile?: { departure_country?: string; arrival_country?: string } } | null) => {
+        if (data?.ok && data.profile) {
+          const dep = data.profile.departure_country
+          const arr = data.profile.arrival_country
+          if (dep) setShipCurrency(COUNTRY_CURRENCY[dep] ?? 'USD')
+          if (arr) setReplaceCurrency(COUNTRY_CURRENCY[arr] ?? 'EUR')
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
+
+  useEffect(() => {
+    fetch('/api/boxes')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setBoxes(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
 
   // Keep local item in sync when parent polls and provides a newer version
   useEffect(() => {
@@ -45,9 +90,12 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const isFailed = item.processing_status === 'failed'
 
   const itemName = item.item_name || 'Item'
+  // Route through the /api/img proxy so the image loads on any device
+  // on the LAN (same approach as ItemCard in the list view).
   const thumbnail = item.image_url
     ? `/api/img?url=${encodeURIComponent(item.image_url)}`
     : undefined
+
 
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
@@ -91,8 +139,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // ---------------------------------------------------------------------------
 
   const handleNavigateBack = useCallback(() => {
-    router.push('/decisions')
-  }, [router])
+    router.push(backHref)
+  }, [router, backHref])
 
   // ---------------------------------------------------------------------------
   // Fullscreen chat state — lifted up so ItemDetailView controls the layout.
@@ -101,6 +149,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // ---------------------------------------------------------------------------
 
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isChatExpanded, setIsChatExpanded] = useState(false)
   const fullscreenTriggerRef = useRef<HTMLButtonElement>(null)
 
   const handleToggleFullscreen = useCallback(() => {
@@ -112,36 +161,45 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // PerItemChat stays mounted in the same tree position at all times.
   // ---------------------------------------------------------------------------
 
+  // Derive box data for ItemEditPanel
+  const currentBoxId = boxes.find(box =>
+    box.items?.some(bi => bi.item_assessment_id === item.id)
+  )?.id ?? ''
+  const availableBoxes = boxes.filter(b => b.status === 'packing')
+
   return (
     <div className={isFullscreen ? styles.fullscreenLayout : styles.root}>
-      {/* Item content — hidden during fullscreen chat */}
-      {!isFullscreen && (
-        <>
+      {/* Item content — hidden during fullscreen or expanded chat */}
+      {!isFullscreen && !isChatExpanded && (
+        <div className={styles.itemContent}>
           <nav aria-label="Breadcrumb">
-            <Link href="/decisions" className={styles.backLink}>
+            <Link href={backHref} className={styles.backLink}>
               <ArrowLeft size={16} aria-hidden="true" />
-              Back to decisions
+              {backLabel}
             </Link>
           </nav>
 
-          {thumbnail && (
-            <div className={styles.itemImage}>
-              {imageError ? (
-                <div className={styles.imageErrorPlaceholder} role="status">
-                  <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
-                  <p className={styles.imageErrorText}>Photo could not be loaded</p>
-                </div>
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={thumbnail}
-                  alt={itemName}
-                  className={styles.itemImg}
-                  onError={() => setImageError(true)}
-                />
-              )}
+          {thumbnail ? (
+            imageError ? (
+              <div className={styles.imageErrorPlaceholder} role="status">
+                <Camera size={32} aria-hidden="true" className={styles.imageErrorIcon} />
+                <p className={styles.imageErrorText}>Photo could not be loaded</p>
+              </div>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={thumbnail}
+                alt={itemName}
+                className={styles.itemImg}
+                onError={() => setImageError(true)}
+              />
+            )
+          ) : isCompleted ? (
+            <div className={styles.noImagePlaceholder}>
+              <Camera size={24} aria-hidden="true" className={styles.noImageIcon} />
+              <p className={styles.noImageText}>No photo for this item</p>
             </div>
-          )}
+          ) : null}
 
           {item.needs_clarification && (
             <div className={styles.clarificationNotice} role="note">
@@ -183,28 +241,59 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
               <ItemEditPanel
                 key={item.updated_at}
                 item={item}
-                shipCurrency={item.currency ?? 'USD'}
-                replaceCurrency={item.replace_currency ?? 'EUR'}
+                shipCurrency={shipCurrency}
+                replaceCurrency={replaceCurrency}
                 onSave={handleSave}
                 onNavigateBack={handleNavigateBack}
+                backLabel={backLabel}
+                availableBoxes={availableBoxes}
+                currentBoxId={currentBoxId}
               />
             )}
           </div>
-        </>
+        </div>
       )}
 
-      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen toggle */}
-      <div className={isFullscreen ? styles.chatSectionFullscreen : styles.chatSection}>
-        <PerItemChat
-          itemId={item.id}
-          itemName={itemName}
-          thumbnailUrl={thumbnail}
-          onAssessmentUpdated={handleAssessmentUpdated}
-          fullscreenTriggerRef={fullscreenTriggerRef}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={handleToggleFullscreen}
-          chatRefreshTrigger={chatRefreshTrigger}
-        />
+      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen/sheet toggle */}
+      <div className={
+        isFullscreen
+          ? styles.chatSectionFullscreen
+          : isChatExpanded
+            ? styles.chatSheetExpanded
+            : styles.chatSheet
+      }>
+        {/* Collapsed bar — shown only when not fullscreen and chat is collapsed */}
+        {!isFullscreen && !isChatExpanded && (
+          <button
+            type="button"
+            className={styles.chatBar}
+            onClick={() => setIsChatExpanded(true)}
+            aria-label="Open chat with Aisling"
+          >
+            <Sparkles size={18} aria-hidden="true" className={styles.chatBarIcon} />
+            <span className={styles.chatBarText}>Chat with Aisling</span>
+            <ChevronUp size={16} aria-hidden="true" />
+          </button>
+        )}
+
+        {/* Chat body — hidden (not unmounted) when sheet is collapsed */}
+        <div className={
+          !isFullscreen && !isChatExpanded
+            ? styles.chatBodyHidden
+            : styles.chatBody
+        }>
+          <PerItemChat
+            itemId={item.id}
+            itemName={itemName}
+            thumbnailUrl={thumbnail}
+            onAssessmentUpdated={handleAssessmentUpdated}
+            fullscreenTriggerRef={fullscreenTriggerRef}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={handleToggleFullscreen}
+            chatRefreshTrigger={chatRefreshTrigger}
+            onCollapse={() => setIsChatExpanded(false)}
+          />
+        </div>
       </div>
     </div>
   )
