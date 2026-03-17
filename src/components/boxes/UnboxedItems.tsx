@@ -94,7 +94,7 @@ function UnboxedItemRow({
           </div>
         )}
         <Link
-          href={`/decisions/${item.id}`}
+          href={`/decisions/${item.id}?from=boxes`}
           className={styles.itemLink}
         >
           <span className={styles.itemName}>{item.item_name}</span>
