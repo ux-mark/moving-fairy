@@ -183,11 +183,20 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
 
           {/* DEBUG — visible banner to diagnose image_url issue. REMOVE after fix. */}
           <div style={{ padding: '8px 12px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            <strong>DEBUG image_url:</strong> {item.image_url ? `"${item.image_url}"` : `(${String(item.image_url)})`}
+            <strong>imageError:</strong> {String(imageError)}
             <br />
-            <strong>thumbnail:</strong> {thumbnail ? `"${thumbnail}"` : `(${String(thumbnail)})`}
+            <strong>thumbnail truthy:</strong> {String(!!thumbnail)}
             <br />
-            <strong>processing_status:</strong> {item.processing_status}
+            {/* Test: render the proxy image directly here to see if it loads */}
+            <strong>Test image below (via proxy):</strong>
+            <br />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumbnail} alt="debug test" style={{ width: '100%', maxHeight: '150px', objectFit: 'contain', border: '2px solid red' }} onError={() => console.log('[DEBUG] test img onError fired')} onLoad={() => console.log('[DEBUG] test img onLoad fired')} />
+            <br />
+            <strong>Test image below (direct URL):</strong>
+            <br />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.image_url || ''} alt="debug direct" style={{ width: '100%', maxHeight: '150px', objectFit: 'contain', border: '2px solid blue' }} onError={() => console.log('[DEBUG] direct img onError fired')} onLoad={() => console.log('[DEBUG] direct img onLoad fired')} />
           </div>
 
           {thumbnail ? (
