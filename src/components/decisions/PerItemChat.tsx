@@ -42,7 +42,7 @@ export function PerItemChat({
   chatRefreshTrigger,
   onCollapse,
 }: PerItemChatProps) {
-  const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
+  const { messages, isStreaming, isLoadingHistory, error, toolStatus, loadHistory, sendMessage, clearError } =
     usePerItemChat({
       ...(onAssessmentUpdated ? { onAssessmentUpdated } : {}),
       ...(chatRefreshTrigger !== undefined ? { refreshTrigger: chatRefreshTrigger } : {}),
@@ -281,6 +281,9 @@ export function PerItemChat({
               <div className={styles.typingRow}>
                 <div className={styles.typingBubble}>
                   <ThinkingDots />
+                  {toolStatus && (
+                    <span className={styles.toolStatusText}>{toolStatus}</span>
+                  )}
                 </div>
               </div>
             </li>
@@ -400,6 +403,9 @@ export function PerItemChat({
               <div className={styles.typingRow}>
                 <div className={styles.typingBubble}>
                   <ThinkingDots />
+                  {toolStatus && (
+                    <span className={styles.toolStatusText}>{toolStatus}</span>
+                  )}
                 </div>
               </div>
             </li>

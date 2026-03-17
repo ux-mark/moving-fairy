@@ -118,6 +118,12 @@
   gap: 4px;
 }
 
+.toolStatusText {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  margin-left: 4px;
+}
+
 /* ---- Error banner ---- */
 
 .errorBanner {
