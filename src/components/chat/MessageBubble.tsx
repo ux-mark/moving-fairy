@@ -290,6 +290,11 @@ function stripToolCallBlocks(text: string): string {
     }
   }
 
+  // Collapse runs of 3+ newlines down to 2 (paragraph break).
+  // This prevents large blank gaps left behind by stripped tool blocks
+  // when the CSS uses white-space: pre-wrap.
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
   return cleaned.trim();
 }
 

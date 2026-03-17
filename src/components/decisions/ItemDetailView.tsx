@@ -292,6 +292,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
             onToggleFullscreen={handleToggleFullscreen}
             chatRefreshTrigger={chatRefreshTrigger}
             onCollapse={() => setIsChatExpanded(false)}
+            backHref={backHref}
+            backLabel={backLabel}
           />
         </div>
       </div>

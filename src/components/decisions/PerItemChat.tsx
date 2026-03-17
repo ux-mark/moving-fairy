@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, X as XIcon } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
@@ -25,6 +26,9 @@ interface PerItemChatProps {
   chatRefreshTrigger?: number | undefined
   /** Called when the user closes the chat sheet (non-fullscreen only). */
   onCollapse?: () => void
+  /** Navigation back to the list page (Decisions or Boxes). */
+  backHref?: string | undefined
+  backLabel?: string | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +45,8 @@ export function PerItemChat({
   onToggleFullscreen,
   chatRefreshTrigger,
   onCollapse,
+  backHref,
+  backLabel,
 }: PerItemChatProps) {
   const { messages, isStreaming, isLoadingHistory, error, toolStatus, loadHistory, sendMessage, clearError } =
     usePerItemChat({
@@ -221,26 +227,35 @@ export function PerItemChat({
           {isStreaming ? 'Aisling is typing' : ''}
         </div>
 
-        {/* Full-screen header */}
+        {/* Full-screen header: page nav + item context */}
         <div className={styles.fullscreenHeader}>
+          {/* Primary nav — back to list page (Decisions or Boxes) */}
+          {backHref && (
+            <nav aria-label="Breadcrumb" className={styles.fullscreenNav}>
+              <Link href={backHref} className={styles.fullscreenNavLink}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>{backLabel ?? 'Back'}</span>
+              </Link>
+            </nav>
+          )}
+          {/* Item context bar — shows item name + thumbnail, exits fullscreen */}
           <button
             type="button"
-            className={styles.fullscreenBackButton}
+            className={styles.fullscreenItemBar}
             onClick={onToggleFullscreen}
             aria-label={`Back to ${itemName}`}
           >
-            <ArrowLeft size={16} aria-hidden="true" />
-            <span>Back to {itemName}</span>
+            <span className={styles.fullscreenItemName}>{itemName}</span>
+            {thumbnailUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={thumbnailUrl}
+                alt=""
+                className={styles.fullscreenThumb}
+                aria-hidden="true"
+              />
+            )}
           </button>
-          {thumbnailUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumbnailUrl}
-              alt=""
-              className={styles.fullscreenThumb}
-              aria-hidden="true"
-            />
-          )}
         </div>
 
         {/* Message list */}
