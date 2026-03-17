@@ -227,25 +227,32 @@ export function PerItemChat({
           {isStreaming ? 'Aisling is typing' : ''}
         </div>
 
-        {/* Full-screen header */}
-        <div className={styles.fullscreenHeader}>
+        {/* Full-screen header: back nav + chat header */}
+        <div className={styles.fullscreenHeaderStack}>
+          {/* Row 1: Back to Decisions/Boxes */}
           {backHref && (
-            <Link href={backHref} className={styles.fullscreenBackLink}>
-              <ArrowLeft size={16} aria-hidden="true" />
-              <span>{backLabel ?? 'Back'}</span>
-            </Link>
+            <div className={styles.fullscreenNavRow}>
+              <Link href={backHref} className={styles.fullscreenBackLink}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>{backLabel ?? 'Back'}</span>
+              </Link>
+            </div>
           )}
-          <div className={styles.fullscreenHeaderRight}>
-            <span className={styles.fullscreenItemName}>{itemName}</span>
-            {thumbnailUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={thumbnailUrl}
-                alt=""
-                className={styles.fullscreenThumb}
-                aria-hidden="true"
-              />
-            )}
+          {/* Row 2: Chat header with item context */}
+          <div className={styles.fullscreenChatRow}>
+            <h2 className={styles.fullscreenChatTitle}>Chat with Aisling</h2>
+            <div className={styles.fullscreenHeaderRight}>
+              <span className={styles.fullscreenItemName}>{itemName}</span>
+              {thumbnailUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  className={styles.fullscreenThumb}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
           </div>
         </div>
 
