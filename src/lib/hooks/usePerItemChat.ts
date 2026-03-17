@@ -27,6 +27,8 @@ interface UsePerItemChatReturn {
   isStreaming: boolean
   isLoadingHistory: boolean
   error: string | null
+  /** Status text when Aisling is executing tools (e.g. "Updating card...") */
+  toolStatus: string | null
   loadHistory: (itemId: string) => Promise<void>
   sendMessage: (itemId: string, text: string) => Promise<void>
   clearError: () => void
@@ -41,6 +43,7 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
   const [isStreaming, setIsStreaming] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [toolStatus, setToolStatus] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Use a ref for the callback so sendMessage doesn't need to recreate
@@ -195,6 +198,12 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
           if (typeof parsed !== 'object' || parsed === null) continue
           const obj = parsed as Record<string, unknown>
 
+          // Tool status — show/hide "Updating card..." indicator
+          if (obj.__type === 'tool_status') {
+            setToolStatus((obj.message as string) ?? null)
+            continue
+          }
+
           // Card event — do NOT add to messages; assessment update
           // will be reflected in the edit panel via onAssessmentUpdated.
           if (obj.__type === 'card') {
@@ -262,6 +271,7 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
     } finally {
       isStreamingRef.current = false
       setIsStreaming(false)
+      setToolStatus(null)
       abortControllerRef.current = null
     }
   }, [])
@@ -273,6 +283,7 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
     isStreaming,
     isLoadingHistory,
     error,
+    toolStatus,
     loadHistory,
     sendMessage,
     clearError,

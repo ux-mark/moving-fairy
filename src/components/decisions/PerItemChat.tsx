@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, X as XIcon } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
@@ -25,6 +26,9 @@ interface PerItemChatProps {
   chatRefreshTrigger?: number | undefined
   /** Called when the user closes the chat sheet (non-fullscreen only). */
   onCollapse?: () => void
+  /** Navigation back to the list page (Decisions or Boxes). */
+  backHref?: string | undefined
+  backLabel?: string | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -41,8 +45,10 @@ export function PerItemChat({
   onToggleFullscreen,
   chatRefreshTrigger,
   onCollapse,
+  backHref,
+  backLabel,
 }: PerItemChatProps) {
-  const { messages, isStreaming, isLoadingHistory, error, loadHistory, sendMessage, clearError } =
+  const { messages, isStreaming, isLoadingHistory, error, toolStatus, loadHistory, sendMessage, clearError } =
     usePerItemChat({
       ...(onAssessmentUpdated ? { onAssessmentUpdated } : {}),
       ...(chatRefreshTrigger !== undefined ? { refreshTrigger: chatRefreshTrigger } : {}),
@@ -221,26 +227,33 @@ export function PerItemChat({
           {isStreaming ? 'Aisling is typing' : ''}
         </div>
 
-        {/* Full-screen header */}
-        <div className={styles.fullscreenHeader}>
-          <button
-            type="button"
-            className={styles.fullscreenBackButton}
-            onClick={onToggleFullscreen}
-            aria-label={`Back to ${itemName}`}
-          >
-            <ArrowLeft size={16} aria-hidden="true" />
-            <span>Back to {itemName}</span>
-          </button>
-          {thumbnailUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumbnailUrl}
-              alt=""
-              className={styles.fullscreenThumb}
-              aria-hidden="true"
-            />
+        {/* Full-screen header: back nav + chat header */}
+        <div className={styles.fullscreenHeaderStack}>
+          {/* Row 1: Back to Decisions/Boxes */}
+          {backHref && (
+            <div className={styles.fullscreenNavRow}>
+              <Link href={backHref} className={styles.fullscreenBackLink}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>{backLabel ?? 'Back'}</span>
+              </Link>
+            </div>
           )}
+          {/* Row 2: Chat header with item context */}
+          <div className={styles.fullscreenChatRow}>
+            <h2 className={styles.fullscreenChatTitle}>Chat with Aisling</h2>
+            <div className={styles.fullscreenHeaderRight}>
+              <span className={styles.fullscreenItemName}>{itemName}</span>
+              {thumbnailUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  className={styles.fullscreenThumb}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Message list */}
@@ -281,6 +294,9 @@ export function PerItemChat({
               <div className={styles.typingRow}>
                 <div className={styles.typingBubble}>
                   <ThinkingDots />
+                  {toolStatus && (
+                    <span className={styles.toolStatusText}>{toolStatus}</span>
+                  )}
                 </div>
               </div>
             </li>
@@ -305,6 +321,16 @@ export function PerItemChat({
       <div className={styles.srOnly} aria-live="polite" role="status">
         {isStreaming ? 'Aisling is typing' : ''}
       </div>
+
+      {/* Back nav — visible when sheet is expanded and item content is hidden */}
+      {backHref && (
+        <div className={styles.fullscreenNavRow}>
+          <Link href={backHref} className={styles.fullscreenBackLink}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>{backLabel ?? 'Back'}</span>
+          </Link>
+        </div>
+      )}
 
       {/* Header */}
       <div className={styles.header}>
@@ -400,6 +426,9 @@ export function PerItemChat({
               <div className={styles.typingRow}>
                 <div className={styles.typingBubble}>
                   <ThinkingDots />
+                  {toolStatus && (
+                    <span className={styles.toolStatusText}>{toolStatus}</span>
+                  )}
                 </div>
               </div>
             </li>

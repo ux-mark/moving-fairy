@@ -246,8 +246,56 @@ function AssessmentCard({
 // Tool call block filtering
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip tool call blocks from assistant text before display.
+ * Handles two formats:
+ * 1. XML: <tool_call>...</tool_call>
+ * 2. Bracket: [RENDER_ASSESSMENT_CARD]{...} or [UPDATE_ITEM_ASSESSMENT]{...}
+ */
 function stripToolCallBlocks(text: string): string {
-  return text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trim();
+  // Strip XML format
+  let cleaned = text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "");
+
+  // Strip bracket format: [TOOL_NAME] followed by a JSON object
+  const BRACKET_MARKERS = ["[RENDER_ASSESSMENT_CARD]", "[UPDATE_ITEM_ASSESSMENT]"];
+  for (const marker of BRACKET_MARKERS) {
+    let idx = cleaned.indexOf(marker);
+    while (idx >= 0) {
+      const afterMarker = cleaned.slice(idx + marker.length);
+      const braceStart = afterMarker.indexOf("{");
+      if (braceStart >= 0) {
+        let depth = 0;
+        let braceEnd = -1;
+        for (let i = braceStart; i < afterMarker.length; i++) {
+          if (afterMarker[i] === "{") depth++;
+          else if (afterMarker[i] === "}") {
+            depth--;
+            if (depth === 0) {
+              braceEnd = i + 1;
+              break;
+            }
+          }
+        }
+        if (braceEnd > 0) {
+          cleaned = cleaned.slice(0, idx) + cleaned.slice(idx + marker.length + braceEnd);
+        } else {
+          // Incomplete JSON (still streaming) — remove from marker to end
+          cleaned = cleaned.slice(0, idx);
+        }
+      } else {
+        // No JSON yet — remove the marker itself
+        cleaned = cleaned.slice(0, idx) + cleaned.slice(idx + marker.length);
+      }
+      idx = cleaned.indexOf(marker);
+    }
+  }
+
+  // Collapse runs of 3+ newlines down to 2 (paragraph break).
+  // This prevents large blank gaps left behind by stripped tool blocks
+  // when the CSS uses white-space: pre-wrap.
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  return cleaned.trim();
 }
 
 // ---------------------------------------------------------------------------
