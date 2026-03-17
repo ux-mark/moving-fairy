@@ -96,8 +96,6 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
     ? `/api/img?url=${encodeURIComponent(item.image_url)}`
     : undefined
 
-  // DEBUG — remove once the image bug is confirmed fixed
-  console.log('[ItemDetailView] image_url:', item.image_url, '| thumbnail:', thumbnail, '| processing_status:', item.processing_status)
 
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
@@ -181,24 +179,6 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
             </Link>
           </nav>
 
-          {/* DEBUG — visible banner to diagnose image_url issue. REMOVE after fix. */}
-          <div style={{ padding: '8px 12px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            <strong>imageError:</strong> {String(imageError)}
-            <br />
-            <strong>thumbnail truthy:</strong> {String(!!thumbnail)}
-            <br />
-            {/* Test: render the proxy image directly here to see if it loads */}
-            <strong>Test image below (via proxy):</strong>
-            <br />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumbnail} alt="debug test" style={{ width: '100%', maxHeight: '150px', objectFit: 'contain', border: '2px solid red' }} onError={() => console.log('[DEBUG] test img onError fired')} onLoad={() => console.log('[DEBUG] test img onLoad fired')} />
-            <br />
-            <strong>Test image below (direct URL):</strong>
-            <br />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.image_url || ''} alt="debug direct" style={{ width: '100%', maxHeight: '150px', objectFit: 'contain', border: '2px solid blue' }} onError={() => console.log('[DEBUG] direct img onError fired')} onLoad={() => console.log('[DEBUG] direct img onLoad fired')} />
-          </div>
-
           {thumbnail ? (
             <div className={styles.itemImage}>
               {imageError ? (
@@ -211,7 +191,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 <img
                   src={thumbnail}
                   alt={itemName}
-                  className={styles.itemImg}
+                  style={{ width: '100%', maxHeight: '50vh', minHeight: '160px', objectFit: 'contain' as const, display: 'block', background: 'var(--color-bg-subtle, #f9fafb)' }}
                   onError={() => setImageError(true)}
                 />
               )}
