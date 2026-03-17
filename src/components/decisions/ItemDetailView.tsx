@@ -90,10 +90,14 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const isFailed = item.processing_status === 'failed'
 
   const itemName = item.item_name || 'Item'
-  // Use the image URL directly — Supabase storage URLs are public and
-  // accessible from the LAN. The /api/img proxy is still used by
-  // RecommendationCard thumbnails in the list view.
-  const thumbnail = item.image_url || undefined
+  // Route through the /api/img proxy so the image loads on any device
+  // on the LAN (same approach as ItemCard in the list view).
+  const thumbnail = item.image_url
+    ? `/api/img?url=${encodeURIComponent(item.image_url)}`
+    : undefined
+
+  // DEBUG — remove once the image bug is confirmed fixed
+  console.log('[ItemDetailView] image_url:', item.image_url, '| thumbnail:', thumbnail)
 
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
