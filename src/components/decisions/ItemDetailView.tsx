@@ -94,9 +94,6 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
     ? `/api/img?url=${encodeURIComponent(item.image_url)}`
     : undefined
 
-  // Debug: log image resolution so we can verify the proxy URL is correct
-  console.log('[ItemDetailView] image_url:', item.image_url, 'thumbnail:', thumbnail)
-
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
   // ---------------------------------------------------------------------------
