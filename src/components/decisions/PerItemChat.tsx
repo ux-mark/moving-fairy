@@ -227,24 +227,15 @@ export function PerItemChat({
           {isStreaming ? 'Aisling is typing' : ''}
         </div>
 
-        {/* Full-screen header: page nav + item context */}
+        {/* Full-screen header */}
         <div className={styles.fullscreenHeader}>
-          {/* Primary nav — back to list page (Decisions or Boxes) */}
           {backHref && (
-            <nav aria-label="Breadcrumb" className={styles.fullscreenNav}>
-              <Link href={backHref} className={styles.fullscreenNavLink}>
-                <ArrowLeft size={16} aria-hidden="true" />
-                <span>{backLabel ?? 'Back'}</span>
-              </Link>
-            </nav>
+            <Link href={backHref} className={styles.fullscreenBackLink}>
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>{backLabel ?? 'Back'}</span>
+            </Link>
           )}
-          {/* Item context bar — shows item name + thumbnail, exits fullscreen */}
-          <button
-            type="button"
-            className={styles.fullscreenItemBar}
-            onClick={onToggleFullscreen}
-            aria-label={`Back to ${itemName}`}
-          >
+          <div className={styles.fullscreenHeaderRight}>
             <span className={styles.fullscreenItemName}>{itemName}</span>
             {thumbnailUrl && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -255,7 +246,7 @@ export function PerItemChat({
                 aria-hidden="true"
               />
             )}
-          </button>
+          </div>
         </div>
 
         {/* Message list */}
