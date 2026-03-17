@@ -210,6 +210,11 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
 }
 
+/* Sticker scan button row */
+.stickerScanRow {
+  margin-top: 12px;
+}
+
 /* Mark as packed */
 .markPackedRow {
   margin-top: 12px;
