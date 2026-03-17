@@ -598,6 +598,7 @@ export function BoxCard({
   onUpdateBox,
 }: BoxCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -768,7 +769,8 @@ export function BoxCard({
                   ? { duration: 0 }
                   : { type: "spring", stiffness: 300, damping: 30 }
               }
-              className={styles.expandedContent}
+              className={cn(styles.expandedContent, isAnimating && styles.expandedContentAnimating)}
+              onAnimationComplete={() => setIsAnimating(false)}
             >
               <div className={styles.expandedInner}>
                 {/* Items list */}

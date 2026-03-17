@@ -116,6 +116,10 @@
 
 /* Expanded content */
 .expandedContent {
+  /* No static overflow — managed dynamically */
+}
+
+.expandedContentAnimating {
   overflow: hidden;
 }
 
@@ -543,11 +547,6 @@
   /* Prevent header badges from wrapping to a new line, which causes layout shifts */
   .headerTopRow {
     flex-wrap: nowrap;
-  }
-
-  /* Contain the card so absolute-positioned dropdowns don't extend past the viewport */
-  .card {
-    overflow-x: hidden;
   }
 
   /* Right-align the size picker dropdown so it doesn't overflow the card on narrow screens */
