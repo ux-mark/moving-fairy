@@ -37,6 +37,11 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const [item, setItem] = useState<ItemAssessment>(initialItem)
   const [imageError, setImageError] = useState(false)
 
+  // Reset image error state when the image URL changes (e.g. after a poll delivers the URL)
+  useEffect(() => {
+    setImageError(false)
+  }, [item.image_url])
+
   // ---------------------------------------------------------------------------
   // Box data for assignment selector
   // ---------------------------------------------------------------------------
@@ -88,6 +93,9 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const thumbnail = item.image_url
     ? `/api/img?url=${encodeURIComponent(item.image_url)}`
     : undefined
+
+  // Debug: log image resolution so we can verify the proxy URL is correct
+  console.log('[ItemDetailView] image_url:', item.image_url, 'thumbnail:', thumbnail)
 
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
