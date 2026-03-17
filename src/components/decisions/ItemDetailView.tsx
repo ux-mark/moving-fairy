@@ -97,7 +97,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
     : undefined
 
   // DEBUG — remove once the image bug is confirmed fixed
-  console.log('[ItemDetailView] image_url:', item.image_url, '| thumbnail:', thumbnail)
+  console.log('[ItemDetailView] image_url:', item.image_url, '| thumbnail:', thumbnail, '| processing_status:', item.processing_status)
 
   // ---------------------------------------------------------------------------
   // Chat refresh trigger
@@ -171,8 +171,8 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
 
   return (
     <div className={isFullscreen ? styles.fullscreenLayout : styles.root}>
-      {/* Item content — hidden during fullscreen chat */}
-      {!isFullscreen && (
+      {/* Item content — hidden during fullscreen or expanded chat */}
+      {!isFullscreen && !isChatExpanded && (
         <div className={styles.itemContent}>
           <nav aria-label="Breadcrumb">
             <Link href={backHref} className={styles.backLink}>
@@ -180,6 +180,15 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
               {backLabel}
             </Link>
           </nav>
+
+          {/* DEBUG — visible banner to diagnose image_url issue. REMOVE after fix. */}
+          <div style={{ padding: '8px 12px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+            <strong>DEBUG image_url:</strong> {item.image_url ? `"${item.image_url}"` : `(${String(item.image_url)})`}
+            <br />
+            <strong>thumbnail:</strong> {thumbnail ? `"${thumbnail}"` : `(${String(thumbnail)})`}
+            <br />
+            <strong>processing_status:</strong> {item.processing_status}
+          </div>
 
           {thumbnail ? (
             <div className={styles.itemImage}>
