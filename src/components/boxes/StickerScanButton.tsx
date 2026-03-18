@@ -75,8 +75,7 @@ export function StickerScanButton({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
-        aria-label={`Take a photo of the box sticker for ${boxLabel}`}
+        aria-label={`Upload or take a photo of the box sticker for ${boxLabel}`}
         tabIndex={-1}
         className={styles.hiddenInput}
         onChange={handleFileChange}
