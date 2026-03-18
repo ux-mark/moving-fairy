@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { COUNTRY_CURRENCY } from '@/lib/constants'
+import { proxyImageUrl } from '@/lib/storage-url'
 import { ItemEditPanel } from './ItemEditPanel'
 import { PerItemChat } from './PerItemChat'
 import styles from './ItemDetailView.module.css'
@@ -92,9 +93,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const itemName = item.item_name || 'Item'
   // Route through the /api/img proxy so the image loads on any device
   // on the LAN (same approach as ItemCard in the list view).
-  const thumbnail = item.image_url
-    ? `/api/img?url=${encodeURIComponent(item.image_url)}`
-    : undefined
+  const thumbnail = item.image_url ? proxyImageUrl(item.image_url) : undefined
 
 
   // ---------------------------------------------------------------------------

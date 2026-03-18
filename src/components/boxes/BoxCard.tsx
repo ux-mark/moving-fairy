@@ -28,6 +28,7 @@ import { StickerScanSummary } from "@/components/boxes/StickerScanSummary";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/storage-url";
 
 import styles from "./BoxCard.module.css";
 
@@ -728,7 +729,7 @@ function MergedItemList({
             : undefined;
           const displayName = entry.name;
           const itemImageUrl = assessment?.image_url
-            ? `/api/img?url=${encodeURIComponent(assessment.image_url)}`
+            ? proxyImageUrl(assessment.image_url)
             : undefined;
 
           const thumbNode = itemImageUrl ? (

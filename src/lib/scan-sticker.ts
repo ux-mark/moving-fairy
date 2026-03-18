@@ -22,6 +22,7 @@ import {
 import { BoxScanStatus, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
 import { callCli, useCliMode } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import { buildStorageUrl } from '@/lib/storage-url'
 import { assessItem } from '@/lib/assess-item'
 import type { ItemAssessment, UserProfile } from '@/types/database'
 
@@ -137,7 +138,8 @@ const STICKER_SYSTEM_PROMPT =
 async function fetchImageAsBase64(
   imageUrl: string
 ): Promise<{ base64: string; mediaType: string }> {
-  const response = await fetch(imageUrl)
+  const resolvedUrl = buildStorageUrl(imageUrl)
+  const response = await fetch(resolvedUrl)
   if (!response.ok) {
     throw new Error(`Failed to fetch sticker image: ${response.status} ${response.statusText}`)
   }

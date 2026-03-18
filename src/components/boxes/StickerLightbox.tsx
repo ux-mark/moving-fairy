@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
+import { proxyImageUrl } from "@/lib/storage-url";
 import styles from "./StickerLightbox.module.css";
 
 interface StickerLightboxProps {
@@ -75,7 +76,7 @@ function LightboxContent({
 
   const proxiedUrl = imageUrl.startsWith("blob:")
     ? imageUrl
-    : `/api/img?url=${encodeURIComponent(imageUrl)}`;
+    : proxyImageUrl(imageUrl);
 
   return (
     <motion.div

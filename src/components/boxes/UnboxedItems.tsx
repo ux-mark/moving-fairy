@@ -6,6 +6,7 @@ import { ChevronDown, Package } from "lucide-react";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import type { Box, ItemAssessment } from "@/types";
+import { proxyImageUrl } from "@/lib/storage-url";
 
 import styles from "./UnboxedItems.module.css";
 
@@ -73,9 +74,7 @@ function UnboxedItemRow({
     [item.id, onAddToBox]
   );
 
-  const itemImageUrl = item.image_url
-    ? `/api/img?url=${encodeURIComponent(item.image_url)}`
-    : undefined;
+  const itemImageUrl = item.image_url ? proxyImageUrl(item.image_url) : undefined;
 
   return (
     <li

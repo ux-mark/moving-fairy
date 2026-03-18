@@ -7,6 +7,9 @@
   background: var(--color-bg-card);
   box-shadow: var(--shadow-card);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @media (hover: hover) {

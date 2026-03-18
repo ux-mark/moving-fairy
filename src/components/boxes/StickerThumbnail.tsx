@@ -5,6 +5,7 @@ import { ImageOff } from "lucide-react";
 import { Skeleton } from "@thefairies/design-system/components";
 
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/storage-url";
 
 import styles from "./StickerThumbnail.module.css";
 
@@ -27,7 +28,7 @@ export function StickerThumbnail({
   const proxiedUrl = imageUrl
     ? imageUrl.startsWith("blob:")
       ? imageUrl
-      : `/api/img?url=${encodeURIComponent(imageUrl)}`
+      : proxyImageUrl(imageUrl)
     : null;
 
   const handleKeyDown = useCallback(

@@ -52,9 +52,20 @@ export async function GET(req: NextRequest) {
     return new Response('Missing url param', { status: 400 })
   }
 
+  // Handle relative storage paths (new format: "item-images/{profile_id}/{uuid}.webp")
+  // Expand to a full URL using the current Supabase base so no IP is hardcoded.
+  let fetchUrl = url
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!base) {
+      return new Response('Supabase URL not configured', { status: 500 })
+    }
+    fetchUrl = `${base}/storage/v1/object/public/${url}`
+  }
+
   let parsed: URL
   try {
-    parsed = new URL(url)
+    parsed = new URL(fetchUrl)
   } catch {
     return new Response('Invalid url', { status: 400 })
   }
@@ -74,7 +85,7 @@ export async function GET(req: NextRequest) {
 
   let upstream: Response
   try {
-    upstream = await fetch(url)
+    upstream = await fetch(fetchUrl)
   } catch {
     return new Response('Failed to fetch image', { status: 502 })
   }

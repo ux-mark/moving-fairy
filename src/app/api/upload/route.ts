@@ -84,9 +84,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
-    const url = urlData.publicUrl
+    // Return the bucket-qualified relative path instead of a full absolute URL.
+    // This avoids hardcoding the host IP into the DB — the full URL is constructed
+    // at runtime via buildStorageUrl() / proxyImageUrl() from storage-url.ts.
+    const url = `${BUCKET}/${storagePath}`
 
     return Response.json({ ok: true, url })
   } catch (err) {
