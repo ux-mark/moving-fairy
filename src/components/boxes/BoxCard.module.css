@@ -7,6 +7,9 @@
   background: var(--color-bg-card);
   box-shadow: var(--shadow-card);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @media (hover: hover) {
@@ -22,19 +25,26 @@
 .header {
   display: flex;
   width: 100%;
+  box-sizing: border-box;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 16px 16px;
   text-align: left;
   cursor: pointer;
   user-select: none;
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-card, #ffffff);
   border: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .header:hover {
-  background: var(--color-bg-hover, #edeef0);
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.header:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
 }
 
 /* Collapsed card: header IS the whole card — all corners rounded */
@@ -58,6 +68,14 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .boxLabel {
@@ -102,12 +120,16 @@
 
 /* Expanded content */
 .expandedContent {
+  /* No static overflow — managed dynamically */
+}
+
+.expandedContentAnimating {
   overflow: hidden;
 }
 
 .expandedInner {
   border-top: 1px solid var(--color-border-default);
-  padding: 16px;
+  padding: 16px 16px 20px;
 }
 
 .itemList {
@@ -121,11 +143,11 @@
 
 .itemRow {
   display: flex;
-  min-height: 44px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 10px 0;
   font-size: 14px;
 }
 
@@ -190,6 +212,11 @@
 .addItemInput:focus-visible {
   border-color: var(--color-primary, #16a34a);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
+}
+
+/* Sticker scan button row */
+.stickerScanRow {
+  margin-top: 12px;
 }
 
 /* Mark as packed */
@@ -272,11 +299,6 @@
   min-width: 0;
   color: var(--color-text-primary);
   line-height: 1.4;
-  /* 2-line clamp in dropdowns — keeps the list scannable while showing enough of the name */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
 
 /* "Add [text]" create-new option */
@@ -290,11 +312,6 @@
   flex: 1;
   min-width: 0;
   line-height: 1.4;
-  /* 2-line clamp in dropdowns — keeps the list scannable while showing enough of the name */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
 
 /* ============================================================
@@ -390,8 +407,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   margin: 0;
   background: none;
@@ -431,7 +448,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 12px;
   font-size: 14px;
   text-align: left;
@@ -483,17 +500,62 @@
   color: var(--color-text-muted);
 }
 
+/* ============================================================
+   Item thumbnails
+   ============================================================ */
+
+.itemThumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.itemThumbPlaceholder {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-subtle, #f9fafb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ============================================================
+   Item link (tappable item rows)
+   ============================================================ */
+
+.itemLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  min-height: 44px;
+  padding: 4px 0;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.itemLink:hover {
+  background: var(--color-bg-hover, #f3f4f6);
+}
+
+.itemLink:focus-visible {
+  outline: 2px solid var(--color-primary, #059669);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
 /* ---- Mobile touch targets and sizing ---- */
 @media (max-width: 767px) {
   /* Prevent header badges from wrapping to a new line, which causes layout shifts */
   .headerTopRow {
     flex-wrap: nowrap;
-    overflow: hidden;
-  }
-
-  /* Contain the card so absolute-positioned dropdowns don't extend past the viewport */
-  .card {
-    overflow-x: hidden;
   }
 
   /* Right-align the size picker dropdown so it doesn't overflow the card on narrow screens */
@@ -514,10 +576,10 @@
     border-radius: calc(var(--radius-lg) - 1px);
   }
 
-  /* Item rows inside expanded box — enforce 48px */
+  /* Item rows inside expanded box — enforce 52px on mobile */
   .itemRow {
-    min-height: 48px;
-    padding: 10px 0;
+    min-height: 52px;
+    padding: 12px 0;
     gap: 10px;
     font-size: 16px;
   }

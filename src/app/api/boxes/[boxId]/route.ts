@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { updateBoxCbm, updateBoxLabel, updateBoxSize, updateBoxStatus } from '@/mcp'
+import { updateBoxCbm, updateBoxLabel, updateBoxManifestUrl, updateBoxSize, updateBoxStatus } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { BoxSize, BoxStatus } from '@/lib/constants'
 
@@ -8,6 +8,7 @@ interface PatchBoxBody {
   cbm?: number
   label?: string
   size?: string
+  manifest_image_url?: string
 }
 
 export async function PATCH(
@@ -46,6 +47,14 @@ export async function PATCH(
         return Response.json({ ok: false, error: 'Invalid box size' }, { status: 400 })
       }
       const box = await updateBoxSize(boxId, body.size as BoxSize)
+      return Response.json(box)
+    }
+
+    if (body.manifest_image_url !== undefined) {
+      if (typeof body.manifest_image_url !== 'string' || !body.manifest_image_url.trim()) {
+        return Response.json({ ok: false, error: 'manifest_image_url must be a non-empty string' }, { status: 400 })
+      }
+      const box = await updateBoxManifestUrl(boxId, body.manifest_image_url.trim())
       return Response.json(box)
     }
 

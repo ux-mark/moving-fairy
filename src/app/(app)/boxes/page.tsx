@@ -1,26 +1,20 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
-import { Button } from '@thefairies/design-system/components'
 
-import { getSession, getBoxes, getItemAssessments } from '@/mcp'
+import { getBoxes, getItemAssessments } from '@/mcp'
+import { getAuthenticatedProfile } from '@/lib/auth'
 import { BoxManagement } from '@/components/boxes/BoxManagement'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { Verdict } from '@/lib/constants'
 
 import styles from './boxes.module.css'
 
 export default async function BoxesPage() {
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) redirect('/onboarding')
-
-  const session = await getSession(sessionId)
-  if (!session) redirect('/onboarding')
+  const { profile } = await getAuthenticatedProfile()
+  if (!profile) redirect('/onboarding')
 
   const [boxes, assessments] = await Promise.all([
-    getBoxes(session.user_profile_id),
-    getItemAssessments(session.user_profile_id),
+    getBoxes(profile.id),
+    getItemAssessments(profile.id),
   ])
 
   const boxItems = Object.fromEntries(boxes.map((b) => [b.id, b.items]))
@@ -31,26 +25,22 @@ export default async function BoxesPage() {
   )
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <h1 className={styles.pageTitle}>Your Boxes</h1>
-          <Link href="/inventory">
-            <Button variant="ghost" size="sm">
-              <MessageCircle style={{ width: 16, height: 16 }} />
-              Chat
-            </Button>
-          </Link>
-        </div>
-      </header>
+    <AppLayout>
+      <div className={styles.pageContent}>
+        <header className={styles.header}>
+          <div className={styles.headerInner}>
+            <h1 className={styles.pageTitle}>Your boxes</h1>
+          </div>
+        </header>
 
-      <main className={styles.main}>
-        <BoxManagement
-          initialBoxes={boxes}
-          initialBoxItems={boxItems}
-          initialAssessments={relevantAssessments}
-        />
-      </main>
-    </div>
+        <section className={styles.main}>
+          <BoxManagement
+            initialBoxes={boxes}
+            initialBoxItems={boxItems}
+            initialAssessments={relevantAssessments}
+          />
+        </section>
+      </div>
+    </AppLayout>
   )
 }

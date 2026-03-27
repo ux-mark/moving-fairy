@@ -1,179 +1,53 @@
-"use client";
+'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
-import { MessageCircle, Package, Settings, Sparkles } from "lucide-react";
-import { Navigation } from "@thefairies/design-system/components";
+import { useCallback, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { ClipboardList, Package, Settings, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Navigation } from '@thefairies/design-system/components'
 
-import { SignOutButton } from "@/components/auth/SignOutButton";
-import { CostSummary } from "@/components/inventory/CostSummary";
-import { DecisionNotificationTab } from "@/components/inventory/DecisionNotificationTab";
-import { InventoryPreview } from "@/components/inventory/InventoryPreview";
-import { ProfileEditPanel } from "@/components/profile/ProfileEditPanel";
-import { useInventory } from "@/lib/hooks/useInventory";
+import { ProfileEditPanel } from '@/components/profile/ProfileEditPanel'
 
-import styles from "./AppLayout.module.css";
+import styles from './AppLayout.module.css'
 
 interface AppLayoutProps {
-  chatPanel: React.ReactNode;
-  inventoryPanel: React.ReactNode;
-  decisionCount?: number;
-  onOpenDecisions?: () => void;
-  /** Ref populated with the function to close the mobile overlay and return to chat */
-  closeMobileOverlayRef?: MutableRefObject<(() => void) | null>;
-  /** When true, the Decisions tab is active in the side panel — hide the notification tab */
-  decisionsTabActive?: boolean;
+  children: React.ReactNode
 }
 
 const NAV_PRIMARY_ITEMS = [
-  { key: "chat", label: "Aisling", icon: MessageCircle },
-  { key: "inventory", label: "Inventory", icon: Package },
-];
+  { key: 'decisions', label: 'Decisions', icon: ClipboardList },
+  { key: 'boxes',     label: 'Boxes',     icon: Package },
+]
 
 const NAV_SECONDARY_ITEMS = [
-  { key: "settings", label: "Settings", icon: Settings },
-];
+  { key: 'settings', label: 'Settings', icon: Settings },
+]
 
 /**
- * AppLayout provides the app shell: Navigation at the top, chat as the main
- * content, and a toggleable right-side panel for inventory (desktop) or
- * a full-screen top-down overlay (mobile).
+ * AppLayout — simplified shell: Navigation + main content.
+ * The chat/inventory dual-panel layout has been replaced by the
+ * item-centric decisions-as-home layout.
  */
-export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpenDecisions, closeMobileOverlayRef, decisionsTabActive = false }: AppLayoutProps) {
-  // Start with the server-side default (true), then adjust on mount.
-  // Using window.innerWidth in the initialiser causes a hydration mismatch
-  // because the server always returns true while the client may return false.
-  const [inventoryOpen, setInventoryOpen] = useState(true);
+export function AppLayout({ children }: AppLayoutProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const [profileOpen, setProfileOpen] = useState(false)
 
-  useEffect(() => {
-    if (window.innerWidth <= 768) {
-      setInventoryOpen(false);
-    }
-  }, []);
-  const [inventoryWidth, setInventoryWidth] = useState(380);
-  const [activeSection, setActiveSection] = useState("chat");
-  const [profileOpen, setProfileOpen] = useState(false);
-  const { costSummary, refreshInventory } = useInventory();
-
-  // Mobile overlay state (replaces bottom sheet)
-  const [mobileInventoryOpen, setMobileInventoryOpen] = useState(false);
-
-  // Resize state (desktop)
-  const isResizingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(inventoryWidth);
-
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      isResizingRef.current = true;
-      startXRef.current = e.clientX;
-      startWidthRef.current = inventoryWidth;
-    },
-    [inventoryWidth]
-  );
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      const delta = startXRef.current - e.clientX;
-      const maxWidth = window.innerWidth * 0.5;
-      const newWidth = Math.max(320, Math.min(maxWidth, startWidthRef.current + delta));
-      setInventoryWidth(newWidth);
-    };
-    const handleMouseUp = () => {
-      isResizingRef.current = false;
-    };
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
+  // Derive active section from the current path
+  const activeSection = pathname.startsWith('/boxes') ? 'boxes' : 'decisions'
 
   const handleNavigate = useCallback(
     (section: string) => {
-      if (section === "chat") {
-        setInventoryOpen(false);
-        setMobileInventoryOpen(false);
-        setActiveSection("chat");
-      } else if (section === "inventory") {
-        setInventoryOpen(true);
-        setActiveSection("inventory");
-        // On mobile, open the full-screen overlay
-        if (typeof window !== "undefined" && window.innerWidth < 768) {
-          setMobileInventoryOpen(true);
-        }
-      } else if (section === "settings") {
-        setProfileOpen(true);
+      if (section === 'decisions') {
+        router.push('/decisions')
+      } else if (section === 'boxes') {
+        router.push('/boxes')
+      } else if (section === 'settings') {
+        setProfileOpen(true)
       }
     },
-    []
-  );
-
-  // Total items for preview strip
-  const totalItems = costSummary
-    ? Object.values(costSummary.counts_by_verdict).reduce((sum, n) => sum + n, 0)
-    : 0;
-  const hasCostData = totalItems > 0;
-
-  // Mobile overlay: open
-  const openMobileInventory = useCallback(() => {
-    setMobileInventoryOpen(true);
-    setActiveSection("inventory");
-  }, []);
-
-  // Mobile overlay: close
-  const closeMobileInventory = useCallback(() => {
-    setMobileInventoryOpen(false);
-    setActiveSection("chat");
-  }, []);
-
-  // Lock body scroll when mobile inventory overlay is open.
-  // On iOS Safari, overflow:hidden alone does NOT prevent touch-driven
-  // scrolling of the body behind a fixed overlay. The reliable fix is to
-  // set position:fixed on the body (which pins it in place) and compensate
-  // for the scroll-jump by setting top:-scrollY then restoring afterwards.
-  const savedScrollYRef = useRef(0);
-
-  useEffect(() => {
-    if (mobileInventoryOpen) {
-      const scrollY = window.scrollY;
-      savedScrollYRef.current = scrollY;
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.left = "0";
-      document.body.style.right = "0";
-      document.body.style.overflow = "hidden";
-    } else {
-      const scrollY = savedScrollYRef.current;
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.left = "";
-      document.body.style.right = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    }
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.left = "";
-      document.body.style.right = "";
-      document.body.style.overflow = "";
-    };
-  }, [mobileInventoryOpen]);
-
-  // Expose closeMobileInventory to parent via ref
-  useEffect(() => {
-    if (closeMobileOverlayRef) {
-      closeMobileOverlayRef.current = closeMobileInventory;
-    }
-    return () => {
-      if (closeMobileOverlayRef) {
-        closeMobileOverlayRef.current = null;
-      }
-    };
-  }, [closeMobileOverlayRef, closeMobileInventory]);
+    [router]
+  )
 
   return (
     <div className={styles.root}>
@@ -186,7 +60,9 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
       <ProfileEditPanel
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
-        onSaved={refreshInventory}
+        onSaved={() => {
+          /* refreshes handled per-page */
+        }}
       />
 
       {/* DS Navigation */}
@@ -199,100 +75,12 @@ export function AppLayout({ chatPanel, inventoryPanel, decisionCount = 0, onOpen
         secondaryItems={NAV_SECONDARY_ITEMS}
       />
 
-      {/* Mobile: inventory preview strip (replaces old cost strip on mobile) */}
-      {hasCostData && (
-        <>
-          {/* Desktop cost strip — hidden on mobile by InventoryPreview's own media query */}
-          <div className={styles.costStrip}>
-            <CostSummary data={costSummary!} variant="compact" />
-            <SignOutButton />
-          </div>
-
-          {/* Mobile preview strip — hidden on desktop via its own CSS, and hidden when the mobile overlay is open */}
-          {!mobileInventoryOpen && (
-            <InventoryPreview
-              itemCount={totalItems}
-              estimatedCost={costSummary!.total_estimated_ship_cost}
-              currency={costSummary!.currency}
-              onExpand={openMobileInventory}
-            />
-          )}
-        </>
-      )}
-
-      {/* Main body — chat + optional inventory panel */}
+      {/* Main content */}
       <div className={styles.body}>
-        {/* Chat — primary content */}
-        <main id="main-content" className={styles.chatMain}>
-          {chatPanel}
+        <main id="main-content" className={styles.main}>
+          {children}
         </main>
-
-        {/* Desktop: inventory side panel */}
-        {inventoryOpen && (
-          <aside
-            className={styles.inventoryPanel}
-            style={{ width: inventoryWidth }}
-            aria-label="Inventory"
-          >
-            <div
-              className={styles.resizeHandle}
-              onMouseDown={handleResizeStart}
-              aria-hidden="true"
-            >
-              <div className={styles.resizeLine} />
-              <div className={styles.resizeGrip}>
-                <span className={styles.resizeGripLine} />
-              </div>
-            </div>
-            <div className={styles.inventoryContent}>
-              {inventoryPanel}
-            </div>
-          </aside>
-        )}
       </div>
-
-      {/* Mobile: full-screen inventory overlay (slides down from nav) */}
-      <div
-        className={`${styles.mobileOverlay} ${mobileInventoryOpen ? styles.mobileOverlayOpen : ""}`}
-        role="region"
-        aria-label="Inventory panel"
-        aria-hidden={!mobileInventoryOpen}
-      >
-        {/* Inventory content */}
-        <div className={styles.mobileOverlayContent}>
-          {mobileInventoryOpen && inventoryPanel}
-        </div>
-
-        {/* Back to Aisling floating button */}
-        <div className={styles.mobileOverlayFooter}>
-          <button
-            type="button"
-            className={styles.backToChat}
-            onClick={closeMobileInventory}
-          >
-            <MessageCircle size={18} />
-            Back to Aisling
-          </button>
-        </div>
-      </div>
-
-      {/* Decision notification tab — right edge.
-          Hidden when: mobile overlay is open, or Decisions tab is active in the side panel
-          (no point showing a "go to Decisions" tab when you're already looking at Decisions). */}
-      {!mobileInventoryOpen && !(decisionsTabActive && inventoryOpen) && (
-        <DecisionNotificationTab
-          count={decisionCount}
-          onClick={() => {
-            setInventoryOpen(true);
-            setActiveSection("inventory");
-            // On mobile, open the overlay and switch to Decisions tab
-            if (typeof window !== "undefined" && window.innerWidth < 768) {
-              setMobileInventoryOpen(true);
-            }
-            onOpenDecisions?.();
-          }}
-        />
-      )}
     </div>
-  );
+  )
 }

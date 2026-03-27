@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, useId } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -18,11 +19,34 @@ import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 import { BoxStatusBadge } from "@/components/boxes/BoxStatusBadge";
 import { BoxSizeBadge } from "@/components/boxes/BoxSizeBadge";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
+import { FlagIndicator } from "@/components/boxes/FlagIndicator";
+import { FlaggedItemCard } from "@/components/boxes/FlaggedItemCard";
+import { StickerThumbnail } from "@/components/boxes/StickerThumbnail";
+import { StickerLightbox } from "@/components/boxes/StickerLightbox";
+import { StickerScanButton } from "@/components/boxes/StickerScanButton";
+import { StickerScanSummary } from "@/components/boxes/StickerScanSummary";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/storage-url";
 
 import styles from "./BoxCard.module.css";
+
+export interface FlaggedItem {
+  item_assessment_id: string;
+  verdict: "SELL" | "DONATE" | "DISCARD" | "REVISIT";
+  item_name: string;
+}
+
+export interface ScanResult {
+  status: "uploading" | "processing" | "partial" | "complete" | "error";
+  totalFound: number;
+  matchedCount: number;
+  newCount: number;
+  flaggedCount: number;
+  illegibleCount: number;
+  errorMessage?: string;
+}
 
 interface BoxCardProps {
   box: Box;
@@ -36,6 +60,20 @@ interface BoxCardProps {
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
   onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
+  /** Sticker scan state — set when a scan has been initiated or completed */
+  scanResult?: ScanResult | null | undefined;
+  /** Flagged items from sticker scan that need user action */
+  flaggedItems?: FlaggedItem[] | undefined;
+  /** Called when user taps "Scan box sticker" and selects/captures a photo */
+  onScanSticker?: ((boxId: string, file: File) => void) | undefined;
+  /** Called when user resolves a flagged item by overriding verdict to SHIP */
+  onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Called when user resolves a flagged item by removing it from the box */
+  onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Whether a sticker scan upload/process is in progress for this box */
+  isScanning?: boolean | undefined;
+  /** Item IDs currently being resolved (ship anyway / remove) */
+  resolvingItemIds?: Set<string> | undefined;
 }
 
 function BoxIcon({ boxType }: { boxType: Box["box_type"] }) {
@@ -253,7 +291,8 @@ function ItemCombobox({
     items[activeIndex]?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
-  const listboxId = "box-item-combobox-listbox";
+  const reactId = useId();
+  const listboxId = `box-item-combobox-listbox-${reactId}`;
 
   return (
     <div ref={containerRef} className={styles.comboboxWrap}>
@@ -581,6 +620,217 @@ function SizeEditor({
 }
 
 // ---------------------------------------------------------------------------
+// Merged item list — interleaves flagged and regular items alphabetically
+// ---------------------------------------------------------------------------
+
+type MergedListEntry =
+  | { type: "flagged"; key: string; name: string; flagged: FlaggedItem }
+  | { type: "regular"; key: string; name: string; item: BoxItem };
+
+function MergedItemList({
+  items,
+  flaggedItems,
+  flaggedItemIds,
+  assessments,
+  box,
+  isShipped,
+  onRemoveItem,
+  onShipAnyway,
+  onRemoveFlaggedItem,
+  resolvingItemIds,
+  prefersReducedMotion,
+}: {
+  items: BoxItem[];
+  flaggedItems: FlaggedItem[];
+  flaggedItemIds: Set<string>;
+  assessments?: Record<string, ItemAssessment> | undefined;
+  box: Box;
+  isShipped: boolean;
+  onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
+  onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
+  onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  resolvingItemIds?: Set<string> | undefined;
+  prefersReducedMotion: boolean | null;
+}) {
+  // Build a unified list of entries sorted alphabetically by name
+  const entries = useMemo(() => {
+    const merged: MergedListEntry[] = [];
+
+    // Add flagged items
+    for (const flagged of flaggedItems) {
+      merged.push({
+        type: "flagged",
+        key: `flagged-${flagged.item_assessment_id}`,
+        name: flagged.item_name,
+        flagged,
+      });
+    }
+
+    // Add regular items (excluding those in the flagged set)
+    for (const item of items) {
+      if (item.item_assessment_id && flaggedItemIds.has(item.item_assessment_id)) {
+        continue;
+      }
+      const assessment = item.item_assessment_id
+        ? assessments?.[item.item_assessment_id]
+        : undefined;
+      const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
+      merged.push({
+        type: "regular",
+        key: item.id,
+        name: displayName,
+        item,
+      });
+    }
+
+    // Sort alphabetically by name
+    merged.sort((a, b) => a.name.localeCompare(b.name));
+    return merged;
+  }, [items, flaggedItems, flaggedItemIds, assessments]);
+
+  return (
+    <ul className={styles.itemList}>
+      <AnimatePresence mode="popLayout">
+        {entries.map((entry) => {
+          if (entry.type === "flagged") {
+            return (
+              <motion.li
+                key={entry.key}
+                layout
+                className={styles.itemRow}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.15 }
+                }
+              >
+                <FlaggedItemCard
+                  itemName={entry.flagged.item_name}
+                  itemId={entry.flagged.item_assessment_id}
+                  verdict={entry.flagged.verdict}
+                  boxId={box.id}
+                  boxLabel={box.label}
+                  onShipAnyway={onShipAnyway ?? (() => undefined)}
+                  onRemoveFromBox={onRemoveFlaggedItem ?? (() => undefined)}
+                  isResolving={
+                    resolvingItemIds?.has(entry.flagged.item_assessment_id) ?? false
+                  }
+                />
+              </motion.li>
+            );
+          }
+
+          const { item } = entry;
+          const assessment = item.item_assessment_id
+            ? assessments?.[item.item_assessment_id]
+            : undefined;
+          const displayName = entry.name;
+          const itemImageUrl = assessment?.image_url
+            ? proxyImageUrl(assessment.image_url)
+            : undefined;
+
+          const thumbNode = itemImageUrl ? (
+            <img
+              src={itemImageUrl}
+              alt=""
+              aria-hidden="true"
+              className={styles.itemThumb}
+            />
+          ) : (
+            <div
+              className={styles.itemThumbPlaceholder}
+              aria-hidden="true"
+            >
+              <Package size={16} />
+            </div>
+          );
+
+          const verdictDotNode = (
+            <span
+              className={styles.verdictDot}
+              style={{
+                background: assessment?.verdict
+                  ? `var(--verdict-${assessment.verdict
+                      .toLowerCase()
+                      .replace("_", "-")})`
+                  : "var(--color-border-default)",
+              }}
+              aria-hidden="true"
+            />
+          );
+
+          const innerContent = (
+            <>
+              {thumbNode}
+              {verdictDotNode}
+              <span className={styles.itemName}>
+                {displayName}
+              </span>
+              {item.quantity > 1 && (
+                <span className={styles.itemQty}>
+                  x{item.quantity}
+                </span>
+              )}
+              {assessment && (
+                <VerdictBadge verdict={assessment.verdict} />
+              )}
+            </>
+          );
+
+          return (
+            <motion.li
+              key={entry.key}
+              layout
+              className={styles.itemRow}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.15 }
+              }
+            >
+              {assessment?.id ? (
+                <Link
+                  href={`/decisions/${assessment.id}?from=boxes`}
+                  className={styles.itemLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {innerContent}
+                </Link>
+              ) : (
+                <div className={styles.itemRowLeft}>
+                  {innerContent}
+                </div>
+              )}
+
+              {!isShipped && onRemoveItem && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveItem(box.id, item.id);
+                  }}
+                  aria-label={`Remove ${displayName} from ${box.label}`}
+                  className={styles.removeItemButton ?? ""}
+                >
+                  <XIcon style={{ width: 16, height: 16 }} />
+                </Button>
+              )}
+            </motion.li>
+          );
+        })}
+      </AnimatePresence>
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // BoxCard
 // ---------------------------------------------------------------------------
 
@@ -594,9 +844,19 @@ export function BoxCard({
   onRemoveItem,
   onMarkPacked,
   onUpdateBox,
+  scanResult,
+  flaggedItems = [],
+  onScanSticker,
+  onShipAnyway,
+  onRemoveFlaggedItem,
+  isScanning = false,
+  resolvingItemIds,
 }: BoxCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [localStickerUrl, setLocalStickerUrl] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [itemCountKey, setItemCountKey] = useState(0);
@@ -631,7 +891,13 @@ export function BoxCard({
     box.box_type !== BoxType.CHECKED_LUGGAGE;
 
   const handleToggle = useCallback(() => {
-    setIsOpen((prev) => !prev);
+    setIsOpen((prev) => {
+      if (!prev) {
+        // Opening: reset isAnimating so overflow is clipped during enter animation
+        setIsAnimating(true);
+      }
+      return !prev;
+    });
   }, []);
 
   const handleKeyDown = useCallback(
@@ -682,6 +948,51 @@ export function BoxCard({
   // Determine if we have unboxed items for the combobox
   const hasUnboxedItems = unboxedItems && unboxedItems.length > 0;
 
+  // Sticker scan: create local object URL for immediate thumbnail display
+  const handleScanStart = useCallback(
+    (boxId: string, file: File) => {
+      // Revoke any previous local URL before creating a new one
+      setLocalStickerUrl((prev) => {
+        if (prev?.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return URL.createObjectURL(file);
+      });
+      onScanSticker?.(boxId, file);
+    },
+    [onScanSticker]
+  );
+
+  // Clean up object URL on unmount
+  useEffect(() => {
+    return () => {
+      setLocalStickerUrl((prev) => {
+        if (prev?.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+    };
+  }, []);
+
+  // Effective sticker URL: prefer local object URL during scanning, fall back to storage URL
+  const effectiveStickerUrl = localStickerUrl ?? box.manifest_image_url ?? null;
+
+  // Build flagged item IDs set for quick lookup
+  const flaggedItemIds = useMemo(
+    () => new Set(flaggedItems.map((f) => f.item_assessment_id)),
+    [flaggedItems]
+  );
+
+  const unresolvedFlagCount = flaggedItems.length;
+
+  // Determine confirm dialog copy — changes when there are unresolved flags
+  const confirmPackedDescription =
+    unresolvedFlagCount > 0
+      ? `${box.label} has ${unresolvedFlagCount} ${unresolvedFlagCount === 1 ? "item" : "items"} that ${unresolvedFlagCount === 1 ? "was" : "were"} not assessed as ship. Mark as packed anyway?`
+      : `Mark ${box.label} as packed? You can still edit it later.`;
+  const confirmPackedLabel = unresolvedFlagCount > 0 ? "Pack anyway" : "Yes, packed";
+
   return (
     <>
       <div
@@ -712,26 +1023,33 @@ export function BoxCard({
               ) : (
                 <span className={styles.boxLabel}>{box.label}</span>
               )}
-              {showSize && onUpdateBox && isPacking ? (
-                <SizeEditor
-                  currentSize={box.size!}
-                  onSizeChange={handleSizeChange}
-                  disabled={isShipped}
-                />
-              ) : showSize ? (
-                <BoxSizeBadge size={box.size!} />
-              ) : null}
-              <BoxStatusBadge status={box.status} />
+              <div className={styles.badgeGroup}>
+                {showSize && onUpdateBox && isPacking ? (
+                  <SizeEditor
+                    currentSize={box.size!}
+                    onSizeChange={handleSizeChange}
+                    disabled={isShipped}
+                  />
+                ) : showSize ? (
+                  <BoxSizeBadge size={box.size!} />
+                ) : null}
+                <BoxStatusBadge status={box.status} />
+              </div>
             </div>
             <div className={styles.headerMeta}>
               <motion.span
                 key={itemCountKey}
                 initial={itemCountKey > 0 ? { scale: 1.15 } : false}
                 animate={{ scale: 1 }}
-                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.3, ease: "easeOut" }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.3, ease: "easeOut" }
+                }
               >
                 {items.length} {items.length === 1 ? "item" : "items"}
               </motion.span>
+              <FlagIndicator count={unresolvedFlagCount} />
               {showCbm && <span>{box.cbm} CBM</span>}
             </div>
           </div>
@@ -764,77 +1082,69 @@ export function BoxCard({
                   ? { duration: 0 }
                   : { type: "spring", stiffness: 300, damping: 30 }
               }
-              className={styles.expandedContent}
+              className={cn(
+                styles.expandedContent,
+                isAnimating && styles.expandedContentAnimating
+              )}
+              onAnimationComplete={() => setIsAnimating(false)}
             >
               <div className={styles.expandedInner}>
-                {/* Items list */}
-                {items.length === 0 ? (
-                  <p className={styles.emptyMessage}>No items in this box yet.</p>
+                {/* Sticker thumbnail — always at top if a sticker exists */}
+                {effectiveStickerUrl && (
+                  <StickerThumbnail
+                    imageUrl={effectiveStickerUrl}
+                    boxLabel={box.label}
+                    onExpand={() => setLightboxOpen(true)}
+                  />
+                )}
+
+                {/* Scan summary — shown when a scan is in progress or complete */}
+                {scanResult && (
+                  <StickerScanSummary
+                    status={scanResult.status}
+                    totalFound={scanResult.totalFound}
+                    matchedCount={scanResult.matchedCount}
+                    newCount={scanResult.newCount}
+                    flaggedCount={scanResult.flaggedCount}
+                    illegibleCount={scanResult.illegibleCount}
+                    {...(scanResult.errorMessage
+                      ? { errorMessage: scanResult.errorMessage }
+                      : {})}
+                    {...(scanResult.status === "error" && onScanSticker
+                      ? {
+                          onRetry: () => {
+                            // Open the file picker so the user can retake/reselect
+                            const input = document.querySelector<HTMLInputElement>(
+                              `input[aria-label="Take a photo of the box sticker for ${box.label}"]`
+                            );
+                            input?.click();
+                          },
+                        }
+                      : {})}
+                  />
+                )}
+
+                {/* Items list — empty state accounts for scan-in-progress context */}
+                {items.length === 0 && flaggedItems.length === 0 ? (
+                  <p className={styles.emptyMessage}>
+                    {scanResult && scanResult.status !== "complete" && scanResult.status !== "error"
+                      ? "Aisling is reading your sticker. Items will appear here as they are identified."
+                      : "No items in this box yet. Scan your box sticker or add items manually."}
+                  </p>
                 ) : (
-                  <ul className={styles.itemList}>
-                    <AnimatePresence mode="popLayout">
-                    {[...items]
-                      .sort((a, b) => {
-                        const nameA = (a.item_assessment_id ? assessments?.[a.item_assessment_id]?.item_name : undefined) ?? a.item_name ?? "";
-                        const nameB = (b.item_assessment_id ? assessments?.[b.item_assessment_id]?.item_name : undefined) ?? b.item_name ?? "";
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((item) => {
-                      const assessment = item.item_assessment_id
-                        ? assessments?.[item.item_assessment_id]
-                        : undefined;
-                      const displayName = assessment?.item_name ?? item.item_name ?? "Unnamed item";
-
-                      return (
-                        <motion.li
-                          key={item.id}
-                          layout
-                          className={styles.itemRow}
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: 12 }}
-                          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15 }}
-                        >
-                          <div className={styles.itemRowLeft}>
-                            <span
-                              className={styles.verdictDot}
-                              style={{
-                                background: assessment
-                                  ? `var(--verdict-${assessment.verdict.toLowerCase().replace("_", "-")})`
-                                  : "var(--color-border-default)",
-                              }}
-                              aria-hidden="true"
-                            />
-                            <span className={styles.itemName}>{displayName}</span>
-                            {item.quantity > 1 && (
-                              <span className={styles.itemQty}>x{item.quantity}</span>
-                            )}
-                            {assessment && (
-                              <VerdictBadge
-                                verdict={assessment.verdict}
-                              />
-                            )}
-                          </div>
-
-                          {!isShipped && onRemoveItem && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveItem(box.id, item.id);
-                              }}
-                              aria-label={`Remove ${displayName} from ${box.label}`}
-                              className={styles.removeItemButton ?? ""}
-                            >
-                              <XIcon style={{ width: 16, height: 16 }} />
-                            </Button>
-                          )}
-                        </motion.li>
-                      );
-                    })}
-                    </AnimatePresence>
-                  </ul>
+                  <MergedItemList
+                    items={items}
+                    flaggedItems={flaggedItems}
+                    flaggedItemIds={flaggedItemIds}
+                    assessments={assessments}
+                    box={box}
+                    isShipped={isShipped}
+                    onRemoveItem={onRemoveItem}
+                    onShipAnyway={onShipAnyway}
+                    onRemoveFlaggedItem={onRemoveFlaggedItem}
+                    resolvingItemIds={resolvingItemIds}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
                 )}
 
                 {/* Add to this box — unified combobox */}
@@ -853,6 +1163,19 @@ export function BoxCard({
                         boxLabel={box.label}
                       />
                     ) : null}
+                  </div>
+                )}
+
+                {/* Scan sticker button — packing status only */}
+                {isPacking && onScanSticker && (
+                  <div className={styles.stickerScanRow}>
+                    <StickerScanButton
+                      boxId={box.id}
+                      boxLabel={box.label}
+                      hasExistingSticker={!!box.manifest_image_url}
+                      onScanStart={handleScanStart}
+                      isScanning={isScanning}
+                    />
                   </div>
                 )}
 
@@ -879,14 +1202,24 @@ export function BoxCard({
         </AnimatePresence>
       </div>
 
+      {/* Sticker lightbox — rendered via portal outside card tree */}
+      {effectiveStickerUrl && (
+        <StickerLightbox
+          imageUrl={effectiveStickerUrl}
+          boxLabel={box.label}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+
       {/* Mark as packed confirmation dialog */}
       <ConfirmDialog
         isOpen={confirmPackedOpen}
         onClose={() => setConfirmPackedOpen(false)}
         title="Mark as packed?"
-        description={`Mark ${box.label} as packed? You can still edit it later.`}
-        confirmLabel="Yes, packed"
-        cancelLabel="Not yet"
+        description={confirmPackedDescription}
+        confirmLabel={confirmPackedLabel}
+        cancelLabel={unresolvedFlagCount > 0 ? "Review items" : "Not yet"}
         onConfirm={handleConfirmPacked}
         triggerRef={triggerRef}
       />

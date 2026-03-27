@@ -1,0 +1,47 @@
+/* StickerScanSummary */
+
+.wrap {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle, #f9fafb);
+  border: 1px solid var(--color-border-default);
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.completedText {
+  line-height: 1.5;
+}
+
+.flaggedCount {
+  color: var(--verdict-sell, #d97706);
+  font-weight: 600;
+}
+
+.errorRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--color-text-error, #dc2626);
+}
+
+@media (max-width: 767px) {
+  .wrap {
+    font-size: 16px;
+  }
+
+  .errorText {
+    font-size: 16px;
+  }
+}

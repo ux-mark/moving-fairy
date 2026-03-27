@@ -1,4 +1,4 @@
-import type { BoxSize, BoxStatus, BoxType, Country, OnwardTimeline, Verdict } from '@/lib/constants'
+import type { BoxScanStatus, BoxSize, BoxStatus, BoxType, Country, ItemSource, OnwardTimeline, ProcessingStatus, Verdict } from '@/lib/constants'
 
 export interface TransformerEquipment {
   owned: boolean
@@ -23,28 +23,12 @@ export interface UserProfile {
   anthropic_api_key: string | null
 }
 
-export interface Message {
-  id: string
-  session_id: string
-  role: 'user' | 'assistant'
-  content: string
-  created_at: string
-}
-
-export interface Session {
-  id: string
-  created_at: string
-  updated_at: string
-  user_profile_id: string
-}
-
 export interface ItemAssessment {
   id: string
   user_profile_id: string
-  session_id: string | null
   item_name: string
   item_description: string | null
-  verdict: Verdict
+  verdict: Verdict | null          // nullable while pending/processing
   advice_text: string | null
   image_url: string | null
   voltage_compatible: boolean | null
@@ -54,6 +38,10 @@ export interface ItemAssessment {
   estimated_replace_cost: number | null
   replace_currency: string | null
   user_confirmed: boolean
+  processing_status: ProcessingStatus
+  confidence: number | null
+  needs_clarification: boolean
+  source: ItemSource
   created_at: string
   updated_at: string
 }
@@ -81,5 +69,35 @@ export interface BoxItem {
   quantity: number
   from_handwritten_list: boolean
   needs_assessment: boolean
+  created_at: string
+}
+
+export interface BoxScan {
+  id: string
+  box_id: string
+  status: BoxScanStatus
+  total_found: number
+  matched_count: number
+  new_count: number
+  flagged_count: number
+  illegible_count: number
+  illegible_entries: string[]
+  flagged_items: Array<{ item_assessment_id: string; verdict: string; item_name: string }>
+  created_at: string
+  updated_at: string
+}
+
+export interface ItemConversation {
+  id: string
+  item_assessment_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ItemConversationMessage {
+  id: string
+  item_conversation_id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
   created_at: string
 }

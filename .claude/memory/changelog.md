@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-03-17 — UX polish: image display, currencies, chat layout, box list
+
+- **What**: Fixed item detail image not displaying on iOS Safari (`.itemImage` wrapper with `overflow: hidden` collapsed to zero height — removed wrapper, applied border-radius directly to img). Fixed currency labels to derive from user profile (departure/arrival countries). Updated Aisling prompt for dual currencies. Replaced `position: fixed` chat bar with flexbox layout. Fixed chat expand squishing content (now hides item content when expanded). Removed duplicate "New box" button. Fixed image proxy middleware auth redirect and hostname mismatch.
+- **PR**: https://github.com/ux-mark/moving-fairy/pull/41
+- **Files**: 18 files modified across components, API routes, proxy, and constants
+- **Key root cause**: iOS Safari collapses a `div` with `overflow: hidden` to zero height when its only child is an `<img>` that hasn't established intrinsic dimensions yet.
+
+## 2026-03-16 — QA sweep: auth redirects, dead code, storage, RLS, assessment pipeline
+
+- **What**: Full QA audit after item-centric overhaul. Four commits:
+  1. **Dead code removal**: Deleted 10 files from pre-overhaul architecture (InventoryPanel, DecisionsPanel, ItemEditPanel, useInventory, chat/inventory redirect pages). Fixed `/api/assessments` → `/api/items` in MessageBubble.
+  2. **Auth + infra**: Fixed all 4 auth redirects (`/inventory` → `/decisions` in landing page, auth callback, onboarding, test-auth). Added SQL migration for `item-images` storage bucket. Fixed RLS policies on `item_conversation` tables to join through `user_profile.auth_user_id`.
+  3. **Assessment pipeline fix**: Fixed Aisling returning "DECIDE LATER" instead of "REVISIT" — updated two stale references in `aisling.md`. Added verdict normalisation in `assess-item.ts` (maps legacy values to valid enum). Fixed photo-only items routing to CLI mode (can't see images) by adding "Untitled item" to the text-name exclusion list.
+- **PR**: https://github.com/ux-mark/moving-fairy/pull/38
+- **Files**: 10 deleted, 7 modified, 2 new migrations
+- **Quality**: typecheck clean, build clean, 107 tests passing
+- **Key files changed**: `src/lib/assess-item.ts` (verdict normalisation + SDK routing), `.claude/agents/aisling.md` (REVISIT references), `src/app/page.tsx`, `src/app/auth/callback/route.ts`, `src/components/onboarding/OnboardingWizard.tsx`, `src/components/chat/MessageBubble.tsx`
+
+## 2026-03-15 -- Fix CLI image assessment quality + plan item-centric overhaul
+
+- **What**: Fixed CLI image assessment quality (filtered tools to only `render_assessment_card`, stripped conversation history from image calls, added SDK 401 retry). Created comprehensive plan for item-centric UX overhaul — shifting from chat-centric to decisions-as-home with background processing, per-item chat, and box sticker scanning.
+- **Files**: `src/app/api/chat/route.ts`, `.specs/item-centric-overhaul.md`, `.specs/item-centric-agent-brief.md`
+- **Why**: Image assessments were poor quality (model making things up) due to system prompt noise from 11 tool definitions and conversation history leaking old items. The broader architectural issue is that chat-centric UX doesn't scale — background processing with Supabase Realtime is the right model.
+- **PRs**: #29 (merged), #30 (open — plan only)
+- **Decision**: Verdict renamed to `REVISIT` for Phase 1.
+
 ## 2026-03-13 -- Remove denormalised item_name from box_item
 
 - **What**: Made `box_item.item_name` nullable — only used for unassessed items from handwritten lists. For assessed items, the canonical name now always comes from `item_assessment.item_name`. Added server-side name resolution in `getBox()`, frontend resolution in `BoxCard` via the assessments map, and synced assessment state in `BoxManagement` when light assessments create new items. Light assessment API responses now include the full assessment object.

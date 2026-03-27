@@ -22,7 +22,7 @@ importers:
         version: 2.99.0
       '@thefairies/design-system':
         specifier: git+https://github.com/ux-mark/thefairies-ds.git
-        version: git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b(@babel/core@7.29.0)(@playwright/test@1.58.2)
+        version: git+https://github.com/ux-mark/thefairies-ds.git#796228f072e0aa5516b0a8e5268261fa7c569a8e(@babel/core@7.29.0)(@playwright/test@1.58.2)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1097,8 +1097,8 @@ packages:
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
 
-  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b':
-    resolution: {commit: 3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b, repo: https://github.com/ux-mark/thefairies-ds.git, type: git}
+  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#796228f072e0aa5516b0a8e5268261fa7c569a8e':
+    resolution: {commit: 796228f072e0aa5516b0a8e5268261fa7c569a8e, repo: https://github.com/ux-mark/thefairies-ds.git, type: git}
     version: 0.1.0
 
   '@tybys/wasm-util@0.10.1':
@@ -2886,8 +2886,15 @@ packages:
   tldts-core@7.0.25:
     resolution: {integrity: sha512-ZjCZK0rppSBu7rjHYDYsEaMOIbbT+nWF57hKkv4IUmZWBNrBWBOjIElc0mKRgLM8bm7x/BBlof6t2gi/Oq/Asw==}
 
+  tldts-core@7.0.26:
+    resolution: {integrity: sha512-5WJ2SqFsv4G2Dwi7ZFVRnz6b2H1od39QME1lc2y5Ew3eWiZMAeqOAfWpRP9jHvhUl881406QtZTODvjttJs+ew==}
+
   tldts@7.0.25:
     resolution: {integrity: sha512-keinCnPbwXEUG3ilrWQZU+CqcTTzHq9m2HhoUP2l7Xmi8l1LuijAXLpAJ5zRW+ifKTNscs4NdCkfkDCBYm352w==}
+    hasBin: true
+
+  tldts@7.0.26:
+    resolution: {integrity: sha512-WiGwQjr0qYdNNG8KpMKlSvpxz652lqa3Rd+/hSaDcY4Uo6SKWZq2LAF+hsAhUewTtYhXlorBKgNF3Kk8hnjGoQ==}
     hasBin: true
 
   to-regex-range@5.0.1:
@@ -2896,6 +2903,10 @@ packages:
 
   tough-cookie@6.0.0:
     resolution: {integrity: sha512-kXuRi1mtaKMrsLUxz3sQYvVl37B0Ns6MzfrtV5DvJceE9bPyspOqk9xxv7XbZWcfLWbFmm997vl83qUWVJA64w==}
+    engines: {node: '>=16'}
+
+  tough-cookie@6.0.1:
+    resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==}
     engines: {node: '>=16'}
 
   tr46@6.0.0:
@@ -3957,7 +3968,7 @@ snapshots:
     dependencies:
       '@testing-library/dom': 10.4.1
 
-  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#3fd68136c5ac14f29de3eef27cf5f7b0ba7c220b(@babel/core@7.29.0)(@playwright/test@1.58.2)':
+  '@thefairies/design-system@git+https://github.com/ux-mark/thefairies-ds.git#796228f072e0aa5516b0a8e5268261fa7c569a8e(@babel/core@7.29.0)(@playwright/test@1.58.2)':
     dependencies:
       lucide-react: 0.468.0(react@19.2.3)
       next: 15.5.12(@babel/core@7.29.0)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -5474,7 +5485,7 @@ snapshots:
       rettime: 0.10.1
       statuses: 2.0.2
       strict-event-emitter: 0.5.1
-      tough-cookie: 6.0.0
+      tough-cookie: 6.0.1
       type-fest: 5.4.4
       until-async: 3.0.2
       yargs: 17.7.2
@@ -6035,9 +6046,17 @@ snapshots:
 
   tldts-core@7.0.25: {}
 
+  tldts-core@7.0.26:
+    optional: true
+
   tldts@7.0.25:
     dependencies:
       tldts-core: 7.0.25
+
+  tldts@7.0.26:
+    dependencies:
+      tldts-core: 7.0.26
+    optional: true
 
   to-regex-range@5.0.1:
     dependencies:
@@ -6046,6 +6065,11 @@ snapshots:
   tough-cookie@6.0.0:
     dependencies:
       tldts: 7.0.25
+
+  tough-cookie@6.0.1:
+    dependencies:
+      tldts: 7.0.26
+    optional: true
 
   tr46@6.0.0:
     dependencies:

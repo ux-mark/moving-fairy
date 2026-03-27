@@ -13,13 +13,33 @@ function isPrivateHostname(hostname: string): boolean {
   return PRIVATE_IP_PATTERN.test(hostname)
 }
 
-/** Check if a URL belongs to our Supabase instance (trusted origin) */
+/**
+ * Check if a URL belongs to our Supabase instance (trusted origin).
+ *
+ * In local dev, the Supabase URL stored in .env.local may use 127.0.0.1 while
+ * image_urls stored in the DB use the LAN IP (e.g. 192.168.x.x) because
+ * start-dev.sh overrides NEXT_PUBLIC_SUPABASE_URL at runtime. We match on
+ * port + the Supabase storage path pattern to handle both hostnames.
+ */
 function isSupabaseUrl(parsed: URL): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!supabaseUrl) return false
   try {
     const supabase = new URL(supabaseUrl)
-    return parsed.hostname === supabase.hostname && parsed.port === supabase.port
+    // Exact hostname match (production, or when env var matches)
+    if (parsed.hostname === supabase.hostname && parsed.port === supabase.port) {
+      return true
+    }
+    // Dev fallback: same port + Supabase storage path + private IP
+    // This handles the 127.0.0.1 vs LAN IP mismatch in local dev
+    if (
+      parsed.port === supabase.port &&
+      parsed.pathname.startsWith('/storage/v1/') &&
+      isPrivateHostname(parsed.hostname)
+    ) {
+      return true
+    }
+    return false
   } catch {
     return false
   }
@@ -32,9 +52,20 @@ export async function GET(req: NextRequest) {
     return new Response('Missing url param', { status: 400 })
   }
 
+  // Handle relative storage paths (new format: "item-images/{profile_id}/{uuid}.webp")
+  // Expand to a full URL using the current Supabase base so no IP is hardcoded.
+  let fetchUrl = url
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!base) {
+      return new Response('Supabase URL not configured', { status: 500 })
+    }
+    fetchUrl = `${base}/storage/v1/object/public/${url}`
+  }
+
   let parsed: URL
   try {
-    parsed = new URL(url)
+    parsed = new URL(fetchUrl)
   } catch {
     return new Response('Invalid url', { status: 400 })
   }
@@ -54,7 +85,7 @@ export async function GET(req: NextRequest) {
 
   let upstream: Response
   try {
-    upstream = await fetch(url)
+    upstream = await fetch(fetchUrl)
   } catch {
     return new Response('Failed to fetch image', { status: 502 })
   }

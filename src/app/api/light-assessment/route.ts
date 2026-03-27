@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { saveItemAssessment, addItemToBox, findOrCreateSession } from '@/mcp'
+import { saveItemAssessment, addItemToBox } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { useCliMode, callCli } from '@/lib/claude-cli'
@@ -58,8 +58,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const session = await findOrCreateSession(profile.id)
-
     const cliMode = useCliMode()
 
     const apiKey = cliMode
@@ -208,7 +206,6 @@ Rules:
       // Clean result — save assessment and optionally add to box
       const saved = await saveItemAssessment({
         user_profile_id: profile.id,
-        session_id: session.id,
         item_name: item_name.trim(),
         verdict: verdict === 'CARRY' ? Verdict.CARRY : Verdict.SHIP,
         advice_text: flags.length > 0 ? Object.values(flag_details ?? {}).join(' ') : null,

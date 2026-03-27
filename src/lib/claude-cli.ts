@@ -51,9 +51,10 @@ interface ToolCall {
 export async function callCli(
   prompt: string,
   systemPrompt: string | null,
-  model: string
+  model: string,
+  options?: { addDirs?: string[] }
 ): Promise<string> {
-  const args = buildCliArgs(systemPrompt, model)
+  const args = buildCliArgs(systemPrompt, model, undefined, options?.addDirs)
   return spawnCli(args, prompt)
 }
 
@@ -105,11 +106,14 @@ export async function runCliAgentLoop(
 
     // Stream text deltas to the client as they arrive, while also
     // collecting the full response text for tool call extraction.
-    let roundText = ''
+    // Only stream text on the first round — subsequent rounds are separate
+    // CLI invocations without conversational context of what was already said,
+    // so their text tends to be redundant or contradictory.
     const responseText = await spawnCliStreaming(cmd, prompt, (chunk) => {
-      roundText += chunk
       fullAssistantText += chunk
-      safeEnqueue(`data: ${JSON.stringify(chunk)}\n\n`)
+      if (round === 0) {
+        safeEnqueue(`data: ${JSON.stringify(chunk)}\n\n`)
+      }
     })
 
     // Check for tool calls in the full response (they appear as <tool_call> XML)
@@ -118,6 +122,9 @@ export async function runCliAgentLoop(
     if (toolCalls.length === 0) {
       break
     }
+
+    // Emit tool_status so the frontend shows a loading indicator
+    safeEnqueue(`data: ${JSON.stringify({ __type: 'tool_status', message: 'Updating card...' })}\n\n`)
 
     // Execute each tool call
     const toolResults: Array<{ tool: string; result: unknown }> = []
@@ -156,6 +163,9 @@ export async function runCliAgentLoop(
       toolResults.push({ tool: tc.name, result: parsedResult })
     }
 
+    // Clear tool_status now that execution is done
+    safeEnqueue(`data: ${JSON.stringify({ __type: 'tool_status', message: null })}\n\n`)
+
     // Build next prompt with tool results
     prompt = buildToolResultPrompt(toolResults)
   }
@@ -165,7 +175,7 @@ export async function runCliAgentLoop(
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[]): string[] {
+function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?: string[], addDirs?: string[]): string[] {
   const cmd = [
     'claude',
     '--print',
@@ -179,6 +189,11 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
 
   if (systemPrompt) {
     cmd.push('--system-prompt', systemPrompt)
+  }
+
+  // Grant access to additional directories (e.g., /tmp for temp image files)
+  if (addDirs && addDirs.length > 0) {
+    cmd.push('--add-dir', ...addDirs)
   }
 
   // Block native CLI tools that could write to the project directory and
@@ -241,11 +256,16 @@ function spawnCliStreaming(
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
+    // Pass prompt as a positional argument (after --) instead of via stdin.
+    // This eliminates any stdin race condition where the subprocess might
+    // exit before it reads the piped input (seen as empty responses on round 0).
+    const fullArgs = [...commandArgs, '--', prompt]
+    const totalArgBytes = fullArgs.reduce((n, a) => n + Buffer.byteLength(a, 'utf-8'), 0)
     console.log(`[claude-cli] Spawning: ${command} ${commandArgs.join(' ').slice(0, 200)}...`)
-    console.log(`[claude-cli] cwd=/tmp, tools=${commandArgs.includes('--tools') ? commandArgs[commandArgs.indexOf('--tools') + 1] || '(none)' : '(default)'}`)
+    console.log(`[claude-cli] cwd=/tmp, prompt length: ${prompt.length}, total arg bytes: ${totalArgBytes}`)
     // Run in /tmp with a sanitised env so the CLI doesn't write files
     // to the project dir (which would trigger Next.js dev server restarts)
-    const proc = nodeSpawn(command, commandArgs, {
+    const proc = nodeSpawn(command, fullArgs, {
       env: env as NodeJS.ProcessEnv,
       cwd: '/tmp',
     })
@@ -253,28 +273,126 @@ function spawnCliStreaming(
     let fullText = ''
     let lineBuffer = ''
     let stderr = ''
-    // Track whether we're inside a <tool_call> block to suppress streaming it
-    let insideToolCall = false
+    // Buffer for detecting tool call markers split across streaming chunks
+    let pendingBuffer = ''
+    // What kind of tool call we're currently inside (if any)
+    let suppressMode: 'none' | 'xml' | 'bracket' = 'none'
+    // Brace depth counter for bracket-format JSON detection
+    let bracketDepth = 0
+
+    const XML_OPEN = '<tool_call>'
+    const XML_CLOSE = '</tool_call>'
+    // Model sometimes outputs tool calls in [TOOL_NAME]{json} format instead of XML
+    const BRACKET_MARKERS = ['[RENDER_ASSESSMENT_CARD]', '[UPDATE_ITEM_ASSESSMENT]']
+    // All markers that we need to detect partial matches for at buffer end
+    const ALL_MARKERS = [XML_OPEN, ...BRACKET_MARKERS]
 
     function processTextDelta(text: string) {
       fullText += text
+      pendingBuffer += text
+      drainPendingBuffer(false)
+    }
 
-      // Buffer tool_call XML — don't stream it to the client
-      if (text.includes('<tool_call>')) {
-        insideToolCall = true
-        // Emit any text before the tag
-        const before = text.split('<tool_call>')[0]
-        if (before) onTextDelta(before)
-      } else if (insideToolCall) {
-        if (text.includes('</tool_call>')) {
-          insideToolCall = false
-          // Emit any text after the closing tag
-          const after = text.split('</tool_call>').slice(1).join('')
-          if (after) onTextDelta(after)
+    /**
+     * Drain the pending buffer, emitting only displayable text.
+     * When `final` is true (process exited), flush everything remaining.
+     *
+     * Handles two tool call formats:
+     * 1. XML: <tool_call>{"name":"...", "input":{...}}</tool_call>
+     * 2. Bracket: [RENDER_ASSESSMENT_CARD]{"item":"...", ...}
+     *
+     * Both formats can be split across multiple streaming chunks.
+     */
+    function drainPendingBuffer(final: boolean) {
+      while (pendingBuffer.length > 0) {
+        // ── Inside XML tool call: suppress until </tool_call> ──
+        if (suppressMode === 'xml') {
+          const closeIdx = pendingBuffer.indexOf(XML_CLOSE)
+          if (closeIdx >= 0) {
+            suppressMode = 'none'
+            pendingBuffer = pendingBuffer.slice(closeIdx + XML_CLOSE.length)
+            continue
+          }
+          if (final) { pendingBuffer = ''; return }
+          return // wait for more data
         }
-        // else: inside tool call, suppress
-      } else {
-        onTextDelta(text)
+
+        // ── Inside bracket tool call: suppress until JSON braces balance ──
+        if (suppressMode === 'bracket') {
+          let i = 0
+          for (; i < pendingBuffer.length; i++) {
+            if (pendingBuffer[i] === '{') bracketDepth++
+            else if (pendingBuffer[i] === '}') {
+              bracketDepth--
+              if (bracketDepth <= 0) {
+                suppressMode = 'none'
+                pendingBuffer = pendingBuffer.slice(i + 1)
+                break
+              }
+            }
+          }
+          if (suppressMode === 'bracket') {
+            if (final) { pendingBuffer = ''; return }
+            return // wait for more data
+          }
+          continue
+        }
+
+        // ── Not inside any tool call — scan for openers ──
+
+        // Check for XML <tool_call> tag
+        const xmlIdx = pendingBuffer.indexOf(XML_OPEN)
+        if (xmlIdx >= 0) {
+          if (xmlIdx > 0) onTextDelta(pendingBuffer.slice(0, xmlIdx))
+          suppressMode = 'xml'
+          pendingBuffer = pendingBuffer.slice(xmlIdx + XML_OPEN.length)
+          continue
+        }
+
+        // Check for bracket [TOOL_NAME] markers
+        let bracketFound = false
+        for (const marker of BRACKET_MARKERS) {
+          const markerIdx = pendingBuffer.indexOf(marker)
+          if (markerIdx >= 0) {
+            if (markerIdx > 0) onTextDelta(pendingBuffer.slice(0, markerIdx))
+            suppressMode = 'bracket'
+            bracketDepth = 0
+            pendingBuffer = pendingBuffer.slice(markerIdx + marker.length)
+            bracketFound = true
+            break
+          }
+        }
+        if (bracketFound) continue
+
+        // ── No complete marker found ──
+
+        if (final) {
+          if (pendingBuffer) onTextDelta(pendingBuffer)
+          pendingBuffer = ''
+          return
+        }
+
+        // Check if buffer ends with a partial match for any marker.
+        // e.g. buffer ends with "<tool" (partial "<tool_call>") or
+        // "[RENDER_" (partial "[RENDER_ASSESSMENT_CARD]")
+        let holdBack = 0
+        for (const marker of ALL_MARKERS) {
+          for (let i = 1; i < marker.length && i <= pendingBuffer.length; i++) {
+            if (marker.startsWith(pendingBuffer.slice(-i))) {
+              holdBack = Math.max(holdBack, i)
+            }
+          }
+        }
+
+        if (holdBack > 0) {
+          const safe = pendingBuffer.slice(0, -holdBack)
+          if (safe) onTextDelta(safe)
+          pendingBuffer = pendingBuffer.slice(-holdBack)
+        } else {
+          if (pendingBuffer) onTextDelta(pendingBuffer)
+          pendingBuffer = ''
+        }
+        return
       }
     }
 
@@ -331,7 +449,12 @@ function spawnCliStreaming(
 
     if (proc.stdout) {
       proc.stdout.on('data', (data: Buffer) => {
-        lineBuffer += data.toString()
+        const raw = data.toString()
+        // Log raw chunks while output is sparse — helps diagnose empty-response issues
+        if (fullText.length < 500) {
+          console.log(`[claude-cli] stdout chunk (${raw.length}b): ${raw.slice(0, 200)}`)
+        }
+        lineBuffer += raw
         const lines = lineBuffer.split('\n')
         // Keep the last partial line in the buffer
         lineBuffer = lines.pop() ?? ''
@@ -353,8 +476,12 @@ function spawnCliStreaming(
     proc.on('close', (code: number | null) => {
       // Process any remaining buffered line
       if (lineBuffer.trim()) processLine(lineBuffer)
+      // Flush any buffered text that was held back for partial tag detection
+      drainPendingBuffer(true)
 
       console.log(`[claude-cli] Process exited with code ${code}, output length: ${fullText.length}`)
+      if (stderr.trim()) console.log(`[claude-cli] stderr: ${stderr.trim().slice(0, 500)}`)
+      if (fullText.length === 0) console.warn(`[claude-cli] WARNING: Empty response from CLI. lineBuffer remaining: "${lineBuffer.slice(0, 200)}"`)
       if (code !== 0) {
         reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
         return
@@ -366,8 +493,8 @@ function spawnCliStreaming(
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
+    // Prompt is passed as a positional arg (fullArgs above); no stdin write needed.
     if (proc.stdin) {
-      proc.stdin.write(prompt)
       proc.stdin.end()
     }
 
@@ -387,9 +514,13 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     const env = cleanEnv()
     const command = args[0] ?? 'claude'
     const commandArgs = args.slice(1)
+    // Pass prompt as a positional argument (after --) instead of via stdin.
+    const fullArgs = [...commandArgs, '--', prompt]
+    const totalArgBytes = fullArgs.reduce((n, a) => n + Buffer.byteLength(a, 'utf-8'), 0)
+    console.log(`[claude-cli:spawnCli] prompt length: ${prompt.length}, total arg bytes: ${totalArgBytes}`)
     // Run in /tmp with a sanitised env so the CLI doesn't write files
     // to the project dir (which would trigger Next.js dev server restarts)
-    const proc = nodeSpawn(command, commandArgs, {
+    const proc = nodeSpawn(command, fullArgs, {
       env: env as NodeJS.ProcessEnv,
       cwd: '/tmp',
     })
@@ -420,8 +551,8 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
+    // Prompt is passed as a positional arg (fullArgs above); no stdin write needed.
     if (proc.stdin) {
-      proc.stdin.write(prompt)
       proc.stdin.end()
     }
 
@@ -525,9 +656,21 @@ function buildToolInstructions(tools: ToolDefinition[]): string {
 }
 
 /**
- * Extract <tool_call> blocks from response text.
+ * Extract tool calls from response text.
+ * Supports two formats the model may use:
+ * 1. XML: <tool_call>{"name":"tool_name", "input":{...}}</tool_call>
+ * 2. Bracket: [RENDER_ASSESSMENT_CARD]{...}  (tool name as header, raw input JSON)
  */
 function extractToolCalls(responseText: string): ToolCall[] {
+  // Try XML format first
+  const xmlCalls = extractXmlToolCalls(responseText)
+  if (xmlCalls.length > 0) return xmlCalls
+
+  // Fall back to bracket format
+  return extractBracketToolCalls(responseText)
+}
+
+function extractXmlToolCalls(responseText: string): ToolCall[] {
   const toolCalls: ToolCall[] = []
   const pattern = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
   let match
@@ -548,6 +691,57 @@ function extractToolCalls(responseText: string): ToolCall[] {
   }
 
   return toolCalls
+}
+
+/**
+ * Extract bracket-format tool calls: [TOOL_NAME]{json...}
+ * The model sometimes uses this format instead of XML tags.
+ * The JSON is the raw tool input (not wrapped in {"name","input"}).
+ */
+function extractBracketToolCalls(responseText: string): ToolCall[] {
+  const results: ToolCall[] = []
+  const TOOL_MAP: Record<string, string> = {
+    'RENDER_ASSESSMENT_CARD': 'render_assessment_card',
+    'UPDATE_ITEM_ASSESSMENT': 'update_item_assessment',
+  }
+
+  for (const [upperName, lowerName] of Object.entries(TOOL_MAP)) {
+    const marker = `[${upperName}]`
+    let searchFrom = 0
+    let idx = responseText.indexOf(marker, searchFrom)
+
+    while (idx >= 0) {
+      const afterMarker = responseText.slice(idx + marker.length)
+      const braceStart = afterMarker.indexOf('{')
+      if (braceStart >= 0) {
+        // Count braces to find the complete JSON object
+        let depth = 0
+        let braceEnd = -1
+        for (let i = braceStart; i < afterMarker.length; i++) {
+          if (afterMarker[i] === '{') depth++
+          else if (afterMarker[i] === '}') {
+            depth--
+            if (depth === 0) {
+              braceEnd = i + 1
+              break
+            }
+          }
+        }
+        if (braceEnd > braceStart) {
+          try {
+            const json = JSON.parse(afterMarker.slice(braceStart, braceEnd))
+            results.push({ name: lowerName, input: json })
+          } catch {
+            console.warn(`[claude-cli] Failed to parse bracket tool call JSON for ${upperName}`)
+          }
+        }
+      }
+      searchFrom = idx + 1
+      idx = responseText.indexOf(marker, searchFrom)
+    }
+  }
+
+  return results
 }
 
 /**

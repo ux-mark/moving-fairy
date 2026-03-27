@@ -137,7 +137,7 @@ export function OnboardingWizard() {
         );
       }
 
-      router.push("/inventory");
+      router.push("/decisions");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Something went wrong. Try again."

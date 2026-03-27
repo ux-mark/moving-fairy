@@ -51,7 +51,7 @@ describe('OnwardTimeline enum', () => {
 
 describe('Verdict enum', () => {
   it('contains all six verdicts', () => {
-    const expected = ['SELL', 'DONATE', 'DISCARD', 'SHIP', 'CARRY', 'DECIDE_LATER']
+    const expected = ['SELL', 'DONATE', 'DISCARD', 'SHIP', 'CARRY', 'REVISIT']
     for (const v of expected) {
       expect(Object.values(Verdict)).toContain(v)
     }

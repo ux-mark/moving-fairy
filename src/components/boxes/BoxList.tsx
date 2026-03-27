@@ -3,18 +3,16 @@
 import { useState, useMemo, useCallback } from "react";
 import { Plus } from "lucide-react";
 import {
-  Button,
   EmptyState,
 } from "@thefairies/design-system/components";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
+import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { ShipAllButton } from "@/components/boxes/ShipAllButton";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
-
-import { cn } from "@/lib/utils";
 
 import styles from "./BoxList.module.css";
 
@@ -34,6 +32,20 @@ interface BoxListProps {
   onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
   onShipAll?: (() => void) | undefined;
   isCreating?: boolean | undefined;
+  /** Scan results keyed by box ID */
+  scanResults?: Record<string, ScanResult> | undefined;
+  /** Flagged items keyed by box ID */
+  flaggedItemsByBox?: Record<string, FlaggedItem[]> | undefined;
+  /** Called when user initiates a sticker scan */
+  onScanSticker?: ((boxId: string, file: File) => void) | undefined;
+  /** Called when user ships a flagged item anyway */
+  onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Called when user removes a flagged item from the box */
+  onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Box IDs that are currently scanning */
+  scanningBoxes?: Set<string> | undefined;
+  /** Item IDs currently being resolved */
+  resolvingItemIds?: Set<string> | undefined;
 }
 
 const STATUS_ORDER: Record<string, number> = {
@@ -55,6 +67,13 @@ export function BoxList({
   onUpdateBox,
   onShipAll,
   isCreating,
+  scanResults,
+  flaggedItemsByBox,
+  onScanSticker,
+  onShipAnyway,
+  onRemoveFlaggedItem,
+  scanningBoxes,
+  resolvingItemIds,
 }: BoxListProps) {
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
 
@@ -208,6 +227,13 @@ export function BoxList({
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
                   {...(onUpdateBox ? { onUpdateBox } : {})}
+                  {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
+                  flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
+                  {...(onScanSticker ? { onScanSticker } : {})}
+                  {...(onShipAnyway ? { onShipAnyway } : {})}
+                  {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  isScanning={scanningBoxes?.has(box.id) ?? false}
+                  resolvingItemIds={resolvingItemIds}
                 />
               ))}
             </div>
@@ -232,6 +258,13 @@ export function BoxList({
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
                   {...(onUpdateBox ? { onUpdateBox } : {})}
+                  {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
+                  flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
+                  {...(onScanSticker ? { onScanSticker } : {})}
+                  {...(onShipAnyway ? { onShipAnyway } : {})}
+                  {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  isScanning={scanningBoxes?.has(box.id) ?? false}
+                  resolvingItemIds={resolvingItemIds}
                 />
               ))}
             </div>
@@ -247,17 +280,16 @@ export function BoxList({
           />
         )}
 
-        {/* New box button — always visible at bottom */}
+        {/* New box link — bottom of list */}
         {onCreateBox && (
-          <Button
-            variant="primary"
-            size="lg"
-            className={cn(styles.newBoxButton, "ctaLift")}
+          <button
+            type="button"
+            className={styles.newBoxLink}
             onClick={() => setCreatePanelOpen(true)}
           >
-            <Plus style={{ width: 16, height: 16 }} />
+            <Plus style={{ width: 14, height: 14 }} aria-hidden />
             New box
-          </Button>
+          </button>
         )}
       </div>
 

@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { BOX_SIZE_CBM, BoxSize, BoxStatus, BoxType, Verdict } from '@/lib/constants'
-import type { Box, BoxItem, ItemAssessment, Message, Session, UserProfile } from '@/types/database'
+import { randomUUID } from 'crypto'
+import { BOX_SIZE_CBM, BoxScanStatus, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
+import type { Box, BoxItem, BoxScan, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
 // ─── Supabase client helpers ───────────────────────────────────────────────
 
@@ -37,25 +38,15 @@ export async function updateUserProfile(
   return data as UserProfile
 }
 
-export async function getUserProfile(sessionId: string): Promise<UserProfile | null> {
+export async function getUserProfile(userProfileId: string): Promise<UserProfile | null> {
   const supabase = getAdminClient()
-  // Resolve session → user_profile_id → profile
-  const { data: session, error: sessionErr } = await supabase
-    .from('session')
-    .select('user_profile_id')
-    .eq('id', sessionId)
-    .single()
-
-  if (sessionErr || !session) return null
-
-  const { data: profile, error } = await supabase
+  const { data, error } = await supabase
     .from('user_profile')
     .select('*')
-    .eq('id', session.user_profile_id)
+    .eq('id', userProfileId)
     .single()
-
-  if (error || !profile) return null
-  return profile as UserProfile
+  if (error || !data) return null
+  return data as UserProfile
 }
 
 export async function createUserProfile(data: {
@@ -98,99 +89,10 @@ export async function getProfileByAuthUser(authUserId: string): Promise<UserProf
   return profile as UserProfile
 }
 
-export async function findOrCreateSession(userProfileId: string): Promise<Session> {
-  const supabase = getAdminClient()
-  // Find the latest session for this profile
-  const { data: existing, error: findErr } = await supabase
-    .from('session')
-    .select('*')
-    .eq('user_profile_id', userProfileId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (!findErr && existing) return existing as Session
-
-  // No session found — create one
-  return createSession(userProfileId)
-}
-
-// ─── Session ───────────────────────────────────────────────────────────────
-
-export async function createSession(userProfileId: string): Promise<Session> {
-  const supabase = getAdminClient()
-  const { data: session, error } = await supabase
-    .from('session')
-    .insert({
-      user_profile_id: userProfileId,
-    })
-    .select()
-    .single()
-
-  if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
-  return session as Session
-}
-
-export async function getSession(sessionId: string): Promise<Session | null> {
-  const supabase = getAdminClient()
-  const { data: session, error } = await supabase
-    .from('session')
-    .select('*')
-    .eq('id', sessionId)
-    .single()
-
-  if (error || !session) return null
-  return session as Session
-}
-
-export async function appendMessage(sessionId: string, message: Omit<Message, 'session_id'>): Promise<void> {
-  const supabase = getAdminClient()
-
-  const { error } = await supabase
-    .from('message')
-    .insert({
-      id: message.id,
-      session_id: sessionId,
-      role: message.role,
-      content: message.content,
-      created_at: message.created_at,
-    })
-
-  if (error) throw new Error(error.message)
-}
-
-export async function getMessages(sessionId: string): Promise<Message[]> {
-  const supabase = getAdminClient()
-
-  const { data, error } = await supabase
-    .from('message')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true })
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as Message[]
-}
-
-export async function getRecentMessages(sessionId: string, count: number): Promise<Message[]> {
-  const supabase = getAdminClient()
-
-  const { data, error } = await supabase
-    .from('message')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: false })
-    .limit(count)
-
-  if (error) throw new Error(error.message)
-  return ((data ?? []) as Message[]).reverse()
-}
-
 // ─── ItemAssessment ────────────────────────────────────────────────────────
 
 type ItemAssessmentInsert = {
   user_profile_id: string
-  session_id: string | null
   item_name: string
   item_description: string | null
   verdict: ItemAssessment['verdict']
@@ -203,11 +105,14 @@ type ItemAssessmentInsert = {
   estimated_replace_cost: number | null
   replace_currency: string | null
   user_confirmed: boolean
+  processing_status: ProcessingStatus
+  confidence: number | null
+  needs_clarification: boolean
+  source: ItemSource
 }
 
 export async function saveItemAssessment(data: {
   user_profile_id: string
-  session_id?: string | null
   item_name: string
   verdict: ItemAssessment['verdict']
   advice_text?: string | null
@@ -220,6 +125,10 @@ export async function saveItemAssessment(data: {
   estimated_replace_cost?: number | null
   replace_currency?: string | null
   user_confirmed?: boolean
+  processing_status?: ProcessingStatus
+  confidence?: number | null
+  needs_clarification?: boolean
+  source?: ItemSource
 }): Promise<ItemAssessment> {
   const supabase = getAdminClient()
   const verdict = data.verdict
@@ -228,38 +137,11 @@ export async function saveItemAssessment(data: {
   const isLightweight =
     verdict === Verdict.SELL || verdict === Verdict.DONATE || verdict === Verdict.DISCARD
 
-  // Check for existing unconfirmed record with the same item name (case-insensitive).
-  // If found, update it instead of creating a duplicate.
-  const { data: existing } = await supabase
-    .from('item_assessment')
-    .select('id')
-    .eq('user_profile_id', data.user_profile_id)
-    .ilike('item_name', data.item_name)
-    .eq('user_confirmed', false)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (existing) {
-    return updateItemAssessment(existing.id, {
-      item_name: data.item_name,
-      verdict: data.verdict,
-      advice_text: data.advice_text ?? null,
-      item_description: isLightweight ? null : (data.item_description ?? null),
-      image_url: isLightweight ? null : (data.image_url ?? null),
-      voltage_compatible: isLightweight ? null : (data.voltage_compatible ?? null),
-      needs_transformer: isLightweight ? null : (data.needs_transformer ?? null),
-      estimated_ship_cost: isLightweight ? null : (data.estimated_ship_cost ?? null),
-      currency: isLightweight ? null : (data.currency ?? null),
-      estimated_replace_cost: isLightweight ? null : (data.estimated_replace_cost ?? null),
-      replace_currency: isLightweight ? null : (data.replace_currency ?? null),
-      user_confirmed: data.user_confirmed ?? false,
-    }, data.user_profile_id)
-  }
+  // In the item-centric model every POST /api/items creates a distinct record.
+  // Name-based dedup is removed — users may have multiple items with the same name.
 
   const payload: ItemAssessmentInsert = {
     user_profile_id: data.user_profile_id,
-    session_id: data.session_id ?? null,
     item_name: data.item_name,
     item_description: isLightweight ? null : (data.item_description ?? null),
     verdict: data.verdict,
@@ -272,6 +154,10 @@ export async function saveItemAssessment(data: {
     estimated_replace_cost: isLightweight ? null : (data.estimated_replace_cost ?? null),
     replace_currency: isLightweight ? null : (data.replace_currency ?? null),
     user_confirmed: data.user_confirmed ?? false,
+    processing_status: data.processing_status ?? ProcessingStatus.COMPLETED,
+    confidence: data.confidence ?? null,
+    needs_clarification: data.needs_clarification ?? false,
+    source: data.source ?? ItemSource.MANUAL,
   }
 
   const { data: record, error } = await supabase
@@ -285,7 +171,7 @@ export async function saveItemAssessment(data: {
 }
 
 // Narrowed type for updatable fields — prevents accidental mutation of
-// system-managed fields like id, user_profile_id, session_id, created_at.
+// system-managed fields like id, user_profile_id, created_at.
 type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
   | 'item_name'
   | 'verdict'
@@ -299,6 +185,9 @@ type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
   | 'estimated_replace_cost'
   | 'replace_currency'
   | 'user_confirmed'
+  | 'processing_status'
+  | 'confidence'
+  | 'needs_clarification'
 >>
 
 export async function updateItemAssessment(
@@ -323,9 +212,24 @@ export async function updateItemAssessment(
   return record as ItemAssessment
 }
 
+export async function getItemAssessment(
+  assessmentId: string,
+  userProfileId: string
+): Promise<ItemAssessment | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('item_assessment')
+    .select('*')
+    .eq('id', assessmentId)
+    .eq('user_profile_id', userProfileId)
+    .single()
+  if (error || !data) return null
+  return data as ItemAssessment
+}
+
 export async function getItemAssessments(
   userProfileId: string,
-  filters?: { verdict?: ItemAssessment['verdict']; session_id?: string; user_confirmed?: boolean }
+  filters?: { verdict?: ItemAssessment['verdict']; user_confirmed?: boolean; processing_status?: ProcessingStatus }
 ): Promise<ItemAssessment[]> {
   const supabase = getAdminClient()
   let query = supabase
@@ -334,7 +238,7 @@ export async function getItemAssessments(
     .eq('user_profile_id', userProfileId)
 
   if (filters?.verdict) query = query.eq('verdict', filters.verdict)
-  if (filters?.session_id) query = query.eq('session_id', filters.session_id)
+  if (filters?.processing_status) query = query.eq('processing_status', filters.processing_status)
   if (filters?.user_confirmed !== undefined)
     query = query.eq('user_confirmed', filters.user_confirmed)
 
@@ -410,43 +314,59 @@ export async function deleteItemAssessment(
 export async function getCostSummary(userProfileId: string): Promise<{
   counts_by_verdict: Record<string, number>
   total_estimated_ship_cost: number
-  currency: string
+  ship_currency: string
+  total_estimated_replace_cost: number
+  replace_currency: string
 }> {
   const supabase = getAdminClient()
 
-  // Get departure country to determine authoritative currency
+  // Get departure and arrival countries to determine authoritative currencies
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('departure_country')
+    .select('departure_country, arrival_country')
     .eq('id', userProfileId)
     .single()
 
   const currencyMap: Record<string, string> = {
     US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
   }
-  const departureCurrency = profile?.departure_country
+  const shipCurrency = profile?.departure_country
     ? currencyMap[profile.departure_country.toUpperCase()] ?? 'USD'
     : 'USD'
+  const replaceCurrency = profile?.arrival_country
+    ? currencyMap[profile.arrival_country.toUpperCase()] ?? 'EUR'
+    : 'EUR'
 
   const { data, error } = await supabase
     .from('item_assessment')
-    .select('verdict, estimated_ship_cost')
+    .select('verdict, estimated_ship_cost, estimated_replace_cost')
     .eq('user_profile_id', userProfileId)
+    .eq('processing_status', 'completed')
 
   if (error) throw new Error(error.message)
 
   const records = data ?? []
   const counts_by_verdict: Record<string, number> = {}
   let total_estimated_ship_cost = 0
+  let total_estimated_replace_cost = 0
 
   for (const r of records) {
     counts_by_verdict[r.verdict] = (counts_by_verdict[r.verdict] ?? 0) + 1
     if (r.estimated_ship_cost) {
       total_estimated_ship_cost += r.estimated_ship_cost
     }
+    if (r.estimated_replace_cost) {
+      total_estimated_replace_cost += r.estimated_replace_cost
+    }
   }
 
-  return { counts_by_verdict, total_estimated_ship_cost, currency: departureCurrency }
+  return {
+    counts_by_verdict,
+    total_estimated_ship_cost,
+    ship_currency: shipCurrency,
+    total_estimated_replace_cost,
+    replace_currency: replaceCurrency,
+  }
 }
 
 // ─── Box ───────────────────────────────────────────────────────────────────
@@ -534,7 +454,7 @@ export async function addItemToBox(
 
     if (aErr || !assessment) throw new Error('Item assessment not found')
 
-    const blocked: string[] = [Verdict.SELL, Verdict.DONATE, Verdict.DISCARD, Verdict.DECIDE_LATER]
+    const blocked: string[] = [Verdict.SELL, Verdict.DONATE, Verdict.DISCARD, Verdict.REVISIT]
     if (blocked.includes(assessment.verdict)) {
       throw new Error(
         `Cannot add item with verdict ${assessment.verdict} to a box. Only SHIP or CARRY items are allowed.`
@@ -746,4 +666,248 @@ export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> 
 
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box size')
   return box as Box
+}
+
+export async function updateBoxManifestUrl(boxId: string, manifestImageUrl: string): Promise<Box> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ manifest_image_url: manifestImageUrl, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box manifest URL')
+  return box as Box
+}
+
+// ─── BoxScan ─────────────────────────────────────────────────────────────────
+
+export async function createBoxScan(boxId: string): Promise<BoxScan> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .insert({
+      box_id: boxId,
+      status: BoxScanStatus.PROCESSING,
+      total_found: 0,
+      matched_count: 0,
+      new_count: 0,
+      flagged_count: 0,
+      illegible_count: 0,
+      illegible_entries: [],
+      flagged_items: [],
+    })
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to create box scan')
+  return data as BoxScan
+}
+
+export async function updateBoxScan(
+  scanId: string,
+  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items'>>
+): Promise<BoxScan> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', scanId)
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update box scan')
+  return data as BoxScan
+}
+
+export async function getBoxScan(scanId: string): Promise<BoxScan | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .select('*')
+    .eq('id', scanId)
+    .single()
+
+  if (error || !data) return null
+  return data as BoxScan
+}
+
+export async function getLatestBoxScan(boxId: string): Promise<BoxScan | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .select('*')
+    .eq('box_id', boxId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !data) return null
+  return data as BoxScan
+}
+
+// ─── ItemConversation ─────────────────────────────────────────────────────────
+
+/**
+ * Get or create a conversation for an item. Lazy creation — the conversation
+ * record is created on first message, not when the item is assessed.
+ */
+export async function getOrCreateItemConversation(
+  itemAssessmentId: string,
+  userProfileId: string
+): Promise<ItemConversation> {
+  const supabase = getAdminClient()
+
+  // Verify ownership
+  const { data: item } = await supabase
+    .from('item_assessment')
+    .select('id')
+    .eq('id', itemAssessmentId)
+    .eq('user_profile_id', userProfileId)
+    .single()
+
+  if (!item) throw new Error('Item not found or not owned by user')
+
+  // Try to find existing
+  const { data: existing } = await supabase
+    .from('item_conversation')
+    .select('*')
+    .eq('item_assessment_id', itemAssessmentId)
+    .single()
+
+  if (existing) return existing as ItemConversation
+
+  // Create new
+  const { data: created, error } = await supabase
+    .from('item_conversation')
+    .insert({ item_assessment_id: itemAssessmentId })
+    .select()
+    .single()
+
+  if (error || !created) throw new Error(error?.message ?? 'Failed to create conversation')
+  return created as ItemConversation
+}
+
+/**
+ * Get all messages for a conversation, ordered by creation time.
+ */
+export async function getConversationMessages(
+  conversationId: string
+): Promise<ItemConversationMessage[]> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('item_conversation_message')
+    .select('*')
+    .eq('item_conversation_id', conversationId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ItemConversationMessage[]
+}
+
+/**
+ * Append a message to a conversation.
+ */
+export async function appendConversationMessage(
+  conversationId: string,
+  role: 'user' | 'assistant' | 'system',
+  content: string
+): Promise<ItemConversationMessage> {
+  const supabase = getAdminClient()
+  const id = randomUUID()
+
+  const { data, error } = await supabase
+    .from('item_conversation_message')
+    .insert({
+      id,
+      item_conversation_id: conversationId,
+      role,
+      content,
+    })
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to append message')
+
+  // Update conversation timestamp
+  await supabase
+    .from('item_conversation')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  return data as ItemConversationMessage
+}
+
+// ─── Item edit system messages ─────────────────────────────────────────────
+
+// Verdict labels for human-readable messages
+const VERDICT_LABELS: Record<string, string> = {
+  SHIP: 'Ship',
+  CARRY: 'Carry',
+  SELL: 'Sell',
+  DONATE: 'Donate',
+  DISCARD: 'Discard',
+  REVISIT: 'Decide later',
+}
+
+/**
+ * After a user edits an item, persist system messages into the item's
+ * conversation so that Aisling (and the user) can see what changed.
+ *
+ * Only called for meaningful field changes: verdict, item_name,
+ * estimated_ship_cost, estimated_replace_cost, advice_text.
+ *
+ * This is best-effort — failures are non-fatal and do not affect the item
+ * update response.
+ */
+export async function appendItemEditSystemMessages(
+  itemAssessmentId: string,
+  userProfileId: string,
+  before: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency'>,
+  after: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency'>
+): Promise<void> {
+  const notes: string[] = []
+
+  if (before.item_name !== after.item_name && after.item_name) {
+    notes.push(`You renamed this item to "${after.item_name}".`)
+  }
+
+  if (before.verdict !== after.verdict && after.verdict) {
+    const label = VERDICT_LABELS[after.verdict] ?? after.verdict
+    notes.push(`You changed the decision to ${label}.`)
+  }
+
+  if (before.estimated_ship_cost !== after.estimated_ship_cost) {
+    if (after.estimated_ship_cost != null) {
+      const sym = after.currency ?? 'USD'
+      notes.push(`You updated the estimated shipping cost to ${sym} ${after.estimated_ship_cost.toFixed(2)}.`)
+    } else {
+      notes.push('You removed the estimated shipping cost.')
+    }
+  }
+
+  if (before.estimated_replace_cost !== after.estimated_replace_cost) {
+    if (after.estimated_replace_cost != null) {
+      const sym = after.replace_currency ?? 'EUR'
+      notes.push(`You updated the estimated replacement cost to ${sym} ${after.estimated_replace_cost.toFixed(2)}.`)
+    } else {
+      notes.push('You removed the estimated replacement cost.')
+    }
+  }
+
+  if (before.advice_text !== after.advice_text) {
+    notes.push("You updated Aisling's advice text.")
+  }
+
+  if (notes.length === 0) return
+
+  try {
+    const conversation = await getOrCreateItemConversation(itemAssessmentId, userProfileId)
+    for (const note of notes) {
+      await appendConversationMessage(conversation.id, 'system', note)
+    }
+  } catch {
+    // Best-effort — system message failures must not surface to the user
+  }
 }

@@ -13,7 +13,7 @@ The framework is route-configurable: users set their departure country, arrival 
 | Concern | Choice |
 |---|---|
 | Language | TypeScript (strict mode) |
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Package manager | pnpm |
 | Database | Supabase — Postgres (Frankfurt, `eu-central-1`) |
 | Auth | Supabase Auth |
@@ -133,7 +133,7 @@ Design tokens come from `@thefairies/design-system/styles/tokens.css` and are CS
 - Primary: warm, confident green (clover, not corporate teal)
 - Accent: warm amber
 - Neutral: warm greys
-- Verdict colours: green (SHIP/CARRY), amber (SELL), warm grey (DONATE/DISCARD), soft blue (DECIDE_LATER)
+- Verdict colours: green (SHIP/CARRY), amber (SELL), warm grey (DONATE/DISCARD), soft blue (REVISIT)
 - Error: warm red
 - All colours must pass WCAG 2.2 AA contrast (4.5:1 body text, 3:1 UI components)
 
@@ -148,9 +148,10 @@ CSS Modules are the styling layer for any component-level styles not covered by 
 
 ### Layout
 
-- **Top navigation:** DS `Navigation` component
-- **Primary layout:** chat-first with a toggleable inventory side panel (`SidePanel` DS component)
-- **AI Logic:** surfaced as a tab inside the side panel — not a separate view
+- **Top navigation:** DS `Navigation` component (Decisions, Boxes, Settings)
+- **Primary layout:** decisions-first — the decisions list (`/decisions`) is home. Items are added via batch photo upload or text description. Each item is assessed in the background by Aisling and displayed as a `RecommendationCard`.
+- **Item detail:** per-item view at `/decisions/:id` with assessment card and per-item chat (Phase 2)
+- **Boxes:** box management at `/boxes` with box detail at `/boxes/:id`
 
 ### Icons: Lucide Icons
 

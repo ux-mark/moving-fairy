@@ -8,7 +8,7 @@ const VERDICT_BG: Record<Verdict, string> = {
   SELL: "var(--verdict-sell-bg)",
   DONATE: "var(--verdict-donate-bg)",
   DISCARD: "var(--verdict-discard-bg)",
-  DECIDE_LATER: "var(--verdict-decide-later-bg)",
+  REVISIT: "var(--verdict-decide-later-bg)",
 };
 
 const VERDICT_FG: Record<Verdict, string> = {
@@ -17,7 +17,7 @@ const VERDICT_FG: Record<Verdict, string> = {
   SELL: "var(--verdict-sell-fg)",
   DONATE: "var(--verdict-donate-fg)",
   DISCARD: "var(--verdict-discard-fg)",
-  DECIDE_LATER: "var(--verdict-decide-later-fg)",
+  REVISIT: "var(--verdict-decide-later-fg)",
 };
 
 const VERDICT_LABELS: Record<Verdict, string> = {
@@ -26,15 +26,16 @@ const VERDICT_LABELS: Record<Verdict, string> = {
   SELL: "Sell",
   DONATE: "Donate",
   DISCARD: "Discard",
-  DECIDE_LATER: "Decide later",
+  REVISIT: "Decide later",
 };
 
 interface VerdictBadgeProps {
-  verdict: Verdict;
+  verdict: Verdict | null | undefined;
   className?: string;
 }
 
 export function VerdictBadge({ verdict, className }: VerdictBadgeProps) {
+  if (!verdict) return null;
   const combined = [styles.badge, className].filter(Boolean).join(" ");
   return (
     <Badge

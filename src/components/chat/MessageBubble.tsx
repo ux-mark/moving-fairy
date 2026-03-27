@@ -4,10 +4,12 @@ import { useState } from "react";
 import { RecommendationCard, type RecommendationStatus } from "@thefairies/design-system/components";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { Verdict } from "@/lib/constants";
+import { proxyImageUrl } from "@/lib/storage-url";
+import type { ChatMessage } from "@/types/chat";
 import styles from "./MessageBubble.module.css";
 
 // ---------------------------------------------------------------------------
-// Types
+// Internal types (CardData kept local — not needed outside this file)
 // ---------------------------------------------------------------------------
 
 interface CardData {
@@ -28,15 +30,6 @@ interface CardData {
   replace_currency?: string;
 }
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  imageUrls?: string[];
-  type?: "text" | "card";
-  card?: CardData;
-}
-
 interface MessageBubbleProps {
   message: ChatMessage;
   onSendMessage?: (text: string) => void;
@@ -47,7 +40,7 @@ interface MessageBubbleProps {
 // ---------------------------------------------------------------------------
 
 const VERDICT_PATTERN =
-  /\b(SHIP|CARRY|SELL|DONATE|DISCARD|DECIDE[_ ]LATER)\b/g;
+  /\b(SHIP|CARRY|SELL|DONATE|DISCARD|REVISIT)\b/g;
 
 function renderInlineFormatting(text: string) {
   const parts: (string | { type: "verdict"; value: Verdict })[] = [];
@@ -113,7 +106,7 @@ const VERDICT_ACCENT: Record<string, string> = {
   SELL: "var(--verdict-sell)",
   DONATE: "var(--verdict-donate)",
   DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
+  REVISIT: "var(--verdict-decide-later)",
 };
 
 // Verdict → DS badge colour (solid bg for RecommendationCard badge)
@@ -123,7 +116,7 @@ const VERDICT_BADGE_COLOR: Record<string, string> = {
   SELL: "var(--verdict-sell)",
   DONATE: "var(--verdict-donate)",
   DISCARD: "var(--verdict-discard)",
-  DECIDE_LATER: "var(--verdict-decide-later)",
+  REVISIT: "var(--verdict-decide-later)",
 };
 
 // ---------------------------------------------------------------------------
@@ -157,7 +150,7 @@ function AssessmentCard({
   async function handleConfirm() {
     setConfirmState("saving");
     try {
-      const res = await fetch("/api/assessments", {
+      const res = await fetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -226,7 +219,7 @@ function AssessmentCard({
         <div className={styles.assessmentCardImage}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/img?url=${encodeURIComponent(card.image_url)}`}
+            src={proxyImageUrl(card.image_url)}
             alt={card.item}
             className={styles.assessmentCardImg}
           />
@@ -254,8 +247,56 @@ function AssessmentCard({
 // Tool call block filtering
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip tool call blocks from assistant text before display.
+ * Handles two formats:
+ * 1. XML: <tool_call>...</tool_call>
+ * 2. Bracket: [RENDER_ASSESSMENT_CARD]{...} or [UPDATE_ITEM_ASSESSMENT]{...}
+ */
 function stripToolCallBlocks(text: string): string {
-  return text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trim();
+  // Strip XML format
+  let cleaned = text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "");
+
+  // Strip bracket format: [TOOL_NAME] followed by a JSON object
+  const BRACKET_MARKERS = ["[RENDER_ASSESSMENT_CARD]", "[UPDATE_ITEM_ASSESSMENT]"];
+  for (const marker of BRACKET_MARKERS) {
+    let idx = cleaned.indexOf(marker);
+    while (idx >= 0) {
+      const afterMarker = cleaned.slice(idx + marker.length);
+      const braceStart = afterMarker.indexOf("{");
+      if (braceStart >= 0) {
+        let depth = 0;
+        let braceEnd = -1;
+        for (let i = braceStart; i < afterMarker.length; i++) {
+          if (afterMarker[i] === "{") depth++;
+          else if (afterMarker[i] === "}") {
+            depth--;
+            if (depth === 0) {
+              braceEnd = i + 1;
+              break;
+            }
+          }
+        }
+        if (braceEnd > 0) {
+          cleaned = cleaned.slice(0, idx) + cleaned.slice(idx + marker.length + braceEnd);
+        } else {
+          // Incomplete JSON (still streaming) — remove from marker to end
+          cleaned = cleaned.slice(0, idx);
+        }
+      } else {
+        // No JSON yet — remove the marker itself
+        cleaned = cleaned.slice(0, idx) + cleaned.slice(idx + marker.length);
+      }
+      idx = cleaned.indexOf(marker);
+    }
+  }
+
+  // Collapse runs of 3+ newlines down to 2 (paragraph break).
+  // This prevents large blank gaps left behind by stripped tool blocks
+  // when the CSS uses white-space: pre-wrap.
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  return cleaned.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +311,15 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
         card={message.card}
         {...(onSendMessage !== undefined ? { onSendMessage } : {})}
       />
+    );
+  }
+
+  // ---- Case B: System note — centered, muted, no bubble ----
+  if (message.role === "system") {
+    return (
+      <div className={styles.systemNote} role="status">
+        {message.content}
+      </div>
     );
   }
 
@@ -289,7 +339,7 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
-                  src={`/api/img?url=${encodeURIComponent(url)}`}
+                  src={proxyImageUrl(url)}
                   alt={`Submitted item ${i + 1}`}
                   className={styles.submittedImage}
                 />

@@ -22,9 +22,25 @@ export const Verdict = {
   DISCARD: 'DISCARD',
   SHIP: 'SHIP',
   CARRY: 'CARRY',
-  DECIDE_LATER: 'DECIDE_LATER',
+  REVISIT: 'REVISIT',
 } as const
 export type Verdict = (typeof Verdict)[keyof typeof Verdict]
+
+export const ProcessingStatus = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const
+export type ProcessingStatus = (typeof ProcessingStatus)[keyof typeof ProcessingStatus]
+
+export const ItemSource = {
+  PHOTO_UPLOAD: 'photo_upload',
+  TEXT_ADD: 'text_add',
+  STICKER_SCAN: 'sticker_scan',
+  MANUAL: 'manual',
+} as const
+export type ItemSource = (typeof ItemSource)[keyof typeof ItemSource]
 
 export const BoxSize = {
   XS: 'XS',
@@ -49,6 +65,23 @@ export const BoxStatus = {
   ARRIVED: 'arrived',
 } as const
 export type BoxStatus = (typeof BoxStatus)[keyof typeof BoxStatus]
+
+/** Map country code → default currency code */
+export const COUNTRY_CURRENCY: Record<string, string> = {
+  US: 'USD',
+  IE: 'EUR',
+  AU: 'AUD',
+  CA: 'CAD',
+  UK: 'GBP',
+  NZ: 'NZD',
+}
+
+export const BoxScanStatus = {
+  PROCESSING: 'processing',
+  COMPLETE: 'complete',
+  FAILED: 'failed',
+} as const
+export type BoxScanStatus = (typeof BoxScanStatus)[keyof typeof BoxScanStatus]
 
 export const BOX_SIZE_CBM: Record<BoxSize, number> = {
   XS: 0.04,

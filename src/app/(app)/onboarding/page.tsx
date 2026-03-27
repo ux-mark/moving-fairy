@@ -10,7 +10,7 @@ export default async function OnboardingPage() {
     redirect('/')
   }
 
-  // TODO: If user already has a profile, redirect to /inventory
+  // TODO: If user already has a profile, redirect to /decisions
 
   return <OnboardingWizard />
 }
