@@ -373,7 +373,7 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
         // Download image to temp file so the CLI's Read tool can view it
         imageTmpPath = `/tmp/assess-${itemId}.webp`
         try {
-          const imgResponse = await fetch(item.image_url)
+          const imgResponse = await fetch(buildStorageUrl(item.image_url))
           if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`)
           const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
           await writeFile(imageTmpPath, imgBuffer)
