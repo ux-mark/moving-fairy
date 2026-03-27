@@ -4,41 +4,93 @@
 
 Moving Fairy is part of [thefairies.ie](https://thefairies.ie), a platform I'm building to explore how AI agents can solve real, messy, human problems — not just productivity ones.
 
-<p align="center">
-  <img src="docs/screenshots/landing.png" alt="Moving Fairy landing screen showing Aisling's introduction and magic link sign-in" width="280" />
-  <img src="docs/screenshots/onboarding.png" alt="Conversational onboarding asking about multi-leg move plans" width="280" />
-</p>
-
 ---
 
 ## The problem
 
 Emigrating means making hundreds of small decisions under pressure. Every item you own becomes a question: ship it or replace it? Will it work on Irish voltage? Can it clear Australian biosecurity? Is it worth the shipping cost, or should you sell it and buy again at the destination?
 
+<img src="docs/screenshots/landing.jpg" alt="Moving Fairy landing screen showing Aisling's introduction and magic link sign-in" width="280" align="right" />
+
 People turn to Reddit threads, expat forums, and guesswork. The advice is scattered, contradictory, and never specific to your route. Nobody tells you that your KitchenAid mixer will work fine on a step-down transformer but your slow cooker won't, or that shipping a bookshelf costs more than buying one in Dublin.
 
-## What Moving Fairy does
+That's where Moving Fairy comes in. The app introduces you to **Aisling**, an AI agent who knows the specifics of your move — your departure country, destination, any onward plans, and what equipment you're bringing (like voltage transformers). You give her your items by snapping photos or describing them, and she assesses each one independently in the background.
 
-The app introduces you to **Aisling**, an AI agent who knows the specifics of your move — your departure country, destination, any onward plans, and what equipment you're bringing (like voltage transformers). You give her your items by snapping photos or describing them, and she assesses each one independently in the background.
+<br clear="both" />
 
-<p align="center">
-  <img src="docs/screenshots/empty-state.png" alt="Meet Aisling screen — the empty state guides users to upload photos or describe items" width="280" />
-  <img src="docs/screenshots/decisions-loading.png" alt="Decisions list with skeleton cards loading as Aisling assesses items in the background" width="280" />
-</p>
+---
 
-Each assessment is a structured verdict — ship, sell, donate, discard, carry, or revisit — with a clear rationale covering voltage compatibility, shipping economics, import restrictions, and whether the item is worth replacing at the destination. Aisling doesn't just give you an answer; she shows her reasoning so you can make an informed call.
+## Conversational onboarding, not a form
 
-The key design decision: **this is not a chatbot.** Aisling works in the background while you keep adding items. Results appear as cards on your decisions list as they complete. You can drill into any item to discuss it further, but the default experience is a structured, scannable list of decisions — not a conversation thread you have to scroll back through.
+<img src="docs/screenshots/onboarding-destination.jpg" alt="Onboarding step 2 — Aisling asks where you're headed, with country options" width="260" align="left" />
 
-## Design decisions worth noting
+The setup flow asks questions the way a person would — adapting based on your answers. If you're moving to a country with the same voltage as your departure country, the transformer question never appears. If you have no onward plans, the multi-leg strategy questions are skipped entirely.
 
-**Conversational onboarding, not a form.** The setup flow asks questions the way a person would — adapting based on your answers. If you're moving to a country with the same voltage as your departure country, the transformer question never appears. If you have no onward plans, the multi-leg strategy questions are skipped entirely.
+Aisling doesn't dump a settings page on you. She asks what matters, in the order it matters, and remembers what you said so she can factor it into every decision she makes later.
 
-**Background assessment, not blocking chat.** Most AI products default to a chat interface — you ask, you wait, you get a response, you ask again. That works for one-off questions, but not when someone has dozens of items to assess. Moving Fairy runs assessments in parallel in the background. You upload a batch of photos and keep working while verdicts arrive as structured cards on your decisions list. The AI does the heavy lifting without making you watch it think.
+<br clear="both" />
 
-**Structured output over freeform text.** Aisling doesn't return paragraphs. She calls a tool that renders a verdict card with specific fields — verdict, confidence, rationale, cost estimates. This is a deliberate constraint on the AI: it forces consistent, comparable output across every item, and it gives users a scannable interface rather than a wall of text.
+<img src="docs/screenshots/onboarding-stepping-stone.jpg" alt="Onboarding step 3 — asking about onward move plans beyond the initial destination" width="260" align="right" />
 
-**Route-aware knowledge, not generic advice.** Aisling's knowledge is composed from modular country-specific guides (US departure rules, Irish import rules, Australian biosecurity) combined with the user's specific route and equipment. A user moving US → Ireland gets different advice than US → Ireland → Australia, because the second leg changes the calculus on what's worth shipping.
+If you're making a multi-leg move (say, US → Ireland → Australia), Aisling needs to know — because the second leg changes the calculus on what's worth shipping. An item that makes perfect sense to bring to Dublin might not be worth carrying onward to Melbourne.
+
+The questions adapt. The flow is short. And everything feeds into the decision engine that assesses your items later.
+
+<br clear="both" />
+
+<img src="docs/screenshots/onboarding-transformer.jpg" alt="Onboarding step 4 — voltage transformer question with contextual explanation" width="260" align="left" />
+
+The transformer question is a good example of how context shapes the experience. If you own one, it opens up options for bringing certain electrical items. If you don't, Aisling adjusts her advice accordingly — she won't recommend shipping a 120V appliance to a 230V country without a path to power it.
+
+She even responds to your answer in real time before moving on to the next step.
+
+<br clear="both" />
+
+---
+
+## Structured decisions, not chat
+
+<img src="docs/screenshots/empty-state.jpg" alt="Meet Aisling — the empty state guides users to upload photos or describe items" width="260" align="right" />
+
+The key design decision: **this is not a chatbot.** Most AI products default to a chat interface — you ask, you wait, you get a response, you ask again. That works for one-off questions, but not when someone has dozens of items to assess.
+
+The empty state introduces Aisling and gives you two clear paths: upload photos of your things, or describe an item by name. No instructions to read. No modes to understand. Just start adding items.
+
+<br clear="both" />
+
+<img src="docs/screenshots/decisions-loading.jpg" alt="Decisions list with skeleton cards loading as Aisling assesses items in the background" width="260" align="left" />
+
+Once you start adding items, Aisling works in the background while you keep going. Results appear as cards on your decisions list as they complete — you never have to wait for one assessment to finish before starting the next.
+
+The skeleton loading state shows you exactly how many items are being processed, so there's no ambiguity about what's happening.
+
+<br clear="both" />
+
+<img src="docs/screenshots/assessment-progress.jpg" alt="Item assessment in progress — Aisling is looking at uploaded photos" width="260" align="right" />
+
+Each item gets its own assessment. Aisling examines the photos you upload — she can read model numbers, identify brands, and spot details that matter for her recommendation. While she's working, you see a clear progress indicator: *"Aisling is looking at this one..."*
+
+You keep adding items. She keeps assessing. The list builds itself.
+
+<br clear="both" />
+
+---
+
+## Verdicts you can act on
+
+<img src="docs/screenshots/verdict-card.jpg" alt="Verdict card for a Breville food processor — recommendation to sell with detailed rationale" width="300" align="left" />
+
+Aisling doesn't return paragraphs. Each assessment produces a structured verdict card with specific fields — verdict, confidence, rationale, cost estimates. This is a deliberate constraint on the AI: it forces consistent, comparable output across every item.
+
+The example here shows Aisling recommending to **sell** a Breville food processor. She's identified that it's a 120V appliance, calculated it could run through the user's transformer but would suffer motor wear from the frequency shift, and — crucially — noted that Breville is an Australian brand with native 230V versions available locally. Her advice: sell in the US, buy the AU-spec version on arrival.
+
+That's the level of specificity that generic advice can't match. It accounts for the user's specific route, their equipment, the item's electrical requirements, brand availability at the destination, and resale value at the origin.
+
+Every verdict includes ship cost and replacement cost, so users can make the economic comparison at a glance. And if you disagree, you can change the verdict or drill into details.
+
+<br clear="both" />
+
+---
 
 ## How it's built
 
