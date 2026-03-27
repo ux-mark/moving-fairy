@@ -1,7 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
-import { BOX_SIZE_CBM, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
-import type { Box, BoxItem, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
+import { BOX_SIZE_CBM, BoxScanStatus, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
+import type { Box, BoxItem, BoxScan, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
 // ─── Supabase client helpers ───────────────────────────────────────────────
 
@@ -666,6 +666,85 @@ export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> 
 
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box size')
   return box as Box
+}
+
+export async function updateBoxManifestUrl(boxId: string, manifestImageUrl: string): Promise<Box> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ manifest_image_url: manifestImageUrl, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box manifest URL')
+  return box as Box
+}
+
+// ─── BoxScan ─────────────────────────────────────────────────────────────────
+
+export async function createBoxScan(boxId: string): Promise<BoxScan> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .insert({
+      box_id: boxId,
+      status: BoxScanStatus.PROCESSING,
+      total_found: 0,
+      matched_count: 0,
+      new_count: 0,
+      flagged_count: 0,
+      illegible_count: 0,
+      illegible_entries: [],
+      flagged_items: [],
+    })
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to create box scan')
+  return data as BoxScan
+}
+
+export async function updateBoxScan(
+  scanId: string,
+  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items'>>
+): Promise<BoxScan> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', scanId)
+    .select()
+    .single()
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update box scan')
+  return data as BoxScan
+}
+
+export async function getBoxScan(scanId: string): Promise<BoxScan | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .select('*')
+    .eq('id', scanId)
+    .single()
+
+  if (error || !data) return null
+  return data as BoxScan
+}
+
+export async function getLatestBoxScan(boxId: string): Promise<BoxScan | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_scan')
+    .select('*')
+    .eq('box_id', boxId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !data) return null
+  return data as BoxScan
 }
 
 // ─── ItemConversation ─────────────────────────────────────────────────────────

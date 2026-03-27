@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 
 import { BoxList } from "@/components/boxes/BoxList";
 import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWarning";
+import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import type { BoxSize, BoxType } from "@/lib/constants";
 
@@ -55,6 +56,12 @@ export function BoxManagement({
   const [assessments, setAssessments] = useState(initialAssessments);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingWarning, setPendingWarning] = useState<PendingWarning | null>(null);
+
+  // Sticker scan state
+  const [scanningBoxes, setScanningBoxes] = useState<Set<string>>(new Set());
+  const [scanResults, setScanResults] = useState<Record<string, ScanResult>>({});
+  const [flaggedItemsByBox, setFlaggedItemsByBox] = useState<Record<string, FlaggedItem[]>>({});
+  const [resolvingItemIds, setResolvingItemIds] = useState<Set<string>>(new Set());
 
   const handleCreateBox = useCallback(
     async (data: {
@@ -291,6 +298,212 @@ export function BoxManagement({
     setPendingWarning(null);
   }, []);
 
+  /**
+   * Handle sticker photo selection: upload to storage, save to box, trigger scan.
+   */
+  const handleScanSticker = useCallback(async (boxId: string, file: File) => {
+    setScanningBoxes((prev) => new Set([...prev, boxId]));
+    setScanResults((prev) => ({
+      ...prev,
+      [boxId]: {
+        status: "uploading",
+        totalFound: 0,
+        matchedCount: 0,
+        newCount: 0,
+        flaggedCount: 0,
+        illegibleCount: 0,
+      },
+    }));
+
+    try {
+      // Step 1: Upload image to storage
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const { url } = await uploadRes.json();
+
+      // Step 2: Save manifest_image_url to box record
+      await fetch(`/api/boxes/${boxId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manifest_image_url: url }),
+      });
+
+      // Update local box state with new manifest URL
+      setBoxes((prev) =>
+        prev.map((b) => (b.id === boxId ? { ...b, manifest_image_url: url } : b))
+      );
+
+      // Step 3: Update scan status to processing
+      setScanResults((prev) => ({
+        ...prev,
+        [boxId]: {
+          status: "processing",
+          totalFound: 0,
+          matchedCount: 0,
+          newCount: 0,
+          flaggedCount: 0,
+          illegibleCount: 0,
+        },
+      }));
+
+      // Step 4: Fire scan endpoint (fire-and-forget — results come via Realtime or poll)
+      await fetch(`/api/boxes/${boxId}/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manifest_image_url: url }),
+      });
+    } catch (err) {
+      console.error("[scan sticker] Failed:", err);
+      setScanResults((prev) => ({
+        ...prev,
+        [boxId]: {
+          status: "error",
+          totalFound: 0,
+          matchedCount: 0,
+          newCount: 0,
+          flaggedCount: 0,
+          illegibleCount: 0,
+          errorMessage: "Could not upload the photo. Check your connection and try again.",
+        },
+      }));
+    } finally {
+      setScanningBoxes((prev) => {
+        const next = new Set(prev);
+        next.delete(boxId);
+        return next;
+      });
+    }
+  }, []);
+
+  /**
+   * Ship a flagged item anyway: override verdict to SHIP and add to box.
+   */
+  const handleShipAnyway = useCallback(async (itemId: string, boxId: string) => {
+    setResolvingItemIds((prev) => new Set([...prev, itemId]));
+
+    try {
+      // Override verdict to SHIP
+      const verdictRes = await fetch(`/api/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict: "SHIP" }),
+      });
+
+      if (!verdictRes.ok) throw new Error("Failed to update verdict");
+
+      const updatedAssessment: ItemAssessment = await verdictRes.json();
+
+      // Add item to box
+      const addRes = await fetch(`/api/boxes/${boxId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_assessment_id: itemId }),
+      });
+
+      if (!addRes.ok) throw new Error("Failed to add item to box");
+
+      const newBoxItem: BoxItem = await addRes.json();
+
+      // Update local state: update assessment, add box item, remove from flagged
+      setAssessments((prev) =>
+        prev.map((a) => (a.id === itemId ? updatedAssessment : a))
+      );
+      setBoxItems((prev) => ({
+        ...prev,
+        [boxId]: [...(prev[boxId] ?? []), newBoxItem],
+      }));
+      setFlaggedItemsByBox((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).filter((f) => f.item_assessment_id !== itemId),
+      }));
+      // Update scan result flagged count
+      setScanResults((prev) => {
+        const current = prev[boxId];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [boxId]: {
+            ...current,
+            flaggedCount: Math.max(0, current.flaggedCount - 1),
+          },
+        };
+      });
+    } catch (err) {
+      console.error("[ship anyway] Failed:", err);
+    } finally {
+      setResolvingItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }, []);
+
+  /**
+   * Remove a flagged item from the box (does not change verdict).
+   */
+  const handleRemoveFlaggedItem = useCallback(async (itemId: string, boxId: string) => {
+    setResolvingItemIds((prev) => new Set([...prev, itemId]));
+
+    try {
+      // Find the box item record for this assessment
+      const boxItem = boxItems[boxId]?.find((i) => i.item_assessment_id === itemId);
+      if (!boxItem) {
+        // Item may not be in the box yet (just flagged) — just remove from flagged list
+        setFlaggedItemsByBox((prev) => ({
+          ...prev,
+          [boxId]: (prev[boxId] ?? []).filter((f) => f.item_assessment_id !== itemId),
+        }));
+        return;
+      }
+
+      const res = await fetch(`/api/boxes/${boxId}/items/${boxItem.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to remove item from box");
+
+      // Update local state
+      setBoxItems((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).filter((i) => i.id !== boxItem.id),
+      }));
+      setFlaggedItemsByBox((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).filter((f) => f.item_assessment_id !== itemId),
+      }));
+      setScanResults((prev) => {
+        const current = prev[boxId];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [boxId]: {
+            ...current,
+            flaggedCount: Math.max(0, current.flaggedCount - 1),
+          },
+        };
+      });
+    } catch (err) {
+      console.error("[remove flagged item] Failed:", err);
+    } finally {
+      setResolvingItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }, [boxItems]);
+
   return (
     <div className={styles.container}>
       {pendingWarning && (
@@ -315,6 +528,13 @@ export function BoxManagement({
         onUpdateBox={handleUpdateBox}
         onShipAll={handleShipAll}
         isCreating={isCreating}
+        scanResults={scanResults}
+        flaggedItemsByBox={flaggedItemsByBox}
+        onScanSticker={handleScanSticker}
+        onShipAnyway={handleShipAnyway}
+        onRemoveFlaggedItem={handleRemoveFlaggedItem}
+        scanningBoxes={scanningBoxes}
+        resolvingItemIds={resolvingItemIds}
       />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { RecommendationCard } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
+import { proxyImageUrl } from '@/lib/storage-url'
 import styles from './ItemCard.module.css'
 
 interface ItemCardProps {
@@ -56,9 +57,7 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }:
     metadata.push({ label: 'Replace cost', value: formatCost(item.estimated_replace_cost, item.replace_currency) })
   }
 
-  const thumbnail = item.image_url
-    ? `/api/img?url=${encodeURIComponent(item.image_url)}`
-    : undefined
+  const thumbnail = item.image_url ? proxyImageUrl(item.image_url) : undefined
 
   // Determine the recommendation status based on user_confirmed
   const status = item.user_confirmed ? 'confirmed' : 'idle'

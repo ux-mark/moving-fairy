@@ -1,0 +1,123 @@
+/* FlaggedItemCard — warning card for non-ship items found on sticker */
+
+.card {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-warning, #fffbeb);
+  border: 1px solid var(--color-border-default);
+  border-left-width: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.borderSell {
+  border-left-color: var(--verdict-sell, #d97706);
+}
+
+.borderMuted {
+  border-left-color: var(--color-text-muted, #6b7280);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  color: var(--verdict-sell, #d97706);
+  flex-shrink: 0;
+}
+
+.itemName {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.actionButton {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.resolvingLabel {
+  color: var(--color-text-muted);
+}
+
+/* "Ask Aisling" link styled to match ghost button */
+.askAislingLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.askAislingLink:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.askAislingLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.disabledLink {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Tablet+: action buttons in a row */
+@media (min-width: 768px) {
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .actionButton {
+    width: auto;
+    flex: 1 0 auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .itemName {
+    font-size: 16px;
+  }
+
+  .message {
+    font-size: 16px;
+  }
+
+  .askAislingLink {
+    font-size: 16px;
+  }
+}

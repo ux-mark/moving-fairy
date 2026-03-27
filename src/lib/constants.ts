@@ -76,6 +76,13 @@ export const COUNTRY_CURRENCY: Record<string, string> = {
   NZ: 'NZD',
 }
 
+export const BoxScanStatus = {
+  PROCESSING: 'processing',
+  COMPLETE: 'complete',
+  FAILED: 'failed',
+} as const
+export type BoxScanStatus = (typeof BoxScanStatus)[keyof typeof BoxScanStatus]
+
 export const BOX_SIZE_CBM: Record<BoxSize, number> = {
   XS: 0.04,
   S: 0.07,

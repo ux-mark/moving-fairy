@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RecommendationCard, type RecommendationStatus } from "@thefairies/design-system/components";
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { Verdict } from "@/lib/constants";
+import { proxyImageUrl } from "@/lib/storage-url";
 import type { ChatMessage } from "@/types/chat";
 import styles from "./MessageBubble.module.css";
 
@@ -218,7 +219,7 @@ function AssessmentCard({
         <div className={styles.assessmentCardImage}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/img?url=${encodeURIComponent(card.image_url)}`}
+            src={proxyImageUrl(card.image_url)}
             alt={card.item}
             className={styles.assessmentCardImg}
           />
@@ -338,7 +339,7 @@ export function MessageBubble({ message, onSendMessage }: MessageBubbleProps) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
-                  src={`/api/img?url=${encodeURIComponent(url)}`}
+                  src={proxyImageUrl(url)}
                   alt={`Submitted item ${i + 1}`}
                   className={styles.submittedImage}
                 />

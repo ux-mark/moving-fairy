@@ -7,6 +7,9 @@
   background: var(--color-bg-card);
   box-shadow: var(--shadow-card);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @media (hover: hover) {
@@ -22,6 +25,7 @@
 .header {
   display: flex;
   width: 100%;
+  box-sizing: border-box;
   align-items: center;
   gap: 14px;
   padding: 16px 16px;
@@ -116,6 +120,10 @@
 
 /* Expanded content */
 .expandedContent {
+  /* No static overflow — managed dynamically */
+}
+
+.expandedContentAnimating {
   overflow: hidden;
 }
 
@@ -204,6 +212,11 @@
 .addItemInput:focus-visible {
   border-color: var(--color-primary, #16a34a);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #16a34a) 20%, transparent);
+}
+
+/* Sticker scan button row */
+.stickerScanRow {
+  margin-top: 12px;
 }
 
 /* Mark as packed */
@@ -543,11 +556,6 @@
   /* Prevent header badges from wrapping to a new line, which causes layout shifts */
   .headerTopRow {
     flex-wrap: nowrap;
-  }
-
-  /* Contain the card so absolute-positioned dropdowns don't extend past the viewport */
-  .card {
-    overflow-x: hidden;
   }
 
   /* Right-align the size picker dropdown so it doesn't overflow the card on narrow screens */

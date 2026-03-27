@@ -7,6 +7,7 @@ import {
 } from "@thefairies/design-system/components";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
+import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { ShipAllButton } from "@/components/boxes/ShipAllButton";
@@ -31,6 +32,20 @@ interface BoxListProps {
   onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
   onShipAll?: (() => void) | undefined;
   isCreating?: boolean | undefined;
+  /** Scan results keyed by box ID */
+  scanResults?: Record<string, ScanResult> | undefined;
+  /** Flagged items keyed by box ID */
+  flaggedItemsByBox?: Record<string, FlaggedItem[]> | undefined;
+  /** Called when user initiates a sticker scan */
+  onScanSticker?: ((boxId: string, file: File) => void) | undefined;
+  /** Called when user ships a flagged item anyway */
+  onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Called when user removes a flagged item from the box */
+  onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Box IDs that are currently scanning */
+  scanningBoxes?: Set<string> | undefined;
+  /** Item IDs currently being resolved */
+  resolvingItemIds?: Set<string> | undefined;
 }
 
 const STATUS_ORDER: Record<string, number> = {
@@ -52,6 +67,13 @@ export function BoxList({
   onUpdateBox,
   onShipAll,
   isCreating,
+  scanResults,
+  flaggedItemsByBox,
+  onScanSticker,
+  onShipAnyway,
+  onRemoveFlaggedItem,
+  scanningBoxes,
+  resolvingItemIds,
 }: BoxListProps) {
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
 
@@ -205,6 +227,13 @@ export function BoxList({
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
                   {...(onUpdateBox ? { onUpdateBox } : {})}
+                  {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
+                  flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
+                  {...(onScanSticker ? { onScanSticker } : {})}
+                  {...(onShipAnyway ? { onShipAnyway } : {})}
+                  {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  isScanning={scanningBoxes?.has(box.id) ?? false}
+                  resolvingItemIds={resolvingItemIds}
                 />
               ))}
             </div>
@@ -229,6 +258,13 @@ export function BoxList({
                   {...(onRemoveItem ? { onRemoveItem } : {})}
                   {...(onMarkPacked ? { onMarkPacked } : {})}
                   {...(onUpdateBox ? { onUpdateBox } : {})}
+                  {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
+                  flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
+                  {...(onScanSticker ? { onScanSticker } : {})}
+                  {...(onShipAnyway ? { onShipAnyway } : {})}
+                  {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  isScanning={scanningBoxes?.has(box.id) ?? false}
+                  resolvingItemIds={resolvingItemIds}
                 />
               ))}
             </div>

@@ -4,6 +4,7 @@ import { ProcessingStatus, Verdict } from '@/lib/constants'
 import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
 import { callCli, useCliMode, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import { buildStorageUrl } from '@/lib/storage-url'
 import type { UserProfile } from '@/types/database'
 import { writeFile, unlink } from 'fs/promises'
 
@@ -175,7 +176,8 @@ function extractAssessmentCardFromCli(
 async function fetchImageAsBase64(
   imageUrl: string
 ): Promise<{ base64: string; mediaType: string }> {
-  const response = await fetch(imageUrl)
+  const resolvedUrl = buildStorageUrl(imageUrl)
+  const response = await fetch(resolvedUrl)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch image: ${response.status} ${response.statusText}`
