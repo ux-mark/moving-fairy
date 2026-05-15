@@ -34,7 +34,7 @@ CREATE POLICY "Users can view own assessments"
   ON item_assessment FOR SELECT
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -43,7 +43,7 @@ CREATE POLICY "Users can insert own assessments"
   ON item_assessment FOR INSERT
   WITH CHECK (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -52,7 +52,7 @@ CREATE POLICY "Users can update own assessments"
   ON item_assessment FOR UPDATE
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -61,7 +61,7 @@ CREATE POLICY "Users can delete own assessments"
   ON item_assessment FOR DELETE
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -69,12 +69,12 @@ CREATE POLICY "Users can delete own assessments"
 DROP POLICY IF EXISTS "Users can view own profile" ON user_profile;
 CREATE POLICY "Users can view own profile"
   ON user_profile FOR SELECT
-  USING (auth_user_id = auth.uid()::text);
+  USING (auth_user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Users can update own profile" ON user_profile;
 CREATE POLICY "Users can update own profile"
   ON user_profile FOR UPDATE
-  USING (auth_user_id = auth.uid()::text);
+  USING (auth_user_id = auth.uid());
 
 -- RLS policies for box
 DROP POLICY IF EXISTS "Users can view own boxes" ON box;
@@ -82,7 +82,7 @@ CREATE POLICY "Users can view own boxes"
   ON box FOR SELECT
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -91,7 +91,7 @@ CREATE POLICY "Users can insert own boxes"
   ON box FOR INSERT
   WITH CHECK (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -100,7 +100,7 @@ CREATE POLICY "Users can update own boxes"
   ON box FOR UPDATE
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -109,7 +109,7 @@ CREATE POLICY "Users can delete own boxes"
   ON box FOR DELETE
   USING (
     user_profile_id IN (
-      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()::text
+      SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
     )
   );
 
@@ -121,7 +121,7 @@ CREATE POLICY "Users can view own box items"
     box_id IN (
       SELECT b.id FROM box b
       JOIN user_profile up ON b.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 
@@ -132,7 +132,7 @@ CREATE POLICY "Users can insert own box items"
     box_id IN (
       SELECT b.id FROM box b
       JOIN user_profile up ON b.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 
@@ -143,7 +143,7 @@ CREATE POLICY "Users can delete own box items"
     box_id IN (
       SELECT b.id FROM box b
       JOIN user_profile up ON b.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 

@@ -9,7 +9,7 @@ CREATE POLICY "Users can view own conversations" ON item_conversation
     item_assessment_id IN (
       SELECT ia.id FROM item_assessment ia
       JOIN user_profile up ON ia.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 
@@ -19,7 +19,7 @@ CREATE POLICY "Users can insert own conversations" ON item_conversation
     item_assessment_id IN (
       SELECT ia.id FROM item_assessment ia
       JOIN user_profile up ON ia.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 
@@ -31,7 +31,7 @@ CREATE POLICY "Users can view own messages" ON item_conversation_message
       SELECT ic.id FROM item_conversation ic
       JOIN item_assessment ia ON ic.item_assessment_id = ia.id
       JOIN user_profile up ON ia.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );
 
@@ -42,6 +42,6 @@ CREATE POLICY "Users can insert own messages" ON item_conversation_message
       SELECT ic.id FROM item_conversation ic
       JOIN item_assessment ia ON ic.item_assessment_id = ia.id
       JOIN user_profile up ON ia.user_profile_id = up.id
-      WHERE up.auth_user_id = auth.uid()::text
+      WHERE up.auth_user_id = auth.uid()
     )
   );

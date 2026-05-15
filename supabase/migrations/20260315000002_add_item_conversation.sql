@@ -22,17 +22,23 @@ ALTER TABLE item_conversation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE item_conversation_message ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies (service role bypasses, but good practice)
+-- item_assessment.user_profile_id references user_profile.id, so resolve auth.uid()
+-- (which is auth.users.id) through user_profile.auth_user_id — same pattern as 315001/316002.
 CREATE POLICY "Users can view own conversations" ON item_conversation
   FOR SELECT USING (
     item_assessment_id IN (
-      SELECT id FROM item_assessment WHERE user_profile_id = auth.uid()::text::uuid
+      SELECT id FROM item_assessment WHERE user_profile_id IN (
+        SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
+      )
     )
   );
 
 CREATE POLICY "Users can insert own conversations" ON item_conversation
   FOR INSERT WITH CHECK (
     item_assessment_id IN (
-      SELECT id FROM item_assessment WHERE user_profile_id = auth.uid()::text::uuid
+      SELECT id FROM item_assessment WHERE user_profile_id IN (
+        SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
+      )
     )
   );
 
@@ -41,7 +47,9 @@ CREATE POLICY "Users can view own messages" ON item_conversation_message
     item_conversation_id IN (
       SELECT ic.id FROM item_conversation ic
       JOIN item_assessment ia ON ic.item_assessment_id = ia.id
-      WHERE ia.user_profile_id = auth.uid()::text::uuid
+      WHERE ia.user_profile_id IN (
+        SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
+      )
     )
   );
 
@@ -50,7 +58,9 @@ CREATE POLICY "Users can insert own messages" ON item_conversation_message
     item_conversation_id IN (
       SELECT ic.id FROM item_conversation ic
       JOIN item_assessment ia ON ic.item_assessment_id = ia.id
-      WHERE ia.user_profile_id = auth.uid()::text::uuid
+      WHERE ia.user_profile_id IN (
+        SELECT id FROM user_profile WHERE auth_user_id = auth.uid()
+      )
     )
   );
 
