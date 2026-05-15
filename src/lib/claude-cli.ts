@@ -184,6 +184,7 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
     '--output-format',
     'stream-json',
     '--include-partial-messages',
+    '--verbose',
     '--no-session-persistence',
   ]
 
