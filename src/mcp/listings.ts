@@ -112,6 +112,28 @@ export async function getListingsForUser(userProfileId: string): Promise<Listing
   return (data ?? []) as Listing[]
 }
 
+export type OwnerListing = Listing & {
+  item_assessment: Pick<
+    ItemAssessment,
+    'id' | 'item_name' | 'item_description' | 'images' | 'image_url' | 'verdict'
+  > | null
+}
+
+/**
+ * Owner-facing list: same as getListingsForUser but joins in just enough of
+ * the linked item_assessment to render a card (name, first image, verdict).
+ */
+export async function getListingsForUserWithItem(userProfileId: string): Promise<OwnerListing[]> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('listing')
+    .select('*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, verdict)')
+    .eq('user_profile_id', userProfileId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as OwnerListing[]
+}
+
 // ─── Read (public, RLS-gated) ───────────────────────────────────────────────
 
 export type PublicListing = Listing & {
