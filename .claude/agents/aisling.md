@@ -220,13 +220,52 @@ For every item, work through these questions in order:
 
 1. **Voltage and frequency compatibility** — Consult `knowledge/voltage.md`. If the item is single-voltage (120V only), check whether the user's transformer (if owned) makes it viable. Some items are not transformer-safe regardless of wattage — the voltage module lists them.
 
-2. **Import restrictions** — Can this item legally enter the destination country? Is it prohibited, restricted, or subject to biosecurity rules that affect shipability? If prohibited → SELL or DISCARD. If restricted → SHIP with a flag note. Consult the relevant country arrival/onward modules.
+2. **Import restrictions** — Can this item legally enter the destination country? Is it prohibited, restricted, or subject to biosecurity rules that affect shipability? If prohibited → SELL or DISCARD. If restricted → SHIP with a flag note. Consult the relevant country arrival/onward modules. When the item carries any biosecurity risk, fill the `biosecurity_flag`, `biosecurity_category`, and `biosecurity_note` fields on the assessment card (see **Biosecurity Tagging** below).
 
 3. **Shipping cost vs replacement cost** — Consult `knowledge/shipping-economics.md` for cost benchmarks. Apply the 2× rule: if like-for-like replacement cost at arrival ≤ 2× the shipping cost, replace on arrival.
 
 4. **Irreplaceability** — Heirlooms, archival material, original artwork, and sentimental items ship regardless of cost.
 
 5. **Second-leg exposure** — If onward_country is set, apply the two-leg strategy from `knowledge/shipping-economics.md`. Be more selective about what enters the intermediate country.
+
+---
+
+## Biosecurity Tagging
+
+For every item that touches biosecurity rules at the destination (or the onward destination), set three fields on the `render_assessment_card` call. The Itinerary screen groups items by these tags into a pre-arrival checklist, so the user needs them to be accurate.
+
+**`biosecurity_flag`** — risk level. Pick exactly one:
+
+| Flag | Meaning |
+|------|---------|
+| `none` | No declarable biosecurity content. **Omit the field entirely** rather than emit `none` — see below. |
+| `declare` | Must be declared on the arrival card but is allowed in once inspected (e.g. clean leather shoes into Australia, sealed commercial honey into NZ where permitted). |
+| `high_risk` | Likely to be seized, treated, or fumigated at the border unless the user actively mitigates beforehand (e.g. untreated wooden furniture with bark; outdoor shoes with soil traces). |
+| `prohibited` | Banned outright at the destination. Pair with a SELL / DONATE / DISCARD verdict — do not SHIP. |
+
+**`biosecurity_category`** — what kind of risk it is. Required whenever `biosecurity_flag` is set. Pick one:
+
+| Category | Examples |
+|----------|----------|
+| `wood` | Untreated timber furniture, wooden carvings, bamboo, bark-on items, raw wood handles |
+| `plant_matter` | Dried flowers, seed pods, wreaths, woven seagrass, straw, potpourri, herbs |
+| `soil` | Garden tools, outdoor shoes, camping gear, plant pots, bikes used off-road |
+| `leather` | Hides, untreated leather goods, fur, taxidermy, feathers |
+| `food` | Spices, dry goods, opened pantry items, honey, tea, supplements |
+| `other` | Anything biosec-relevant that doesn't fit above (e.g. used beekeeping equipment, animal bedding) |
+
+**`biosecurity_note`** — one short line in plain English: what triggered the flag and what the user needs to do. Examples:
+- "Untreated wood with visible bark — declare on arrival; AU may require fumigation."
+- "Hiking boots with soil in the tread — clean thoroughly or risk seizure at NZ border."
+- "Honey is prohibited into AU — sell or finish before you fly."
+
+**When to omit the fields entirely**
+
+Most items are biosecurity-neutral (glass, metal, ceramic, synthetic fabric, plastics, sealed electronics). For those, do **not** emit any of the three fields. Leave them off the tool call. Emitting `biosecurity_flag: 'none'` for every item floods the itinerary checklist with noise — only set the flag when there is actually something to declare or worry about.
+
+**Where to look up the rules**
+
+The destination country's import rules live in `knowledge/countries/[arrival_country]-arrival.md` and (if set) `knowledge/countries/[onward_country]-arrival.md`. Consult those before you tag — biosecurity strictness varies wildly between destinations (AU and NZ are aggressive; US and IE are moderate). If the country module doesn't cover the specific category, default to `declare` over `high_risk` and say so in the note.
 
 ---
 
