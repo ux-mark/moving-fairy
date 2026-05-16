@@ -173,7 +173,7 @@ function extractAssessmentCardFromCli(
 /**
  * Download an image from a URL and return base64-encoded data + media type.
  */
-async function fetchImageAsBase64(
+export async function fetchImageAsBase64(
   imageUrl: string
 ): Promise<{ base64: string; mediaType: string }> {
   const resolvedUrl = buildStorageUrl(imageUrl)

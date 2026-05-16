@@ -72,7 +72,8 @@ export async function runCliAgentLoop(
   model: string,
   controller: ReadableStreamDefaultController,
   executeTool: (name: string, input: Record<string, unknown>) => Promise<string>,
-  extraAllowedTools?: string[]
+  extraAllowedTools?: string[],
+  addDirs?: string[]
 ): Promise<string> {
   const encoder = new TextEncoder()
   let fullAssistantText = ''
@@ -102,7 +103,7 @@ export async function runCliAgentLoop(
   let prompt = buildCliPrompt(messages)
 
   for (let round = 0; round < 10; round++) {
-    const cmd = buildCliArgs(fullSystemPrompt, model, extraAllowedTools)
+    const cmd = buildCliArgs(fullSystemPrompt, model, extraAllowedTools, addDirs)
 
     // Stream text deltas to the client as they arrive, while also
     // collecting the full response text for tool call extraction.

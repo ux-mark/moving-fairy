@@ -78,6 +78,52 @@ export function useItems(profileId?: string): UseItemsReturn {
     return () => clearInterval(id)
   }, [items, refresh])
 
+  // Stuck-item recovery: assessment runs as in-process background work, so if
+  // the dev/server process crashes mid-flight, items get orphaned. When we see
+  // an item stuck in 'pending' or 'processing' past a sane threshold, re-fire
+  // /api/assess. The endpoint is idempotent.
+  //
+  // Each /api/assess call spawns a Claude CLI subprocess on the server. The dev
+  // container OOMs at modest concurrency, so we run recovery strictly serially:
+  // only kick off a new assessment when nothing is currently processing.
+  const kickedOffRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (items.length === 0) return
+
+    const now = Date.now()
+    const STUCK_PENDING_MS = 15_000      // 15s — the auto-trigger fires ~1s after upload
+    const STUCK_PROCESSING_MS = 180_000  // 3min — failsafe for items left in 'processing' on a dead server
+
+    // If any item is *actively* processing (status 'processing' AND recently
+    // touched), wait — a Claude CLI subprocess is running on the server. Items
+    // stuck in 'processing' from an old crash don't count, otherwise we'd
+    // refuse to recover them.
+    const anyActiveProcessing = items.some((i) => {
+      if (i.processing_status !== 'processing') return false
+      const age = now - new Date(i.updated_at ?? i.created_at).getTime()
+      return age < STUCK_PROCESSING_MS
+    })
+    if (anyActiveProcessing) return
+
+    for (const item of items) {
+      if (kickedOffRef.current.has(item.id)) continue
+      const lastTouched = new Date(item.updated_at ?? item.created_at).getTime()
+      const age = now - lastTouched
+      const isStuckPending = item.processing_status === 'pending' && age > STUCK_PENDING_MS
+      const isStuckProcessing = item.processing_status === 'processing' && age > STUCK_PROCESSING_MS
+      if (!isStuckPending && !isStuckProcessing) continue
+
+      kickedOffRef.current.add(item.id)
+      const itemId = item.id
+      const url = isStuckProcessing ? `/api/assess/${itemId}?force=true` : `/api/assess/${itemId}`
+      fetch(url, { method: 'POST' }).catch((err) => {
+        kickedOffRef.current.delete(itemId)
+        console.error('Failed to recover stuck item', itemId, err)
+      })
+      break // one at a time — wait for it to leave 'processing' before next
+    }
+  }, [items])
+
   // Refresh when the tab regains focus (covers missed Realtime events)
   useEffect(() => {
     const onVisibilityChange = () => {

@@ -30,6 +30,7 @@ interface DecisionsListProps {
   onItemClick: (id: string) => void
   onRefresh?: () => void
   onVerdictChange?: (id: string, verdict: string) => Promise<void>
+  onDelete?: (id: string) => void
   /** Number of files currently being uploaded — drives skeleton placeholders */
   uploadingCount?: number
 }
@@ -87,6 +88,7 @@ export function DecisionsList({
   onItemClick,
   onRefresh,
   onVerdictChange,
+  onDelete,
   uploadingCount = 0,
 }: DecisionsListProps) {
   const hasItems = items.length > 0
@@ -314,6 +316,7 @@ export function DecisionsList({
                       onRetry={onRetry}
                       onClick={onItemClick}
                       onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
+                      onDelete={onDelete}
                     />
                     {verdictPickerItemId === item.id && item.verdict && (
                       <div className={styles.verdictTriggerWrap}>

@@ -11,6 +11,9 @@ import {
 import { composePerItemChatPrompt } from '@/lib/per-item-chat-prompt'
 import { useCliMode, runCliAgentLoop, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import { fetchImageAsBase64 } from '@/lib/assess-item'
+import { buildStorageUrl } from '@/lib/storage-url'
+import { writeFile } from 'fs/promises'
 import type { UserProfile } from '@/types/database'
 
 // ─── Tool definitions for per-item chat ──────────────────────────────────────
@@ -159,7 +162,7 @@ export async function POST(
   const allLlmMessages = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-  const llmMessages =
+  let llmMessages =
     allLlmMessages.length > MAX_CONTEXT_MESSAGES
       ? allLlmMessages.slice(-MAX_CONTEXT_MESSAGES)
       : allLlmMessages
@@ -168,6 +171,58 @@ export async function POST(
 
   // Read abort signal so we can cancel in-flight work if the client disconnects
   const { signal } = req
+
+  // ─── Image attachment ──────────────────────────────────────────────────────
+  // If the item has a photo, make it available to Aisling in this conversation.
+  // SDK: attach as a base64 image block on the first user message.
+  // CLI: download to /tmp so Aisling can use the Read tool to view it.
+  type ImageAttachment =
+    | { kind: 'sdk'; block: { type: 'image'; source: { type: 'base64'; media_type: string; data: string } } }
+    | { kind: 'cli'; tmpPath: string }
+  let imageAttachment: ImageAttachment | null = null
+  if (item.image_url) {
+    try {
+      if (useCliMode()) {
+        const tmpPath = `/tmp/chat-${itemId}.webp`
+        const imgRes = await fetch(buildStorageUrl(item.image_url))
+        if (imgRes.ok) {
+          const buf = Buffer.from(await imgRes.arrayBuffer())
+          await writeFile(tmpPath, buf)
+          imageAttachment = { kind: 'cli', tmpPath }
+        } else {
+          console.warn(`[per-item-chat] Image fetch failed for CLI: HTTP ${imgRes.status}`)
+        }
+      } else {
+        const { base64, mediaType } = await fetchImageAsBase64(item.image_url)
+        imageAttachment = {
+          kind: 'sdk',
+          block: { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+        }
+      }
+    } catch (err) {
+      console.warn('[per-item-chat] Could not attach image to chat:', err)
+    }
+  }
+
+  // For CLI mode, augment the first user message with a Read instruction so
+  // Aisling actually pulls the image into context before replying.
+  if (imageAttachment?.kind === 'cli' && llmMessages.length > 0) {
+    const firstUserIdx = llmMessages.findIndex((m) => m.role === 'user')
+    if (firstUserIdx >= 0) {
+      const original = llmMessages[firstUserIdx]
+      llmMessages = [
+        ...llmMessages.slice(0, firstUserIdx),
+        {
+          role: 'user',
+          content:
+            `[The photo of this item is at ${imageAttachment.tmpPath}. ` +
+            `Use the Read tool to view it before responding — you can see it directly.]\n\n` +
+            (original?.content ?? ''),
+        },
+        ...llmMessages.slice(firstUserIdx + 1),
+      ]
+    }
+  }
 
   // ─── Tool executor ─────────────────────────────────────────────────────────
 
@@ -227,7 +282,9 @@ export async function POST(
             CHAT_TOOLS,
             model,
             controller,
-            executeTool
+            executeTool,
+            undefined,
+            imageAttachment?.kind === 'cli' ? ['/tmp'] : undefined
           )
           console.log(`[per-item-chat] CLI response length=${fullAssistantText.length}`)
         } else {
@@ -246,6 +303,29 @@ export async function POST(
             role: m.role as 'user' | 'assistant',
             content: m.content,
           }))
+
+          // Attach the item's photo to the first user message in the conversation
+          // so Aisling can see it directly (no more "I can't pull it up" replies).
+          if (imageAttachment?.kind === 'sdk') {
+            const firstUserIdx = currentMessages.findIndex((m) => m.role === 'user')
+            if (firstUserIdx >= 0) {
+              const original = currentMessages[firstUserIdx]
+              const originalText =
+                typeof original?.content === 'string' ? original.content : ''
+              currentMessages = [
+                ...currentMessages.slice(0, firstUserIdx),
+                {
+                  role: 'user',
+                  content: [
+                    imageAttachment.block,
+                    { type: 'text', text: originalText },
+                  ],
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any,
+                ...currentMessages.slice(firstUserIdx + 1),
+              ]
+            }
+          }
 
           for (let round = 0; round < 10; round++) {
             // Check abort before each LLM call
