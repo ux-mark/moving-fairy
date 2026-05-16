@@ -3,9 +3,14 @@ import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 
 // Hosts that serve the public buyer experience (Sale Fairy).
-// Requests on these hosts are rewritten into the `(public)/_pub/**` route group
+// Requests on these hosts are rewritten into the `(public)/pub/**` route group
 // so they never collide with the owner app at `(app)/**`.
+//
+// NOTE: `pub` (not `_pub`) — Next treats folders prefixed with `_` as private
+// and refuses to route them, even via internal rewrite. Plain `pub` still
+// never surfaces in the URL bar because the rewrite is internal.
 const PUBLIC_HOSTS = ['sale.thefairies.ie', 'sale.localhost']
+const PUBLIC_PREFIX = '/pub'
 
 function isPublicHost(host: string): boolean {
   return PUBLIC_HOSTS.some((h) => host === h || host.startsWith(`${h}:`))
@@ -31,13 +36,13 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
-  // Hostname routing: sale.* requests serve the buyer experience via /_pub/* rewrite.
+  // Hostname routing: sale.* requests serve the buyer experience via /pub/* rewrite.
   // The URL bar continues to show sale.thefairies.ie/<path> — only the internal route changes.
   const host = request.headers.get('host') ?? ''
   if (isPublicHost(host)) {
     const url = request.nextUrl.clone()
-    if (!url.pathname.startsWith('/_pub')) {
-      url.pathname = `/_pub${url.pathname === '/' ? '' : url.pathname}`
+    if (!url.pathname.startsWith(PUBLIC_PREFIX)) {
+      url.pathname = `${PUBLIC_PREFIX}${url.pathname === '/' ? '' : url.pathname}`
       return NextResponse.rewrite(url)
     }
     return NextResponse.next()

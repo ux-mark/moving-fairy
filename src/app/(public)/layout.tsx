@@ -5,7 +5,7 @@ import type { Metadata, Viewport } from 'next'
  *
  * Stripped down: no owner nav, no auth UI. US English metadata only.
  * Lives in a route group so the `(public)` segment never appears in URLs;
- * the middleware rewrites `sale.<host>/<path>` → `/_pub/<path>`.
+ * the proxy rewrites `sale.<host>/<path>` → `/pub/<path>`.
  */
 
 export const viewport: Viewport = {

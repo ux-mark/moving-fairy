@@ -1,0 +1,247 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  animation: fadeIn 0.18s ease;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 24px -8px rgba(0, 0, 0, 0.18);
+  animation: slideIn 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+  padding: 12px 20px;
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+
+.headerTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.closeBtn:hover {
+  background: var(--color-bg-panel, #f9fafb);
+  color: var(--color-text-primary);
+}
+
+.body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.summary {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-md, 6px);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.summaryLine {
+  font-size: 14px;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.summarySub {
+  font-size: 12px;
+  color: #047857;
+  margin-top: 2px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--color-text-primary);
+}
+
+.labelHint {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 400;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-input, #d1d5db);
+  border-radius: var(--radius-md, 6px);
+  font-size: 14px;
+  background: #fff;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 220px;
+  line-height: 1.5;
+  font-family: var(--font-mono, ui-monospace), monospace;
+  font-size: 13px;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -1px;
+  border-color: var(--color-primary, #16a34a);
+}
+
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.status {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.statusSuccess {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.statusError {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.statusHeading {
+  font-weight: 600;
+}
+
+.statusBody {
+  margin-top: 2px;
+}
+
+.statusLink {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.cancelBtn {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.cancelBtn:hover {
+  background: var(--color-bg-panel, #f9fafb);
+}
+
+.submitBtn {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border: none;
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

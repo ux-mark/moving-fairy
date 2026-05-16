@@ -1,0 +1,126 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: #fff;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  box-shadow: 0 -4px 14px -8px rgba(0, 0, 0, 0.12);
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.countLine {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.countNum {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.nudge {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.priceLine {
+  margin-top: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.subtotal {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.arrow {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 12px;
+}
+
+.total {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary, #16a34a);
+  font-variant-numeric: tabular-nums;
+}
+
+.saved {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.clearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+}
+
+.clearBtn:hover {
+  background: var(--color-bg-panel, #f9fafb);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 480px) {
+  .clearLabel {
+    display: none;
+  }
+}
+
+.cta {
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.cta:hover {
+  filter: brightness(1.08);
+}
