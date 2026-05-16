@@ -8,8 +8,10 @@ import { ProcessingStatus } from '@/lib/constants'
 // Triggers a background assessment for a single item.
 // Returns 200 immediately (fire-and-forget) — client subscribes to Realtime
 // for processing_status updates.
+// Query param ?force=true bypasses the already-processing short-circuit, used
+// by the client to recover items stuck in 'processing' after a server restart.
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { user, profile } = await getAuthenticatedProfile()
@@ -18,6 +20,7 @@ export async function POST(
   }
 
   const { id } = await params
+  const force = new URL(req.url).searchParams.get('force') === 'true'
 
   // Validate item exists and belongs to the authenticated user
   let item
@@ -32,12 +35,14 @@ export async function POST(
     return Response.json({ ok: false, error: 'Item not found' }, { status: 404 })
   }
 
-  // Idempotent — if already completed or in-flight, return early
+  // Idempotent — if already completed, return early
   if (item.processing_status === ProcessingStatus.COMPLETED) {
     return Response.json({ ok: true, status: 'already_completed' })
   }
 
-  if (item.processing_status === ProcessingStatus.PROCESSING) {
+  // If already processing, short-circuit unless force=true (used by the client's
+  // stuck-item recovery to restart assessments orphaned by a prior server crash)
+  if (item.processing_status === ProcessingStatus.PROCESSING && !force) {
     return Response.json({ ok: true, status: 'already_processing' })
   }
 

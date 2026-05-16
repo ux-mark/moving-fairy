@@ -72,7 +72,9 @@ function composeItemContext(item: ItemAssessment): string {
   if (item.needs_transformer !== null) lines.push(`- **Needs transformer**: ${item.needs_transformer ? 'yes' : 'no'}`)
   if (item.estimated_ship_cost !== null) lines.push(`- **Estimated ship cost**: ${item.currency ?? 'USD'} ${item.estimated_ship_cost}`)
   if (item.estimated_replace_cost !== null) lines.push(`- **Estimated replace cost**: ${item.replace_currency ?? 'EUR'} ${item.estimated_replace_cost}`)
-  if (item.image_url) lines.push(`- **Has photo**: yes`)
+  if (item.image_url) {
+    lines.push(`- **Photo**: attached to this conversation — you can see it directly`)
+  }
 
   lines.push('')
   return lines.join('\n')
@@ -122,6 +124,7 @@ You are in a conversation about a specific item. The user is discussing this ite
 
 Rules:
 - You have the full item context above. Reference it naturally.
+- If a photo is attached, you can SEE it — refer to what's visible in the image directly. Never tell the user you can't see the photo or ask them to re-share it.
 - If the user provides new information that changes your assessment, call \`render_assessment_card\` with the updated verdict.
 - If you update your recommendation, also call \`update_item_assessment\` to persist the change.
 - Keep responses conversational and concise. This is a focused discussion about one item.

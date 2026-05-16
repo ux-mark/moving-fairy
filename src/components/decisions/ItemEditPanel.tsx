@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useId } from 'react'
+import { useState, useCallback, useId, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Button } from '@thefairies/design-system/components'
+import { Button, ConfirmDialog } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import type { Verdict } from '@/lib/constants'
 import styles from './ItemEditPanel.module.css'
@@ -37,6 +37,7 @@ interface ItemEditPanelProps {
   shipCurrency?: string
   replaceCurrency?: string
   onSave: (updates: Partial<ItemAssessment>) => Promise<void>
+  onDeleted?: () => void
   onNavigateBack?: () => void
   onNavigateNext?: () => void
   hasNextItem?: boolean
@@ -57,9 +58,10 @@ function currencySymbol(code: string): string {
   return CURRENCY_SYMBOLS[code] ?? code
 }
 
-export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onNavigateBack, onNavigateNext, hasNextItem, availableBoxes, currentBoxId, backLabel = 'Back to decisions' }: ItemEditPanelProps) {
+export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onDeleted, onNavigateBack, onNavigateNext, hasNextItem, availableBoxes, currentBoxId, backLabel = 'Back to decisions' }: ItemEditPanelProps) {
   const id = useId()
   const prefersReducedMotion = useReducedMotion()
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   const [name, setName] = useState(item.item_name || '')
   const [verdict, setVerdict] = useState<string>(item.verdict || '')
@@ -71,6 +73,9 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [showNavCtas, setShowNavCtas] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   const hasChanges =
     name !== (item.item_name || '') ||
@@ -127,6 +132,23 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
       setIsSaving(false)
     }
   }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, item.id, onSave, onNavigateBack])
+
+  const handleDelete = useCallback(async () => {
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(data.error ?? 'Failed to delete item')
+      }
+      setConfirmDeleteOpen(false)
+      onDeleted?.()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete item. Please try again.')
+      setIsDeleting(false)
+    }
+  }, [item.id, onDeleted])
 
   // Allow external reset when item data updates (e.g. after Aisling reassesses)
   // We deliberately don't include a deep equality check — the parent calls
@@ -313,11 +335,49 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
           variant="primary"
           size="md"
           onClick={handleSave}
-          disabled={!hasChanges || isSaving}
+          disabled={!hasChanges || isSaving || isDeleting}
         >
           {isSaving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
+
+      {/* Delete error */}
+      {deleteError && (
+        <div className={styles.errorFeedback} role="alert">
+          <p className={styles.feedbackText}>{deleteError}</p>
+        </div>
+      )}
+
+      {/* Delete item — destructive, visually separated below Save */}
+      <div className={styles.dangerZone}>
+        <Button
+          ref={deleteButtonRef}
+          variant="dangerGhost"
+          size="md"
+          onClick={() => {
+            setDeleteError(null)
+            setConfirmDeleteOpen(true)
+          }}
+          disabled={isSaving || isDeleting}
+        >
+          {isDeleting ? 'Deleting...' : 'Delete this item'}
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        onClose={() => {
+          if (!isDeleting) setConfirmDeleteOpen(false)
+        }}
+        title={`Delete "${item.item_name || 'this item'}"?`}
+        description="This removes the photo, all details, and any chat history about this item. This can't be undone."
+        confirmLabel="Delete item"
+        cancelLabel="Keep item"
+        onConfirm={handleDelete}
+        isConfirming={isDeleting}
+        variant="danger"
+        triggerRef={deleteButtonRef}
+      />
     </section>
   )
 }

@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
-import { Button, Spinner } from '@thefairies/design-system/components'
+import { Button, ConfirmDialog, Spinner } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { COUNTRY_CURRENCY } from '@/lib/constants'
 import { proxyImageUrl } from '@/lib/storage-url'
@@ -51,22 +51,26 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   // User profile for currency derivation
   // ---------------------------------------------------------------------------
 
-  const [shipCurrency, setShipCurrency] = useState(item.currency ?? 'USD')
-  const [replaceCurrency, setReplaceCurrency] = useState(item.replace_currency ?? 'EUR')
+  // Prefer currencies persisted on the item itself — they're set at assessment
+  // time and won't flicker. Only fall back to fetching the profile when one is
+  // missing (e.g. lightweight items that skip currency capture).
+  const [shipCurrency, setShipCurrency] = useState<string>(item.currency ?? 'USD')
+  const [replaceCurrency, setReplaceCurrency] = useState<string>(item.replace_currency ?? 'EUR')
 
   useEffect(() => {
+    if (item.currency && item.replace_currency) return
     fetch('/api/profile')
       .then(res => res.ok ? res.json() : null)
       .then((data: { ok?: boolean; profile?: { departure_country?: string; arrival_country?: string } } | null) => {
         if (data?.ok && data.profile) {
           const dep = data.profile.departure_country
           const arr = data.profile.arrival_country
-          if (dep) setShipCurrency(COUNTRY_CURRENCY[dep] ?? 'USD')
-          if (arr) setReplaceCurrency(COUNTRY_CURRENCY[arr] ?? 'EUR')
+          if (!item.currency && dep) setShipCurrency(COUNTRY_CURRENCY[dep] ?? 'USD')
+          if (!item.replace_currency && arr) setReplaceCurrency(COUNTRY_CURRENCY[arr] ?? 'EUR')
         }
       })
       .catch(() => {})
-  }, [])
+  }, [item.currency, item.replace_currency])
 
   const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
 
@@ -140,6 +144,38 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   const handleNavigateBack = useCallback(() => {
     router.push(backHref)
   }, [router, backHref])
+
+  const handleDeleted = useCallback(() => {
+    router.push(backHref)
+  }, [router, backHref])
+
+  // ---------------------------------------------------------------------------
+  // Pre-completion delete (cancel queued / processing / failed items).
+  // Mirrors the post-completion delete in ItemEditPanel but lives here because
+  // the edit panel isn't rendered until processing_status === 'completed'.
+  // ---------------------------------------------------------------------------
+
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement>(null)
+
+  const handleConfirmDelete = useCallback(async () => {
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(data.error ?? 'Failed to delete item')
+      }
+      setConfirmDeleteOpen(false)
+      handleDeleted()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete item. Please try again.')
+      setIsDeleting(false)
+    }
+  }, [item.id, handleDeleted])
 
   // ---------------------------------------------------------------------------
   // Fullscreen chat state — lifted up so ItemDetailView controls the layout.
@@ -221,6 +257,21 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                     ? 'Your item is queued for assessment. This usually takes just a moment.'
                     : 'Aisling is working on the assessment. It will appear here when ready.'}
                 </p>
+                {deleteError && (
+                  <p className={styles.processingText} role="alert">{deleteError}</p>
+                )}
+                <Button
+                  ref={cancelDeleteButtonRef}
+                  variant="dangerGhost"
+                  size="sm"
+                  onClick={() => {
+                    setDeleteError(null)
+                    setConfirmDeleteOpen(true)
+                  }}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Cancel and delete this item'}
+                </Button>
               </div>
             )}
 
@@ -230,8 +281,23 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 <p className={styles.processingText}>
                   Something went wrong assessing this item. Tap below to try again.
                 </p>
-                <Button variant="secondary" size="sm" onClick={() => onRetry(item.id)}>
+                {deleteError && (
+                  <p className={styles.processingText} role="alert">{deleteError}</p>
+                )}
+                <Button variant="secondary" size="sm" onClick={() => onRetry(item.id)} disabled={isDeleting}>
                   Retry assessment
+                </Button>
+                <Button
+                  ref={cancelDeleteButtonRef}
+                  variant="dangerGhost"
+                  size="sm"
+                  onClick={() => {
+                    setDeleteError(null)
+                    setConfirmDeleteOpen(true)
+                  }}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete this item'}
                 </Button>
               </div>
             )}
@@ -243,6 +309,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 shipCurrency={shipCurrency}
                 replaceCurrency={replaceCurrency}
                 onSave={handleSave}
+                onDeleted={handleDeleted}
                 onNavigateBack={handleNavigateBack}
                 backLabel={backLabel}
                 availableBoxes={availableBoxes}
@@ -250,6 +317,25 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
               />
             )}
           </div>
+
+          {/* Shared delete confirmation for pre-completion states. The
+              completed state has its own dialog inside ItemEditPanel. */}
+          {(isPending || isProcessing || isFailed) && (
+            <ConfirmDialog
+              isOpen={confirmDeleteOpen}
+              onClose={() => {
+                if (!isDeleting) setConfirmDeleteOpen(false)
+              }}
+              title={`Delete "${itemName}"?`}
+              description="This removes the photo, any chat history, and stops the assessment if it's still queued. This can't be undone."
+              confirmLabel="Delete item"
+              cancelLabel="Keep item"
+              onConfirm={handleConfirmDelete}
+              isConfirming={isDeleting}
+              variant="danger"
+              triggerRef={cancelDeleteButtonRef}
+            />
+          )}
         </div>
       )}
 

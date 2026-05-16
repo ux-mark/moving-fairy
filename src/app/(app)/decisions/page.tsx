@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { ConfirmDialog } from '@thefairies/design-system/components'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
 import { useItems } from '@/lib/hooks/useItems'
@@ -75,6 +76,41 @@ export default function DecisionsPage() {
     await updateVerdict(id, verdict)
   }
 
+  // Delete-from-list flow for items that can't be opened (pending/processing/failed)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteDialogTriggerRef = useRef<HTMLButtonElement>(null)
+
+  const itemBeingDeleted = pendingDeleteId
+    ? items.find((i) => i.id === pendingDeleteId)
+    : undefined
+  const deleteItemName = itemBeingDeleted?.item_name || 'this item'
+
+  const handleRequestDelete = (id: string) => {
+    setDeleteError(null)
+    setPendingDeleteId(id)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`/api/items/${pendingDeleteId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(data.error ?? 'Failed to delete item')
+      }
+      setPendingDeleteId(null)
+      refresh()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete item. Please try again.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <AppLayout>
       <DecisionsList
@@ -90,7 +126,29 @@ export default function DecisionsPage() {
         onRefresh={refresh}
         onItemClick={(id) => router.push(`/decisions/${id}`)}
         onVerdictChange={handleVerdictChange}
+        onDelete={handleRequestDelete}
         uploadingCount={uploadingCount}
+      />
+      <ConfirmDialog
+        isOpen={pendingDeleteId !== null}
+        onClose={() => {
+          if (!isDeleting) {
+            setPendingDeleteId(null)
+            setDeleteError(null)
+          }
+        }}
+        title={`Delete "${deleteItemName}"?`}
+        description={
+          deleteError
+            ? `${deleteError} Try again, or keep the item.`
+            : "This removes the photo, any chat history, and stops the assessment if it's still queued. This can't be undone."
+        }
+        confirmLabel="Delete item"
+        cancelLabel="Keep item"
+        onConfirm={handleConfirmDelete}
+        isConfirming={isDeleting}
+        variant="danger"
+        triggerRef={deleteDialogTriggerRef}
       />
     </AppLayout>
   )

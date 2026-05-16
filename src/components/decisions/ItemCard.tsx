@@ -11,6 +11,7 @@ interface ItemCardProps {
   onRetry: (id: string) => void
   onClick: (id: string) => void
   onVerdictChange?: (() => void) | undefined
+  onDelete?: ((id: string) => void) | undefined
 }
 
 // Verdict colours matching the CostSummary palette
@@ -41,7 +42,7 @@ function formatCost(amount: number, currency: string | null): string {
   }).format(amount)
 }
 
-export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }: ItemCardProps) {
+export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, onDelete }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
 
@@ -85,6 +86,7 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }:
   if (item.processing_status === 'failed') cardProps.onRetry = () => onRetry(item.id)
 
   const showVerdictTrigger = onVerdictChange && item.processing_status === 'completed' && item.verdict
+  const showDeleteTrigger = onDelete && item.processing_status !== 'completed'
 
   return (
     <div className={styles.cardWrap}>
@@ -98,6 +100,16 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange }:
           aria-label={`Change verdict for ${item.item_name || 'this item'}`}
         >
           Change verdict
+        </button>
+      )}
+      {showDeleteTrigger && (
+        <button
+          type="button"
+          className={styles.deleteTrigger}
+          onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
+          aria-label={`Delete ${item.item_name || 'this item'}`}
+        >
+          Delete
         </button>
       )}
     </div>

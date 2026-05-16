@@ -33,3 +33,35 @@
   outline: 2px solid var(--color-primary, #16a34a);
   outline-offset: 2px;
 }
+
+/* Delete trigger — small overlay button shown on pending/processing/failed cards
+   so the user can cancel an item that can't be opened for detail view. */
+.deleteTrigger {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  min-height: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error, #dc2626);
+  z-index: 1;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.deleteTrigger:hover {
+  background: var(--color-error, #dc2626);
+  color: #ffffff;
+  border-color: var(--color-error, #dc2626);
+}
+
+.deleteTrigger:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
+}
