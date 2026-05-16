@@ -262,7 +262,7 @@ export function ListingEditor({ listing, item }: Props) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={proxyImageUrl(url)}
-                alt={`Photo ${idx + 1}`}
+                alt={`Listing item ${idx + 1}`}
                 className={styles.photoImg}
               />
               <div className={styles.photoActions}>
