@@ -73,11 +73,19 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   }, [item.currency, item.replace_currency])
 
   const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
+  const [shipments, setShipments] = useState<Array<{id: string, label: string}>>([])
 
   useEffect(() => {
     fetch('/api/boxes')
       .then(res => res.ok ? res.json() : [])
       .then(data => setBoxes(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/shipments')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setShipments(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
 
@@ -314,6 +322,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 backLabel={backLabel}
                 availableBoxes={availableBoxes}
                 currentBoxId={currentBoxId}
+                availableShipments={shipments}
               />
             )}
           </div>

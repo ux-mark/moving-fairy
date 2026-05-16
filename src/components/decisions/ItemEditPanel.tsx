@@ -43,6 +43,12 @@ interface ItemEditPanelProps {
   hasNextItem?: boolean
   availableBoxes?: Array<{id: string, label: string}>
   currentBoxId?: string
+  /**
+   * Shipments the owner can route this item to. Pass an empty array (or
+   * a single-shipment array) to hide the selector — single-leg moves
+   * don't need it.
+   */
+  availableShipments?: Array<{id: string, label: string}>
   backLabel?: string
 }
 
@@ -58,7 +64,7 @@ function currencySymbol(code: string): string {
   return CURRENCY_SYMBOLS[code] ?? code
 }
 
-export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onDeleted, onNavigateBack, onNavigateNext, hasNextItem, availableBoxes, currentBoxId, backLabel = 'Back to decisions' }: ItemEditPanelProps) {
+export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'EUR', onSave, onDeleted, onNavigateBack, onNavigateNext, hasNextItem, availableBoxes, currentBoxId, availableShipments, backLabel = 'Back to decisions' }: ItemEditPanelProps) {
   const id = useId()
   const prefersReducedMotion = useReducedMotion()
   const deleteButtonRef = useRef<HTMLButtonElement>(null)
@@ -69,6 +75,9 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const [replaceCost, setReplaceCost] = useState(item.estimated_replace_cost?.toString() ?? '')
   const [description, setDescription] = useState(item.advice_text || '')
   const [boxId, setBoxId] = useState(currentBoxId ?? '')
+  // Empty string means "no override / fall back to default leg" — matches
+  // the SQL semantics of `target_shipment_id IS NULL`.
+  const [targetShipmentId, setTargetShipmentId] = useState(item.target_shipment_id ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -83,7 +92,8 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     shipCost !== (item.estimated_ship_cost?.toString() ?? '') ||
     replaceCost !== (item.estimated_replace_cost?.toString() ?? '') ||
     description !== (item.advice_text || '') ||
-    boxId !== (currentBoxId ?? '')
+    boxId !== (currentBoxId ?? '') ||
+    targetShipmentId !== (item.target_shipment_id ?? '')
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -97,6 +107,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         estimated_ship_cost: shipCost ? parseFloat(shipCost) : null,
         estimated_replace_cost: replaceCost ? parseFloat(replaceCost) : null,
         advice_text: description,
+        target_shipment_id: targetShipmentId === '' ? null : targetShipmentId,
       })
 
       // Handle box assignment separately — only when verdict is SHIP or CARRY
@@ -131,7 +142,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, item.id, onSave, onNavigateBack])
+  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, item.id, onSave, onNavigateBack])
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true)
@@ -215,6 +226,28 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
             <option value="">Not assigned to a box</option>
             {availableBoxes.map((box) => (
               <option key={box.id} value={box.id}>{box.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Shipment leg — only render when the move has more than one leg.
+          Null target = "use the default leg" (matches DB semantics). */}
+      {(verdict === 'SHIP' || verdict === 'CARRY') && availableShipments && availableShipments.length > 1 && (
+        <div className={styles.field}>
+          <label htmlFor={`${id}-shipment`} className={styles.label}>
+            Shipment leg
+          </label>
+          <select
+            id={`${id}-shipment`}
+            className={styles.select}
+            value={targetShipmentId}
+            onChange={(e) => setTargetShipmentId(e.target.value)}
+            disabled={isSaving}
+          >
+            <option value="">Default leg</option>
+            {availableShipments.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
             ))}
           </select>
         </div>

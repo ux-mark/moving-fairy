@@ -215,6 +215,15 @@ export type Manifest = {
  * Build an export-ready manifest for a shipment.
  *
  * - Walks shipment → boxes → box_items → item_assessment.
+ * - `item_assessment.target_shipment_id` overrides the box's shipment:
+ *     • items with a target set to a different shipment are *excluded* from
+ *       this manifest;
+ *     • items from boxes on other shipments whose target is *this* shipment
+ *       are *included* (they appear under their original box label so the
+ *       user still knows where the physical item lives).
+ *     • null target = fall back to the box's shipment (legacy behaviour).
+ * - For single-leg moves there is only one shipment, so the override is a
+ *   no-op (every item lands on the same manifest regardless).
  * - Declared value uses each item's `estimated_replace_cost` as the best
  *   available proxy (we do not have an authoritative declared value field).
  * - Biosecurity flags are rolled up by severity and by category.
@@ -225,6 +234,7 @@ export async function getManifest(shipmentId: string): Promise<Manifest> {
   const shipment = await getShipment(shipmentId)
   if (!shipment) throw new Error('Shipment not found')
 
+  // Boxes whose shipment_id matches this leg — the default home for items.
   const { data: boxes, error: bErr } = await supabase
     .from('box')
     .select('*')
@@ -234,8 +244,47 @@ export async function getManifest(shipmentId: string): Promise<Manifest> {
 
   const boxList = (boxes ?? []) as Box[]
 
-  // Fetch all box_items + assessments in two flat queries, then bucket.
-  const boxIds = boxList.map((b) => b.id)
+  // Items that have been explicitly retargeted to this shipment from
+  // elsewhere — fetch them so we can pull their boxes too.
+  const { data: retargetedAssessments, error: rErr } = await supabase
+    .from('item_assessment')
+    .select('*')
+    .eq('target_shipment_id', shipmentId)
+  if (rErr) throw new Error(rErr.message)
+  const retargeted = (retargetedAssessments ?? []) as ItemAssessment[]
+
+  // Find the box_items for those retargeted assessments so we can render
+  // them with their physical box label intact.
+  let retargetedBoxItems: BoxItem[] = []
+  const retargetedAssessmentIds = retargeted.map((a) => a.id)
+  if (retargetedAssessmentIds.length > 0) {
+    const { data: riData, error: riErr } = await supabase
+      .from('box_item')
+      .select('*')
+      .in('item_assessment_id', retargetedAssessmentIds)
+    if (riErr) throw new Error(riErr.message)
+    retargetedBoxItems = (riData ?? []) as BoxItem[]
+  }
+
+  // Boxes referenced by retargeted items that aren't already in `boxList`.
+  const knownBoxIds = new Set(boxList.map((b) => b.id))
+  const missingBoxIds = Array.from(
+    new Set(retargetedBoxItems.map((bi) => bi.box_id).filter((id) => !knownBoxIds.has(id))),
+  )
+  let extraBoxes: Box[] = []
+  if (missingBoxIds.length > 0) {
+    const { data: ebData, error: ebErr } = await supabase
+      .from('box')
+      .select('*')
+      .in('id', missingBoxIds)
+    if (ebErr) throw new Error(ebErr.message)
+    extraBoxes = (ebData ?? []) as Box[]
+  }
+
+  const allBoxes = [...boxList, ...extraBoxes]
+
+  // Fetch all box_items for these boxes in one flat query.
+  const boxIds = allBoxes.map((b) => b.id)
   let boxItems: BoxItem[] = []
   if (boxIds.length > 0) {
     const { data: biData, error: biErr } = await supabase
@@ -262,18 +311,35 @@ export async function getManifest(shipmentId: string): Promise<Manifest> {
     )
   }
 
-  const manifestBoxes: ManifestBox[] = boxList.map((box) => {
-    const itemsForBox = boxItems.filter((i) => i.box_id === box.id)
-    const items = itemsForBox.map((bi) => ({
-      box_item: bi,
-      item_assessment: bi.item_assessment_id ? assessments[bi.item_assessment_id] ?? null : null,
-    }))
-    const declared_value = items.reduce((sum, { item_assessment }) => {
-      const cost = item_assessment?.estimated_replace_cost
-      return sum + (typeof cost === 'number' ? cost : 0)
-    }, 0)
-    return { box, items, cbm: box.cbm ?? null, declared_value }
-  })
+  // Apply the per-item target override. An item belongs on this shipment iff:
+  //   - it has no assessment (handwritten/unassessed), AND its box is on
+  //     this shipment (legacy default); OR
+  //   - its assessment.target_shipment_id === shipmentId; OR
+  //   - its assessment.target_shipment_id IS NULL, AND its box is on this
+  //     shipment (legacy default).
+  const belongsHere = (bi: BoxItem, box: Box): boolean => {
+    const a = bi.item_assessment_id ? assessments[bi.item_assessment_id] : null
+    const target = a?.target_shipment_id ?? null
+    if (target) return target === shipmentId
+    return box.shipment_id === shipmentId
+  }
+
+  const manifestBoxes: ManifestBox[] = allBoxes
+    .map((box) => {
+      const itemsForBox = boxItems.filter((i) => i.box_id === box.id && belongsHere(i, box))
+      const items = itemsForBox.map((bi) => ({
+        box_item: bi,
+        item_assessment: bi.item_assessment_id ? assessments[bi.item_assessment_id] ?? null : null,
+      }))
+      const declared_value = items.reduce((sum, { item_assessment }) => {
+        const cost = item_assessment?.estimated_replace_cost
+        return sum + (typeof cost === 'number' ? cost : 0)
+      }, 0)
+      return { box, items, cbm: box.cbm ?? null, declared_value }
+    })
+    // Suppress boxes that ended up with no items on this leg — they would
+    // otherwise render as empty rows in the itinerary.
+    .filter((b) => b.items.length > 0)
 
   // Totals.
   const totalCbm = manifestBoxes.reduce((sum, b) => sum + (b.cbm ?? 0), 0)

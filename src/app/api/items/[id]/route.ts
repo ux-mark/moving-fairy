@@ -43,6 +43,7 @@ interface PatchItemBody {
   confidence?: number
   needs_clarification?: boolean
   images?: string[]
+  target_shipment_id?: string | null
 }
 
 // PATCH /api/items/:id
@@ -85,6 +86,12 @@ export async function PATCH(
         return Response.json({ ok: false, error: 'images must be an array of strings' }, { status: 400 })
       }
       changes.images = body.images
+    }
+    if (body.target_shipment_id !== undefined) {
+      if (body.target_shipment_id !== null && typeof body.target_shipment_id !== 'string') {
+        return Response.json({ ok: false, error: 'target_shipment_id must be a string or null' }, { status: 400 })
+      }
+      changes.target_shipment_id = body.target_shipment_id
     }
 
     if (Object.keys(changes).length === 0) {
