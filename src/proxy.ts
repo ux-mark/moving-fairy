@@ -2,6 +2,15 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 
+// Hosts that serve the public buyer experience (Sale Fairy).
+// Requests on these hosts are rewritten into the `(public)/_pub/**` route group
+// so they never collide with the owner app at `(app)/**`.
+const PUBLIC_HOSTS = ['sale.thefairies.ie', 'sale.localhost']
+
+function isPublicHost(host: string): boolean {
+  return PUBLIC_HOSTS.some((h) => host === h || host.startsWith(`${h}:`))
+}
+
 // Public routes that don't require authentication
 const PUBLIC_PATHS = [
   '/',
@@ -11,6 +20,8 @@ const PUBLIC_PATHS = [
   '/auth/verify',
   // Image proxy has its own SSRF protection — no auth needed
   '/api/img',
+  // Public enquiry POST endpoint — buyers have no auth
+  '/api/enquiries',
   // Test-only sign-in endpoint (only active in development)
   ...(process.env.NODE_ENV === 'development' ? ['/api/test-auth'] : []),
 ]
@@ -20,6 +31,18 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  // Hostname routing: sale.* requests serve the buyer experience via /_pub/* rewrite.
+  // The URL bar continues to show sale.thefairies.ie/<path> — only the internal route changes.
+  const host = request.headers.get('host') ?? ''
+  if (isPublicHost(host)) {
+    const url = request.nextUrl.clone()
+    if (!url.pathname.startsWith('/_pub')) {
+      url.pathname = `/_pub${url.pathname === '/' ? '' : url.pathname}`
+      return NextResponse.rewrite(url)
+    }
+    return NextResponse.next()
+  }
+
   const response = await updateSession(request)
 
   const { pathname } = request.nextUrl
