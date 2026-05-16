@@ -38,8 +38,14 @@ function isPublicPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   // Hostname routing: sale.* requests serve the buyer experience via /pub/* rewrite.
   // The URL bar continues to show sale.thefairies.ie/<path> — only the internal route changes.
+  // API routes are NOT rewritten — they live at /api/* on both hosts, with their own
+  // auth posture decided per-route (e.g. /api/enquiries is public-by-design).
   const host = request.headers.get('host') ?? ''
   if (isPublicHost(host)) {
+    const { pathname } = request.nextUrl
+    if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+      return NextResponse.next()
+    }
     const url = request.nextUrl.clone()
     if (!url.pathname.startsWith(PUBLIC_PREFIX)) {
       url.pathname = `${PUBLIC_PREFIX}${url.pathname === '/' ? '' : url.pathname}`
