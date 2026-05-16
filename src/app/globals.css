@@ -75,3 +75,20 @@ html {
 input, select, textarea {
   font-size: max(16px, 1em);
 }
+
+/* ---- Print baseline ----
+ * Hide chrome (DS Navigation, profile edit overlay) so "Save as PDF" produces
+ * a clean manifest. Page-level modules layer their own @media print rules on
+ * top to expand collapsed sections and tweak spacing.
+ */
+@media print {
+  /* DS Navigation emits class "nav" on its root. Hide it for print. */
+  .nav {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+}
+

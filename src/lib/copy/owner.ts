@@ -86,7 +86,7 @@ export const ownerCopy = {
     shareCopied: 'Link copied.',
     shareCopyButton: 'Copy link',
     exportCsv: 'Export CSV',
-    exportPdf: 'Export PDF (coming soon)',
+    exportPdf: 'Save as PDF',
     emptyHeading: 'No items packed for this leg yet',
     emptyDescription:
       'Items with a SHIP or CARRY verdict show up here once they\'re assigned to a box.',

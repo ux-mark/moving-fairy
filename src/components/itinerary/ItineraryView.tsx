@@ -155,6 +155,21 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
     })
   }
 
+  const handlePrint = () => {
+    if (!manifest) return
+    // Snapshot the current open state, expand every box for the print, then
+    // restore once the browser print dialog has closed. The browser handles
+    // PDF rendering via "Save as PDF" — we just make sure nothing is hidden.
+    const previousOpen = openBoxIds
+    setOpenBoxIds(new Set(manifest.boxes.map((b) => b.box.id)))
+
+    // Wait a tick so React commits the expanded state before printing.
+    requestAnimationFrame(() => {
+      window.print()
+      setOpenBoxIds(previousOpen)
+    })
+  }
+
   if (shipments.length === 0) {
     return (
       <div className={styles.root}>
@@ -254,7 +269,12 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
               <Download size={16} aria-hidden="true" />
               {ownerCopy.itinerary.exportCsv}
             </a>
-            <button type="button" className={styles.exportLinkDisabled} disabled>
+            <button
+              type="button"
+              className={styles.exportLink}
+              onClick={handlePrint}
+              disabled={!manifest || manifest.boxes.length === 0}
+            >
               <FileText size={16} aria-hidden="true" />
               {ownerCopy.itinerary.exportPdf}
             </button>

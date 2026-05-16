@@ -357,3 +357,68 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ---- Print: render a clean manifest -----------------------------------
+ * Browser "Save as PDF" pipes through @media print. We hide the leg tabs,
+ * the action row, and the share banner (all interactive chrome), then
+ * neutralise the accordion so every box's items show as a flat list.
+ * Page-breaks avoid splitting a box across pages where possible.
+ */
+@media print {
+  .root {
+    max-width: none;
+    padding: 0;
+    gap: 12px;
+  }
+
+  .tabs,
+  .actions,
+  .shareBanner {
+    display: none !important;
+  }
+
+  .totals {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .totalsTile {
+    border-color: #ccc;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .boxes {
+    border-color: #ccc;
+  }
+
+  .boxRow {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border-color: #ddd;
+  }
+
+  /* Make sure every box appears expanded in print — even if the user
+     prints without our button (e.g., Ctrl+P), the manifest reads cleanly. */
+  .itemsList {
+    display: flex !important;
+  }
+
+  .boxHeader {
+    cursor: default;
+  }
+
+  .chevron {
+    display: none;
+  }
+
+  .biosec {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border-color: #ccc;
+  }
+
+  .biosecItem {
+    border-color: #ddd;
+  }
+}
