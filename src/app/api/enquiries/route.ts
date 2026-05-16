@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createEnquiry } from '@/mcp/enquiries'
+import { getSettings } from '@/mcp/settings'
+import { sendEnquiryNotification } from '@/lib/mail'
 
 export const runtime = 'nodejs'
 
@@ -105,18 +108,40 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const buyerEmail = body.buyer_email.trim()
+    const buyerName =
+      typeof body.buyer_name === 'string' && body.buyer_name.trim().length > 0
+        ? body.buyer_name.trim()
+        : null
+    const subtotalCents = asNullableNumber(body.subtotal_cents)
+    const discountPercent = asNullableNumber(body.discount_percent)
+    const totalCents = asNullableNumber(body.total_cents)
+
     const enquiry = await createEnquiry({
       listing_ids: body.listing_ids,
-      buyer_email: body.buyer_email.trim(),
-      buyer_name:
-        typeof body.buyer_name === 'string' && body.buyer_name.trim().length > 0
-          ? body.buyer_name.trim()
-          : null,
+      buyer_email: buyerEmail,
+      buyer_name: buyerName,
       message: body.message,
-      subtotal_cents: asNullableNumber(body.subtotal_cents),
-      discount_percent: asNullableNumber(body.discount_percent),
-      total_cents: asNullableNumber(body.total_cents),
+      subtotal_cents: subtotalCents,
+      discount_percent: discountPercent,
+      total_cents: totalCents,
     })
+
+    // Fire-and-log email notification. Failures here MUST NOT change the
+    // response — the row is in the DB, the buyer's done their part.
+    notifySellerOfEnquiry({
+      userProfileId: enquiry.user_profile_id,
+      listingIds: body.listing_ids,
+      buyerEmail,
+      buyerName,
+      message: body.message,
+      subtotalCents,
+      discountPercent,
+      totalCents,
+    }).catch((err) => {
+      console.error('[enquiries] notification failed', err)
+    })
+
     return NextResponse.json({ ok: true, enquiry_id: enquiry.id }, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create inquiry'
@@ -128,5 +153,72 @@ export async function POST(req: NextRequest) {
       message.includes('email') ||
       message.includes('Message')
     return NextResponse.json({ error: message }, { status: isUserError ? 400 : 500 })
+  }
+}
+
+type NotifyInput = {
+  userProfileId: string
+  listingIds: string[]
+  buyerEmail: string
+  buyerName: string | null
+  message: string
+  subtotalCents: number | null
+  discountPercent: number | null
+  totalCents: number | null
+}
+
+/**
+ * Best-effort send. Resolves seller's contact email from `seller_settings`,
+ * pulls listing titles via the joined `item_assessment` row, and hands off
+ * to the provider-agnostic mailer. All failures here are logged and
+ * swallowed — the buyer-facing response is already committed.
+ */
+async function notifySellerOfEnquiry(input: NotifyInput): Promise<void> {
+  let settings
+  try {
+    settings = await getSettings(input.userProfileId)
+  } catch (err) {
+    console.warn('[enquiries] could not load seller settings', err)
+    return
+  }
+  if (!settings.contact_email) {
+    console.warn('[enquiries] seller has no contact_email; skipping notification')
+    return
+  }
+
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { data: rows, error } = await supabase
+    .from('listing')
+    .select('id, item_assessment:item_assessment_id(item_name)')
+    .in('id', input.listingIds)
+
+  if (error) {
+    console.warn('[enquiries] could not load listing titles for email', error.message)
+  }
+
+  type Row = { id: string; item_assessment: { item_name: string | null } | null }
+  const byId = new Map<string, string>()
+  for (const row of (rows ?? []) as unknown as Row[]) {
+    byId.set(row.id, row.item_assessment?.item_name?.trim() || 'Untitled item')
+  }
+  const listings = input.listingIds.map((id) => ({ id, title: byId.get(id) ?? 'Untitled item' }))
+
+  try {
+    await sendEnquiryNotification({
+      to: settings.contact_email,
+      sellerName: settings.seller_display_name,
+      buyer: { email: input.buyerEmail, name: input.buyerName },
+      listings,
+      message: input.message,
+      bundleSubtotalCents: input.subtotalCents,
+      discountPercent: input.discountPercent,
+      totalCents: input.totalCents,
+      currency: settings.currency,
+    })
+  } catch (err) {
+    console.error('[enquiries] mailer threw', err)
   }
 }
