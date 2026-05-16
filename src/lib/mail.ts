@@ -4,13 +4,16 @@
  * We don't pick a provider here. The route just calls `sendEnquiryNotification`
  * and we resolve a backend at runtime from env:
  *
- *   1. `RESEND_API_KEY`     → Resend (https://api.resend.com/emails)
+ *   1. `SMTP_HOST`          → nodemailer SMTP (preferred — reuse the same creds
+ *                             you put into Supabase Auth's SMTP config)
  *   2. `MAILPACE_API_TOKEN` → Mailpace (https://app.mailpace.com/api/v1/send)
  *   3. neither              → log a warning and no-op (dev / preview)
  *
- * Swapping providers is one file. No SDK dependency — we post via `fetch` so
- * the bundle stays small and the wrapper is trivial to mock in tests.
+ * Swapping providers is one file. Mailpace posts via `fetch` so the bundle
+ * stays small; SMTP uses nodemailer (lazy-loaded so import doesn't open a
+ * connection).
  */
+import type { Transporter } from 'nodemailer'
 import { formatPrice } from '@/lib/copy/buyer'
 
 const FALLBACK_FROM = 'noreply@thefairies.ie'
@@ -26,7 +29,7 @@ export type SendMailInput = {
 
 export type SendMailResult =
   | { skipped: true; reason: string }
-  | { skipped: false; provider: 'resend' | 'mailpace'; id: string | undefined }
+  | { skipped: false; provider: 'smtp' | 'mailpace'; id: string | undefined }
 
 function resolveFrom(): string {
   const configured = process.env.MAIL_FROM_ADDRESS?.trim()
@@ -35,33 +38,52 @@ function resolveFrom(): string {
   return FALLBACK_FROM
 }
 
+let smtpTransporter: Transporter | null = null
+let smtpTransporterKey: string | null = null
+
+async function getSmtpTransporter(
+  host: string,
+  port: number,
+  secure: boolean,
+  user: string | undefined,
+  pass: string | undefined,
+): Promise<Transporter> {
+  const key = `${host}|${port}|${secure}|${user ?? ''}|${pass ?? ''}`
+  if (smtpTransporter && smtpTransporterKey === key) return smtpTransporter
+  const { createTransport } = await import('nodemailer')
+  smtpTransporter = createTransport({
+    host,
+    port,
+    secure,
+    auth: user || pass ? { user: user ?? '', pass: pass ?? '' } : undefined,
+  })
+  smtpTransporterKey = key
+  return smtpTransporter
+}
+
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
   const from = resolveFrom()
-  const resendKey = process.env.RESEND_API_KEY?.trim()
+  const smtpHost = process.env.SMTP_HOST?.trim()
   const mailpaceToken = process.env.MAILPACE_API_TOKEN?.trim()
 
-  if (resendKey) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: input.to,
-        subject: input.subject,
-        text: input.text,
-        html: input.html,
-        reply_to: input.replyTo,
-      }),
+  if (smtpHost) {
+    const portRaw = process.env.SMTP_PORT?.trim()
+    const port = portRaw ? Number(portRaw) : 587
+    const secureRaw = process.env.SMTP_SECURE?.trim()
+    const secure = secureRaw ? secureRaw === 'true' : port === 465
+    const user = process.env.SMTP_USER?.trim()
+    const pass = process.env.SMTP_PASS?.trim()
+
+    const transporter = await getSmtpTransporter(smtpHost, port, secure, user, pass)
+    const info = await transporter.sendMail({
+      from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      replyTo: input.replyTo,
     })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`Resend send failed (${res.status}): ${body}`)
-    }
-    const data = (await res.json().catch(() => ({}))) as { id?: string }
-    return { skipped: false, provider: 'resend', id: data.id }
+    return { skipped: false, provider: 'smtp', id: info.messageId }
   }
 
   if (mailpaceToken) {

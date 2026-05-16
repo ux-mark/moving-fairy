@@ -24,10 +24,12 @@
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.0",
     "@thefairies/design-system": "git+https://github.com/ux-mark/thefairies-ds.git",
+    "@types/nodemailer": "^8.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.2",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "nodemailer": "^8.0.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "sharp": "^0.34.5"
