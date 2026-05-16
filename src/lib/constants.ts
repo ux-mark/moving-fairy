@@ -83,6 +83,62 @@ export const BoxScanStatus = {
 } as const
 export type BoxScanStatus = (typeof BoxScanStatus)[keyof typeof BoxScanStatus]
 
+export const ListingStatus = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  RESERVED: 'reserved',
+  SOLD: 'sold',
+} as const
+export type ListingStatus = (typeof ListingStatus)[keyof typeof ListingStatus]
+
+export const ListingVisibility = {
+  UNLISTED: 'unlisted',
+  PUBLIC: 'public',
+  ARCHIVED: 'archived',
+} as const
+export type ListingVisibility = (typeof ListingVisibility)[keyof typeof ListingVisibility]
+
+export const ListingCondition = {
+  EXCELLENT: 'excellent',
+  LIKE_NEW: 'like_new',
+  GOOD: 'good',
+  FAIR: 'fair',
+} as const
+export type ListingCondition = (typeof ListingCondition)[keyof typeof ListingCondition]
+
+export const ShipmentStatus = {
+  PLANNED: 'planned',
+  IN_TRANSIT: 'in_transit',
+  ARRIVED: 'arrived',
+  CANCELLED: 'cancelled',
+} as const
+export type ShipmentStatus = (typeof ShipmentStatus)[keyof typeof ShipmentStatus]
+
+export const BiosecurityFlag = {
+  NONE: 'none',
+  DECLARE: 'declare',
+  HIGH_RISK: 'high_risk',
+  PROHIBITED: 'prohibited',
+} as const
+export type BiosecurityFlag = (typeof BiosecurityFlag)[keyof typeof BiosecurityFlag]
+
+export const BiosecurityCategory = {
+  WOOD: 'wood',
+  PLANT_MATTER: 'plant_matter',
+  SOIL: 'soil',
+  LEATHER: 'leather',
+  FOOD: 'food',
+  OTHER: 'other',
+} as const
+export type BiosecurityCategory = (typeof BiosecurityCategory)[keyof typeof BiosecurityCategory]
+
+export const EnquiryStatus = {
+  NEW: 'new',
+  REPLIED: 'replied',
+  CLOSED: 'closed',
+} as const
+export type EnquiryStatus = (typeof EnquiryStatus)[keyof typeof EnquiryStatus]
+
 export const BOX_SIZE_CBM: Record<BoxSize, number> = {
   XS: 0.04,
   S: 0.07,

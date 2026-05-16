@@ -1,4 +1,21 @@
-import type { BoxScanStatus, BoxSize, BoxStatus, BoxType, Country, ItemSource, OnwardTimeline, ProcessingStatus, Verdict } from '@/lib/constants'
+import type {
+  BiosecurityCategory,
+  BiosecurityFlag,
+  BoxScanStatus,
+  BoxSize,
+  BoxStatus,
+  BoxType,
+  Country,
+  EnquiryStatus,
+  ItemSource,
+  ListingCondition,
+  ListingStatus,
+  ListingVisibility,
+  OnwardTimeline,
+  ProcessingStatus,
+  ShipmentStatus,
+  Verdict,
+} from '@/lib/constants'
 
 export interface TransformerEquipment {
   owned: boolean
@@ -30,7 +47,14 @@ export interface ItemAssessment {
   item_description: string | null
   verdict: Verdict | null          // nullable while pending/processing
   advice_text: string | null
+  /** Legacy single image. Kept for back-compat; new code should prefer `images`. */
   image_url: string | null
+  /** Ordered array of storage URLs. Back-filled from `image_url` in 20260516000001. */
+  images: string[]
+  biosecurity_flag: BiosecurityFlag | null
+  biosecurity_category: BiosecurityCategory | null
+  biosecurity_note: string | null
+  user_confirmed_biosecurity: boolean
   voltage_compatible: boolean | null
   needs_transformer: boolean | null
   estimated_ship_cost: number | null
@@ -57,6 +81,7 @@ export interface Box {
   label: string
   manifest_image_url: string | null
   status: BoxStatus
+  shipment_id: string | null
   created_at: string
   updated_at: string
 }
@@ -100,4 +125,73 @@ export interface ItemConversationMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   created_at: string
+}
+
+export interface Listing {
+  id: string
+  user_profile_id: string
+  item_assessment_id: string
+  slug: string
+  asking_price: number | null
+  currency: string
+  condition: ListingCondition | null
+  brand: string | null
+  model_name: string | null
+  dimensions: string | null
+  included: string | null
+  details: string | null
+  listing_status: ListingStatus
+  visibility: ListingVisibility
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Shipment {
+  id: string
+  user_profile_id: string
+  leg_order: number
+  label: string
+  origin_country: string
+  destination_country: string
+  status: ShipmentStatus
+  target_date: string | null
+  share_token: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Enquiry {
+  id: string
+  user_profile_id: string
+  /** UUIDs of listings the buyer enquired about (bundle support). */
+  listing_ids: string[]
+  buyer_email: string
+  buyer_name: string | null
+  message: string
+  subtotal_cents: number | null
+  discount_percent: number | null
+  total_cents: number | null
+  status: EnquiryStatus
+  created_at: string
+}
+
+export interface DiscountTier {
+  min: number
+  max: number | null
+  percent: number
+}
+
+export interface SellerSettings {
+  id: string
+  user_profile_id: string
+  currency: string
+  seller_display_name: string | null
+  contact_email: string | null
+  pickup_location_copy: string | null
+  discount_tiers: DiscountTier[]
+  biosecurity_destination_preset: string | null
+  default_collection_name: string
+  created_at: string
+  updated_at: string
 }
