@@ -149,8 +149,13 @@ export async function generateShareToken(shipmentId: string): Promise<string> {
  * Public, read-only lookup by share token. Uses anon client so a missing or
  * malformed token cannot be turned into an arbitrary read.
  */
+// The shipment table has no anon SELECT policy — the share-link gate IS the
+// unguessable 24-char token. Use the service-role client so we can find the
+// row by token without RLS blocking it. Returning null when the token isn't
+// known means a leaked-but-revoked token degrades safely.
 export async function getShipmentByShareToken(token: string): Promise<Shipment | null> {
-  const supabase = getAnonClient()
+  if (!token || token.length < 16) return null
+  const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('shipment')
     .select('*')

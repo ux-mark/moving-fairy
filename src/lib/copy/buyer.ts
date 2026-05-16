@@ -51,6 +51,7 @@ export const buyerCopy = {
   bundleSaveLabel: (saved: string, percent: number) => `save ${saved} · ${percent}% off`,
   bundleClear: 'Clear',
   inquireButton: 'Send inquiry',
+  inquireSingleButton: 'Inquire',
   inquireHeading: 'Inquire about this item',
   inquireBundleHeading: 'Send your inquiry',
   nextTierNudge: (more: number, percent: number) =>

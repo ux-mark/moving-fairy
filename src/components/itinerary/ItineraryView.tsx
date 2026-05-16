@@ -263,6 +263,21 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
           {shareUrl && (
             <div className={styles.shareBanner} role="status">
               <span className={styles.shareUrl}>{shareUrl}</span>
+              <button
+                type="button"
+                className={styles.shareCopyBtn}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(shareUrl)
+                    setShareToast(ownerCopy.itinerary.shareCopied)
+                    setTimeout(() => setShareToast(null), 3000)
+                  } catch {
+                    // No clipboard permission — user can still select+copy manually.
+                  }
+                }}
+              >
+                {ownerCopy.itinerary.shareCopyButton}
+              </button>
               {shareToast && <span className={styles.shareToast}>{shareToast}</span>}
             </div>
           )}

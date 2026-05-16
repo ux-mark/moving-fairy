@@ -84,6 +84,7 @@ export const ownerCopy = {
     biosecFlags: 'Biosecurity flags',
     generateShare: 'Generate share link',
     shareCopied: 'Link copied.',
+    shareCopyButton: 'Copy link',
     exportCsv: 'Export CSV',
     exportPdf: 'Export PDF (coming soon)',
     emptyHeading: 'No items packed for this leg yet',

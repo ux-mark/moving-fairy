@@ -27,6 +27,9 @@ const PUBLIC_PATHS = [
   '/api/img',
   // Public enquiry POST endpoint — buyers have no auth
   '/api/enquiries',
+  // Tokenised shipment manifest share — read-only, gated by the unguessable
+  // 24-char token in the URL; freight forwarders and customs need no account.
+  '/share',
   // Test-only sign-in endpoint (only active in development)
   ...(process.env.NODE_ENV === 'development' ? ['/api/test-auth'] : []),
 ]

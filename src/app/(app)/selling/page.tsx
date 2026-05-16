@@ -5,14 +5,15 @@ import { getListingsForUserWithItem, getItemAssessments } from '@/mcp'
 import { Verdict } from '@/lib/constants'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { SellingList } from '@/components/selling/SellingList'
+import { safeMcp } from '@/lib/safe-mcp'
 
 export default async function SellingPage() {
   const { profile } = await getAuthenticatedProfile()
   if (!profile) redirect('/onboarding')
 
   const [listings, assessments] = await Promise.all([
-    getListingsForUserWithItem(profile.id),
-    getItemAssessments(profile.id, { verdict: Verdict.SELL }),
+    safeMcp(() => getListingsForUserWithItem(profile.id), []),
+    safeMcp(() => getItemAssessments(profile.id, { verdict: Verdict.SELL }), []),
   ])
 
   // Items eligible for a new draft listing = SELL items without a listing row yet.

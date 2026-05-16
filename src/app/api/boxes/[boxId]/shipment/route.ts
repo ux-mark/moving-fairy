@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { assignBoxToShipment, getShipment } from '@/mcp'
+import { assignBoxToShipment, getBox, getShipment } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 
 interface PatchBody {
@@ -23,6 +23,13 @@ export async function PATCH(
     body = (await req.json()) as PatchBody
   } catch {
     return Response.json({ ok: false, error: 'Invalid request body' }, { status: 400 })
+  }
+
+  // Verify the box belongs to this user (closes IDOR — caller could otherwise
+  // attach someone else's box to their own shipment by guessing the id).
+  const box = await getBox(boxId)
+  if (!box || box.user_profile_id !== profile.id) {
+    return Response.json({ ok: false, error: 'Box not found' }, { status: 404 })
   }
 
   // If attaching, verify the shipment belongs to this user

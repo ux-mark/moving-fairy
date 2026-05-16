@@ -8,15 +8,18 @@ import {
 } from '@/mcp'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ItemsView } from '@/components/items/ItemsView'
+import { safeMcp } from '@/lib/safe-mcp'
 
 export default async function ItemsPage() {
   const { profile } = await getAuthenticatedProfile()
   if (!profile) redirect('/onboarding')
 
+  // safeMcp lets the page render an empty state if the listing/box tables
+  // aren't migrated yet, instead of throwing a 500.
   const [items, listings, boxes] = await Promise.all([
-    getItemAssessments(profile.id),
-    getListingsForUser(profile.id),
-    getBoxes(profile.id),
+    safeMcp(() => getItemAssessments(profile.id), []),
+    safeMcp(() => getListingsForUser(profile.id), []),
+    safeMcp(() => getBoxes(profile.id), []),
   ])
 
   // Map item_assessment_id → its listing (for "to sell" / "done" SELL routing)

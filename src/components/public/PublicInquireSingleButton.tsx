@@ -37,7 +37,7 @@ export function PublicInquireSingleButton({ listing, discountTiers, contactEmail
         disabled={disabled}
       >
         <MessageCircle size={16} strokeWidth={2.4} aria-hidden />
-        {buyerCopy.inquireHeading}
+        {buyerCopy.inquireSingleButton}
       </button>
       <PublicInquiryForm
         open={open}
