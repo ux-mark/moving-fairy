@@ -27,6 +27,7 @@ function fallbackSettings(profileId: string): SellerSettings {
     ],
     biosecurity_destination_preset: null,
     default_collection_name: 'For sale',
+    default_condition: null,
     created_at: now,
     updated_at: now,
   }

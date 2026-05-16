@@ -25,7 +25,10 @@ interface PatchSettingsBody {
   discount_tiers?: DiscountTier[]
   biosecurity_destination_preset?: string | null
   default_collection_name?: string
+  default_condition?: 'excellent' | 'like_new' | 'good' | 'fair' | null
 }
+
+const ALLOWED_CONDITIONS = ['excellent', 'like_new', 'good', 'fair'] as const
 
 function isDiscountTier(value: unknown): value is DiscountTier {
   if (!value || typeof value !== 'object') return false
@@ -59,6 +62,18 @@ export async function PATCH(req: NextRequest) {
     changes.biosecurity_destination_preset = body.biosecurity_destination_preset
   }
   if (body.default_collection_name !== undefined) changes.default_collection_name = body.default_collection_name
+  if (body.default_condition !== undefined) {
+    if (
+      body.default_condition !== null &&
+      !ALLOWED_CONDITIONS.includes(body.default_condition)
+    ) {
+      return Response.json(
+        { ok: false, error: 'default_condition must be one of excellent, like_new, good, fair or null' },
+        { status: 400 },
+      )
+    }
+    changes.default_condition = body.default_condition
+  }
   if (body.discount_tiers !== undefined) {
     if (!Array.isArray(body.discount_tiers) || !body.discount_tiers.every(isDiscountTier)) {
       return Response.json({ ok: false, error: 'discount_tiers must be an array of {min, max, percent}' }, { status: 400 })

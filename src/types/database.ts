@@ -66,6 +66,12 @@ export interface ItemAssessment {
   confidence: number | null
   needs_clarification: boolean
   source: ItemSource
+  /**
+   * Optional override of the shipment leg this item is destined for. When
+   * null the item falls back to "the first shipment for the user's profile"
+   * (current default for single-leg moves, leg 1 for two-leg moves).
+   */
+  target_shipment_id: string | null
   created_at: string
   updated_at: string
 }
@@ -192,6 +198,7 @@ export interface SellerSettings {
   discount_tiers: DiscountTier[]
   biosecurity_destination_preset: string | null
   default_collection_name: string
+  default_condition: 'excellent' | 'like_new' | 'good' | 'fair' | null
   created_at: string
   updated_at: string
 }

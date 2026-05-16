@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { ListingCondition, ListingStatus, ListingVisibility, Verdict } from '@/lib/constants'
 import { buildSlug } from '@/lib/utils'
+import { getSettings } from './settings'
 import type { ItemAssessment, Listing } from '@/types/database'
 
 /** Service-role client — bypasses RLS. Used for owner-scoped writes / reads. */
@@ -64,6 +65,20 @@ export async function createListing(input: CreateListingInput): Promise<Listing>
 
   const slug = buildSlug(assessment.item_name)
 
+  // Pre-fill condition from the seller's saved default when the caller
+  // hasn't supplied one. Owner can still override per-listing in the editor.
+  let initialCondition: ListingCondition | null = input.condition ?? null
+  if (initialCondition === null) {
+    try {
+      const settings = await getSettings(input.user_profile_id)
+      if (settings.default_condition) {
+        initialCondition = settings.default_condition as ListingCondition
+      }
+    } catch {
+      // Non-fatal: a missing/broken settings row should not block listing creation.
+    }
+  }
+
   const { data, error } = await supabase
     .from('listing')
     .insert({
@@ -72,7 +87,7 @@ export async function createListing(input: CreateListingInput): Promise<Listing>
       slug,
       asking_price: input.asking_price ?? null,
       currency: input.currency ?? 'USD',
-      condition: input.condition ?? null,
+      condition: initialCondition,
       brand: input.brand ?? null,
       model_name: input.model_name ?? null,
       dimensions: input.dimensions ?? null,

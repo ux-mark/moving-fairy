@@ -43,6 +43,7 @@ export async function getSettings(userProfileId: string): Promise<SellerSettings
       currency: 'USD',
       discount_tiers: DEFAULT_DISCOUNT_TIERS,
       default_collection_name: 'For sale',
+      default_condition: null,
     })
     .select()
     .single()
@@ -61,6 +62,7 @@ type SellerSettingsUpdatable = Partial<Pick<SellerSettings,
   | 'discount_tiers'
   | 'biosecurity_destination_preset'
   | 'default_collection_name'
+  | 'default_condition'
 >>
 
 export async function updateSettings(

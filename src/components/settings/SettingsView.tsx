@@ -151,6 +151,9 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
   const [contactEmail, setContactEmail] = useState(settings.contact_email ?? '')
   const [pickup, setPickup] = useState(settings.pickup_location_copy ?? '')
   const [tiers, setTiers] = useState<DiscountTier[]>(settings.discount_tiers)
+  const [defaultCondition, setDefaultCondition] = useState<string>(
+    settings.default_condition ?? '',
+  )
   const [saving, setSaving] = useState(false)
 
   const updateTier = (idx: number, patch: Partial<DiscountTier>) => {
@@ -178,6 +181,7 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
           contact_email: contactEmail.trim() || null,
           pickup_location_copy: pickup.trim() || null,
           discount_tiers: tiers,
+          default_condition: defaultCondition === '' ? null : defaultCondition,
         }),
       })
       if (!res.ok) {
@@ -307,16 +311,13 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
           label={ownerCopy.settings.sale.defaultCondition}
           htmlFor="set-default-cond"
         >
-          {/* Stored on the listing itself, but useful as a per-user default
-              when creating new ones in future. For now this is a placeholder
-              control rendered for visual completeness. */}
           <select
             id="set-default-cond"
             className={styles.select}
-            disabled
-            defaultValue=""
+            value={defaultCondition}
+            onChange={(e) => setDefaultCondition(e.target.value)}
           >
-            <option value="">— Pick on each listing —</option>
+            <option value="">No preference</option>
             {CONDITION_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
