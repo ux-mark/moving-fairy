@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { Skeleton } from "@thefairies/design-system/components";
 
@@ -88,12 +89,15 @@ export function StickerThumbnail({
         aria-label={`View sticker photo for ${boxLabel}. Tap to enlarge.`}
         style={{ display: imgLoaded ? "block" : "none" }}
       >
-        <img
+        <Image
           src={proxiedUrl}
           alt={`Box sticker for ${boxLabel}`}
+          width={1200}
+          height={900}
           className={styles.image}
           onLoad={handleLoad}
           onError={handleError}
+          unoptimized
         />
       </div>
     </div>

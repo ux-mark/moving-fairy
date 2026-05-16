@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Tag, ArrowLeft } from 'lucide-react'
 import { Button, EmptyState } from '@thefairies/design-system/components'
 
@@ -93,12 +94,14 @@ export function ListingPicker({ eligible }: Props) {
                 >
                   <div className={styles.thumbWrap}>
                     {firstImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={proxyImageUrl(firstImage)}
                         alt={item.item_name}
+                        fill
+                        sizes="(min-width: 600px) 50vw, 100vw"
                         className={styles.thumb}
                         loading="lazy"
+                        unoptimized
                       />
                     ) : (
                       <div className={styles.thumbPlaceholder} aria-hidden="true">

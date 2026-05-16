@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Tag, Plus } from 'lucide-react'
 import { Button, EmptyState } from '@thefairies/design-system/components'
@@ -171,12 +172,14 @@ export function SellingList({ listings, eligibleCount }: Props) {
                 <Link href={`/selling/${listing.id}`} className={styles.cardLink}>
                   <div className={styles.thumbWrap}>
                     {firstImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={proxyImageUrl(firstImage)}
                         alt={name}
+                        fill
+                        sizes="(min-width: 768px) 33vw, (min-width: 480px) 50vw, 100vw"
                         className={styles.thumb}
                         loading="lazy"
+                        unoptimized
                       />
                     ) : (
                       <div className={styles.thumbPlaceholder} aria-hidden="true">

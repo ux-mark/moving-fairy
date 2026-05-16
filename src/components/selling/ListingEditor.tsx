@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ArrowLeft,
   Upload,
@@ -259,11 +260,13 @@ export function ListingEditor({ listing, item }: Props) {
         <div className={styles.photoGrid}>
           {images.map((url, idx) => (
             <div key={`${url}-${idx}`} className={styles.photoTile}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={proxyImageUrl(url)}
-                alt={`Listing item ${idx + 1}`}
+                alt={`${name || 'Listing'} photo ${idx + 1}`}
+                fill
+                sizes="(min-width: 768px) 200px, 33vw"
                 className={styles.photoImg}
+                unoptimized
               />
               <div className={styles.photoActions}>
                 <button

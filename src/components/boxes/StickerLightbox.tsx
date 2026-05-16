@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -108,10 +109,14 @@ function LightboxContent({
         transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <img
+        <Image
           src={proxiedUrl}
           alt={`Box sticker for ${boxLabel}`}
+          width={2000}
+          height={1500}
           className={styles.image}
+          unoptimized
+          priority
         />
       </motion.div>
     </motion.div>
