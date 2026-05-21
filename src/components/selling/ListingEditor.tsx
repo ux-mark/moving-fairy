@@ -17,13 +17,14 @@ import { Button } from '@thefairies/design-system/components'
 
 import { CategoryPicker } from '@/components/shared/CategoryPicker'
 import { Field } from '@/components/shared/Field'
+import { PlantCareEditor } from '@/components/shared/PlantCareEditor'
 import { proxyImageUrl } from '@/lib/storage-url'
 import {
   ListingCondition,
   ListingStatus,
 } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
-import type { ItemAssessment, Listing } from '@/types/database'
+import type { ItemAssessment, Listing, PlantCare } from '@/types/database'
 
 import styles from './ListingEditor.module.css'
 
@@ -69,6 +70,7 @@ export function ListingEditor({ listing, item }: Props) {
   const [currency, setCurrency] = useState(listing.currency)
   const [condition, setCondition] = useState<string>(listing.condition ?? '')
   const [category, setCategory] = useState<string | null>(item.category ?? null)
+  const [care, setCare] = useState<PlantCare | null>(item.care ?? null)
   // Master list is fetched once on mount — categories are seller-scoped and
   // change rarely. Empty initial state shows just "No category" + "Add new…"
   // until the fetch resolves; safe because the picker handles both shapes.
@@ -177,14 +179,20 @@ export function ListingEditor({ listing, item }: Props) {
     setSaving(true)
     setError(null)
     try {
-      // Collect any item-level changes (name, category) into a single PATCH.
-      // Listing-level fields go to /api/listings below.
+      // Collect any item-level changes (name, category, care) into a single
+      // PATCH. Listing-level fields go to /api/listings below.
       const itemChanges: Record<string, unknown> = {}
       if (name.trim() && name.trim() !== item.item_name) {
         itemChanges.item_name = name.trim()
       }
       if (category !== (item.category ?? null)) {
         itemChanges.category = category
+      }
+      // Compare care via JSON identity. PlantCareEditor normalises to a
+      // canonical shape (empty fields stripped, or null when fully cleared),
+      // so a string-equal comparison is safe and avoids deep-equal churn.
+      if (JSON.stringify(care) !== JSON.stringify(item.care ?? null)) {
+        itemChanges.care = care
       }
       if (Object.keys(itemChanges).length > 0) {
         const res = await fetch(`/api/items/${item.id}`, {
@@ -431,6 +439,21 @@ export function ListingEditor({ listing, item }: Props) {
             disabled={saving}
           />
         </Field>
+
+        {/* Plant care — visible only for plants (by category or biosec class).
+            Reacts to the live category select so toggling to "Plants" reveals
+            the editor immediately, without waiting on a save round-trip. */}
+        {(category === 'Plants' ||
+          item.biosecurity_category === 'plant_matter') && (
+          <PlantCareEditor
+            value={care}
+            onChange={setCare}
+            disabled={saving}
+            inputClassName={styles.input}
+            selectClassName={styles.select}
+            textareaClassName={styles.textarea}
+          />
+        )}
 
         <div className={styles.row}>
           <Field label={ownerCopy.selling.fields.brand} htmlFor="listing-brand" className={styles.flex1}>

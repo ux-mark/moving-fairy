@@ -3,9 +3,10 @@
 import { useState, useCallback, useEffect, useId, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Button, ConfirmDialog } from '@thefairies/design-system/components'
-import type { ItemAssessment } from '@/types'
+import type { ItemAssessment, PlantCare } from '@/types'
 import type { Verdict } from '@/lib/constants'
 import { CategoryPicker } from '@/components/shared/CategoryPicker'
+import { PlantCareEditor } from '@/components/shared/PlantCareEditor'
 import styles from './ItemEditPanel.module.css'
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   // the SQL semantics of `target_shipment_id IS NULL`.
   const [targetShipmentId, setTargetShipmentId] = useState(item.target_shipment_id ?? '')
   const [category, setCategory] = useState<string | null>(item.category ?? null)
+  const [care, setCare] = useState<PlantCare | null>(item.care ?? null)
   // Seller's master list — fetched lazily on mount so the panel still
   // renders instantly with the existing fields. Empty until the fetch
   // resolves; CategoryPicker handles that shape safely.
@@ -111,6 +113,11 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
+  // Care is compared via JSON identity. PlantCareEditor normalises the value
+  // to a canonical shape (empty fields stripped, or null when fully cleared),
+  // so a string-equal compare here is stable and won't false-positive.
+  const careChanged = JSON.stringify(care) !== JSON.stringify(item.care ?? null)
+
   const hasChanges =
     name !== (item.item_name || '') ||
     verdict !== (item.verdict || '') ||
@@ -119,7 +126,8 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     description !== (item.advice_text || '') ||
     boxId !== (currentBoxId ?? '') ||
     targetShipmentId !== (item.target_shipment_id ?? '') ||
-    category !== (item.category ?? null)
+    category !== (item.category ?? null) ||
+    careChanged
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -135,6 +143,9 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         advice_text: description,
         target_shipment_id: targetShipmentId === '' ? null : targetShipmentId,
         category,
+        // Only include `care` when it has actually changed — leaves the
+        // backend free to skip the column entirely for non-plant edits.
+        ...(careChanged ? { care } : {}),
       })
 
       // Handle box assignment separately — only when verdict is SHIP or CARRY
@@ -169,7 +180,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, category, item.id, onSave, onNavigateBack])
+  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, category, care, careChanged, item.id, onSave, onNavigateBack])
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true)
@@ -255,6 +266,22 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
           disabled={isSaving}
         />
       </div>
+
+      {/* Plant care — visible only when this item is a plant, either by
+          live category selection or by Aisling's biosec classification.
+          Reacts to the local category state so flipping to "Plants" reveals
+          the editor without waiting on a save round-trip. */}
+      {(category === 'Plants' ||
+        item.biosecurity_category === 'plant_matter') && (
+        <PlantCareEditor
+          value={care}
+          onChange={setCare}
+          disabled={isSaving}
+          inputClassName={styles.input}
+          selectClassName={styles.select}
+          textareaClassName={styles.textarea}
+        />
+      )}
 
       {/* Box assignment — only for SHIP or CARRY verdicts */}
       {(verdict === 'SHIP' || verdict === 'CARRY') && availableBoxes && availableBoxes.length > 0 && (
