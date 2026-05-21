@@ -58,17 +58,17 @@ function bucketFor(ctx: ItemWithContext): ItemFilter | null {
   const confirmed = item.user_confirmed
 
   // "Done" first — terminal states.
-  if (verdict === Verdict.SHIP || verdict === Verdict.CARRY) {
-    if (is_packed) return 'done'
-    if (verdict && confirmed === false) {
-      /* still needs packing — fall through to to-pack */
-    }
-  }
+  if ((verdict === Verdict.SHIP || verdict === Verdict.CARRY) && is_packed) return 'done'
   if (verdict === Verdict.SELL && listing_status === ListingStatus.SOLD) return 'done'
   if ((verdict === Verdict.DONATE || verdict === Verdict.DISCARD) && confirmed) return 'done'
 
-  // Needs decision: no verdict, REVISIT, or unconfirmed item lacking a verdict
+  // Needs decision: no verdict, REVISIT, or Aisling proposed but the user hasn't confirmed yet.
+  // DONATE/DISCARD are excluded: their unconfirmed state is the actionable to-donate/to-discard
+  // queue, not a decision-pending state.
   if (!verdict || verdict === Verdict.REVISIT) return 'needs-decision'
+  if (!confirmed && verdict !== Verdict.DONATE && verdict !== Verdict.DISCARD) {
+    return 'needs-decision'
+  }
 
   if (verdict === Verdict.SHIP || verdict === Verdict.CARRY) return 'to-pack'
   if (verdict === Verdict.SELL) {
