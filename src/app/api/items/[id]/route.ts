@@ -44,7 +44,13 @@ interface PatchItemBody {
   needs_clarification?: boolean
   images?: string[]
   target_shipment_id?: string | null
+  category?: string | null
 }
+
+// Category labels are free text — we don't gate against
+// seller_settings.categories because users can freely set obsolete labels
+// (see brief). We only guard the shape: non-empty string, ≤ 80 chars.
+const CATEGORY_MAX_LENGTH = 80
 
 // PATCH /api/items/:id
 // Updates an item (verdict, user_confirmed, item_name, etc.)
@@ -92,6 +98,26 @@ export async function PATCH(
         return Response.json({ ok: false, error: 'target_shipment_id must be a string or null' }, { status: 400 })
       }
       changes.target_shipment_id = body.target_shipment_id
+    }
+    if (body.category !== undefined) {
+      if (body.category === null) {
+        changes.category = null
+      } else {
+        if (typeof body.category !== 'string') {
+          return Response.json({ ok: false, error: 'category must be a string or null' }, { status: 400 })
+        }
+        const trimmed = body.category.trim()
+        if (trimmed.length === 0) {
+          return Response.json({ ok: false, error: 'category must not be empty' }, { status: 400 })
+        }
+        if (trimmed.length > CATEGORY_MAX_LENGTH) {
+          return Response.json(
+            { ok: false, error: `category must be ${CATEGORY_MAX_LENGTH} characters or fewer` },
+            { status: 400 },
+          )
+        }
+        changes.category = trimmed
+      }
     }
 
     if (Object.keys(changes).length === 0) {

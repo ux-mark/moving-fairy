@@ -154,7 +154,34 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
   const [defaultCondition, setDefaultCondition] = useState<string>(
     settings.default_condition ?? '',
   )
+  const [categories, setCategories] = useState<string[]>(settings.categories ?? [])
+  const [newCategory, setNewCategory] = useState('')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const handleAddCategory = () => {
+    const trimmed = newCategory.trim()
+    if (!trimmed) return
+    if (trimmed.length > 80) {
+      setCategoryError('Category name must be 80 characters or fewer.')
+      return
+    }
+    const exists = categories.some(
+      (c) => c.toLowerCase() === trimmed.toLowerCase(),
+    )
+    if (exists) {
+      setCategoryError(`"${trimmed}" is already on your list.`)
+      return
+    }
+    setCategories((prev) => [...prev, trimmed])
+    setNewCategory('')
+    setCategoryError(null)
+  }
+
+  const handleRemoveCategory = (target: string) => {
+    setCategories((prev) => prev.filter((c) => c !== target))
+    setCategoryError(null)
+  }
 
   const updateTier = (idx: number, patch: Partial<DiscountTier>) => {
     setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)))
@@ -182,6 +209,7 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
           pickup_location_copy: pickup.trim() || null,
           discount_tiers: tiers,
           default_condition: defaultCondition === '' ? null : defaultCondition,
+          categories,
         }),
       })
       if (!res.ok) {
@@ -324,6 +352,71 @@ function SaleDefaultsTab({ settings, onSaved, onError }: SaleProps) {
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field
+          label={ownerCopy.settings.sale.categories}
+          hint={ownerCopy.settings.sale.categoriesHelper}
+        >
+          {categories.length === 0 ? (
+            <p className={styles.muted}>{ownerCopy.settings.sale.categoriesEmpty}</p>
+          ) : (
+            <ul className={styles.chipList} aria-label={ownerCopy.settings.sale.categories}>
+              {categories.map((c) => (
+                <li key={c} className={styles.chip}>
+                  <span className={styles.chipLabel}>{c}</span>
+                  <button
+                    type="button"
+                    className={styles.chipRemove}
+                    onClick={() => handleRemoveCategory(c)}
+                    aria-label={`${ownerCopy.settings.sale.categoriesRemoveLabel}: ${c}`}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className={styles.chipWarning}>
+            {ownerCopy.settings.sale.categoriesRemoveWarning}
+          </p>
+
+          <div className={styles.chipAddRow}>
+            <input
+              id="set-new-category"
+              type="text"
+              className={styles.input}
+              value={newCategory}
+              onChange={(e) => {
+                setNewCategory(e.target.value)
+                if (categoryError) setCategoryError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAddCategory()
+                }
+              }}
+              placeholder={ownerCopy.settings.sale.categoriesAddPlaceholder}
+              maxLength={80}
+              autoComplete="off"
+              aria-label={ownerCopy.settings.sale.categories}
+            />
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={handleAddCategory}
+              disabled={newCategory.trim() === ''}
+            >
+              {ownerCopy.settings.sale.categoriesAddButton}
+            </Button>
+          </div>
+          {categoryError && (
+            <p className={styles.chipError} role="alert">
+              {categoryError}
+            </p>
+          )}
         </Field>
       </div>
 

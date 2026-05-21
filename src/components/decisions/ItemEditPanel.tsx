@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback, useId, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Button, ConfirmDialog } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import type { Verdict } from '@/lib/constants'
+import { CategoryPicker } from '@/components/shared/CategoryPicker'
 import styles from './ItemEditPanel.module.css'
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,30 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   // Empty string means "no override / fall back to default leg" — matches
   // the SQL semantics of `target_shipment_id IS NULL`.
   const [targetShipmentId, setTargetShipmentId] = useState(item.target_shipment_id ?? '')
+  const [category, setCategory] = useState<string | null>(item.category ?? null)
+  // Seller's master list — fetched lazily on mount so the panel still
+  // renders instantly with the existing fields. Empty until the fetch
+  // resolves; CategoryPicker handles that shape safely.
+  const [categories, setCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const list = (data as { categories?: unknown }).categories
+        if (Array.isArray(list) && list.every((c) => typeof c === 'string')) {
+          setCategories(list as string[])
+        }
+      })
+      .catch(() => {
+        // Non-fatal — picker still offers "No category" + "Add new…".
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -93,7 +118,8 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     replaceCost !== (item.estimated_replace_cost?.toString() ?? '') ||
     description !== (item.advice_text || '') ||
     boxId !== (currentBoxId ?? '') ||
-    targetShipmentId !== (item.target_shipment_id ?? '')
+    targetShipmentId !== (item.target_shipment_id ?? '') ||
+    category !== (item.category ?? null)
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -108,6 +134,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         estimated_replace_cost: replaceCost ? parseFloat(replaceCost) : null,
         advice_text: description,
         target_shipment_id: targetShipmentId === '' ? null : targetShipmentId,
+        category,
       })
 
       // Handle box assignment separately — only when verdict is SHIP or CARRY
@@ -142,7 +169,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, item.id, onSave, onNavigateBack])
+  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, category, item.id, onSave, onNavigateBack])
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true)
@@ -208,6 +235,25 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Category — owner-defined master list lives in seller_settings.
+          Always shown (independent of verdict): an item can have a category
+          regardless of whether it's a SHIP/CARRY/SELL outcome. */}
+      <div className={styles.field}>
+        <label htmlFor={`${id}-category`} className={styles.label}>
+          Category
+        </label>
+        <CategoryPicker
+          selectId={`${id}-category`}
+          value={category}
+          categories={categories}
+          onChange={setCategory}
+          onCategoriesUpdated={setCategories}
+          selectClassName={styles.select}
+          inputClassName={styles.input}
+          disabled={isSaving}
+        />
       </div>
 
       {/* Box assignment — only for SHIP or CARRY verdicts */}
