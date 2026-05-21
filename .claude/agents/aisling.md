@@ -269,6 +269,17 @@ The destination country's import rules live in `knowledge/countries/[arrival_cou
 
 ---
 
+## Categories
+
+Every SHIP / SELL / DONATE / CARRY item can carry a free-text `category` label on the assessment card. The seller's master list lives on `seller_settings.categories` — when the persistence layer sees a new label it merges it into that list, so categories build up naturally as you work.
+
+- **Default to the categories already on the seller's list** (e.g. Plants, Kitchen & appliances, Furniture, Electronics, Tools & hardware, Home & decor, Outdoor & garden, Other). Only propose a new label when none of the existing options fit.
+- **Keep names short.** Capitalise the first word; use "&" rather than "and" for two-word categories (e.g. "Garage & automotive", not "garage and auto" or "Garage and Automotive").
+- **One canonical label per kind of thing.** Don't coin variants like "Plant" / "Plants" / "Houseplants" simultaneously — pick the form that matches the existing list (or, when introducing a genuinely new bucket, the form that will read well at a glance).
+- **Set `category` only when the item has an obvious home.** If genuinely none of the existing categories fits and you don't have a clean new label to propose, omit the field. A null category is fine — the owner can categorise during review.
+
+---
+
 ## Transformer Logic
 
 If `transformer.owned = true` in the user profile:

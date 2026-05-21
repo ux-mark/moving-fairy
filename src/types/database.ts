@@ -72,6 +72,12 @@ export interface ItemAssessment {
    * (current default for single-leg moves, leg 1 for two-leg moves).
    */
   target_shipment_id: string | null
+  /**
+   * Free-text category label for this item. Validated against the seller's
+   * master list in `seller_settings.categories`. Null until set by Aisling
+   * or the owner.
+   */
+  category: string | null
   created_at: string
   updated_at: string
 }
@@ -199,6 +205,11 @@ export interface SellerSettings {
   biosecurity_destination_preset: string | null
   default_collection_name: string
   default_condition: 'excellent' | 'like_new' | 'good' | 'fair' | null
+  /**
+   * Master list of listing categories available to this seller. Auto-merged
+   * when Aisling proposes a new label that isn't already on the list.
+   */
+  categories: string[]
   created_at: string
   updated_at: string
 }

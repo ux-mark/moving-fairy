@@ -1,4 +1,4 @@
-import { getItemAssessments, updateItemAssessment } from '@/mcp'
+import { addCategory, getItemAssessments, getSettings, updateItemAssessment } from '@/mcp'
 import { getUserProfile } from '@/mcp'
 import {
   BiosecurityCategory,
@@ -86,6 +86,11 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
         description:
           'Currency code for estimated_replace_cost_usd (e.g. "EUR")',
       },
+      category: {
+        type: 'string',
+        description:
+          'Listing category for this item. Prefer one of the seller\'s existing categories; only propose a new short label when none of the existing options fit. Omit entirely if no category clearly applies.',
+      },
     },
     required: ['item', 'verdict', 'confidence', 'rationale', 'action'],
   },
@@ -110,6 +115,7 @@ interface AssessmentCardInput {
   currency?: string
   estimated_replace_cost_usd?: number
   replace_currency?: string
+  category?: string
 }
 
 // ─── API key resolution ───────────────────────────────────────────────────────
@@ -477,6 +483,8 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
           ? (card.biosecurity_category as BiosecurityCategory)
           : null
 
+      const normalisedCategory = card.category?.trim() ? card.category.trim() : null
+
       await updateItemAssessment(
         itemId,
         {
@@ -495,10 +503,32 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
           biosecurity_flag: biosecurityFlag,
           biosecurity_category: biosecurityCategory,
           biosecurity_note: card.biosecurity_note ?? null,
+          category: normalisedCategory,
           processing_status: ProcessingStatus.COMPLETED,
         },
         profileId
       )
+
+      // If Aisling proposed a category that isn't on the seller's master list
+      // yet, merge it in. Best-effort — a failure here must not fail the
+      // assessment write that already succeeded.
+      if (normalisedCategory) {
+        try {
+          const settings = await getSettings(profileId)
+          const existing = settings.categories ?? []
+          const alreadyPresent = existing.some(
+            (c) => c.toLowerCase() === normalisedCategory.toLowerCase(),
+          )
+          if (!alreadyPresent) {
+            await addCategory(profileId, normalisedCategory)
+          }
+        } catch (mergeErr) {
+          console.warn(
+            `[assess-item] Could not merge category "${normalisedCategory}" into seller settings for ${profileId}:`,
+            mergeErr,
+          )
+        }
+      }
 
       console.log(
         `[assess-item] Completed item ${itemId}: verdict=${verdict}, confidence=${card.confidence}`
