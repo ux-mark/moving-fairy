@@ -32,3 +32,5 @@ playwright-report/
 # Supabase
 supabase/.branches
 supabase/.temp
+.env.fairy
+CONFIGURE.md
