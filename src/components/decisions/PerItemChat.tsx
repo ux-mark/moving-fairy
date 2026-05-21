@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, X as XIcon } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
@@ -244,12 +245,14 @@ export function PerItemChat({
             <div className={styles.fullscreenHeaderRight}>
               <span className={styles.fullscreenItemName}>{itemName}</span>
               {thumbnailUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={thumbnailUrl}
                   alt=""
+                  width={28}
+                  height={28}
                   className={styles.fullscreenThumb}
                   aria-hidden="true"
+                  unoptimized
                 />
               )}
             </div>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, ConfirmDialog, Spinner } from '@thefairies/design-system/components'
@@ -73,11 +74,19 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   }, [item.currency, item.replace_currency])
 
   const [boxes, setBoxes] = useState<Array<{id: string, label: string, status: string, items: Array<{item_assessment_id: string | null}>}>>([])
+  const [shipments, setShipments] = useState<Array<{id: string, label: string}>>([])
 
   useEffect(() => {
     fetch('/api/boxes')
       .then(res => res.ok ? res.json() : [])
       .then(data => setBoxes(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/shipments')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setShipments(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
 
@@ -221,12 +230,14 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 <p className={styles.imageErrorText}>Photo could not be loaded</p>
               </div>
             ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <Image
                 src={thumbnail}
                 alt={itemName}
+                width={1200}
+                height={900}
                 className={styles.itemImg}
                 onError={() => setImageError(true)}
+                unoptimized
               />
             )
           ) : isCompleted ? (
@@ -314,6 +325,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 backLabel={backLabel}
                 availableBoxes={availableBoxes}
                 currentBoxId={currentBoxId}
+                availableShipments={shipments}
               />
             )}
           </div>

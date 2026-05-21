@@ -1,6 +1,11 @@
 import { getItemAssessments, updateItemAssessment } from '@/mcp'
 import { getUserProfile } from '@/mcp'
-import { ProcessingStatus, Verdict } from '@/lib/constants'
+import {
+  BiosecurityCategory,
+  BiosecurityFlag,
+  ProcessingStatus,
+  Verdict,
+} from '@/lib/constants'
 import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
 import { callCli, useCliMode, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
@@ -31,7 +36,24 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
       import_note: {
         type: 'string',
         description:
-          'Biosecurity or customs restriction that affects the verdict. Omit if none.',
+          'Free-text customs / import restriction that affects the verdict. Omit if none. Use biosecurity_note for the specific biosec reason.',
+      },
+      biosecurity_flag: {
+        type: 'string',
+        enum: ['none', 'declare', 'high_risk', 'prohibited'],
+        description:
+          'Biosecurity risk level at the destination. Omit entirely for biosec-neutral items (e.g. glass, metal, ceramic). Do NOT emit "none" for every item.',
+      },
+      biosecurity_category: {
+        type: 'string',
+        enum: ['wood', 'plant_matter', 'soil', 'leather', 'food', 'other'],
+        description:
+          'Biosecurity category. Required whenever biosecurity_flag is set to anything other than "none".',
+      },
+      biosecurity_note: {
+        type: 'string',
+        description:
+          'One-line reason the item is flagged (e.g. "Untreated wood with bark — must declare on arrival"). Omit when biosecurity_flag is omitted.',
       },
       item_description: {
         type: 'string',
@@ -78,6 +100,9 @@ interface AssessmentCardInput {
   rationale: string
   action: string
   import_note?: string
+  biosecurity_flag?: string
+  biosecurity_category?: string
+  biosecurity_note?: string
   item_description?: string
   voltage_compatible?: boolean
   needs_transformer?: boolean
@@ -427,9 +452,10 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
 
     // 5. Parse and persist the assessment card
     if (card) {
-      // Build advice_text from rationale + action + import_note
+      // Build advice_text from rationale + action + biosec/import notes
       let adviceText = card.rationale
       if (card.action) adviceText += `\n${card.action}`
+      if (card.biosecurity_note) adviceText += `\n\u26a0\ufe0f ${card.biosecurity_note}`
       if (card.import_note) adviceText += `\n\u26a0\ufe0f ${card.import_note}`
 
       // Normalise verdict — LLM may return legacy values or variants
@@ -437,6 +463,19 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
       const verdict: Verdict = (rawVerdict === 'DECIDE_LATER' || rawVerdict === 'DECIDE LATER')
         ? Verdict.REVISIT
         : (rawVerdict as Verdict)
+
+      // Normalise biosecurity fields — validate against enums, drop unknown
+      // values rather than write something the CHECK constraint would reject.
+      const validFlags = Object.values(BiosecurityFlag) as string[]
+      const validCategories = Object.values(BiosecurityCategory) as string[]
+      const biosecurityFlag: BiosecurityFlag | null =
+        card.biosecurity_flag && validFlags.includes(card.biosecurity_flag)
+          ? (card.biosecurity_flag as BiosecurityFlag)
+          : null
+      const biosecurityCategory: BiosecurityCategory | null =
+        card.biosecurity_category && validCategories.includes(card.biosecurity_category)
+          ? (card.biosecurity_category as BiosecurityCategory)
+          : null
 
       await updateItemAssessment(
         itemId,
@@ -453,6 +492,9 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
           estimated_replace_cost: card.estimated_replace_cost_usd ?? null,
           replace_currency: card.replace_currency ?? null,
           item_description: card.item_description ?? item.item_description ?? null,
+          biosecurity_flag: biosecurityFlag,
+          biosecurity_category: biosecurityCategory,
+          biosecurity_note: card.biosecurity_note ?? null,
           processing_status: ProcessingStatus.COMPLETED,
         },
         profileId

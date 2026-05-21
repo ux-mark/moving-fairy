@@ -1,0 +1,160 @@
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  font-family: var(--font-source-sans-3, system-ui, sans-serif);
+  color: #1a1a1a;
+}
+
+.header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 1.5rem;
+}
+
+.eyebrow {
+  font-size: 0.875rem;
+  color: #6b6b6b;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1.25rem;
+  margin: 0;
+}
+
+.summary div {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary dt {
+  font-size: 0.8rem;
+  color: #6b6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.summary dd {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.bioCounts {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+  padding: 0;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.bioCounts strong {
+  font-size: 1.1rem;
+  margin-right: 0.25rem;
+}
+
+.boxCard {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  background: #fafafa;
+}
+
+.boxHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.boxHeader h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.boxMeta {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.itemTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.itemTable th,
+.itemTable td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid #e8e8e8;
+}
+
+.itemTable th {
+  font-weight: 500;
+  color: #6b6b6b;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bioChip {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: inline-block;
+}
+
+.bioNote {
+  color: #555;
+  font-style: italic;
+}
+
+.empty {
+  color: #6b6b6b;
+  font-style: italic;
+}
+
+.footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  color: #6b6b6b;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+@media print {
+  .main { padding: 0; }
+  .boxCard { break-inside: avoid; }
+  .footer { display: none; }
+}

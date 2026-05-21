@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Package, Settings, Sparkles } from 'lucide-react'
+import { ClipboardList, Package, Settings, Sparkles, Tag, Plane } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@thefairies/design-system/components'
 
@@ -15,8 +15,10 @@ interface AppLayoutProps {
 }
 
 const NAV_PRIMARY_ITEMS = [
-  { key: 'decisions', label: 'Decisions', icon: ClipboardList },
-  { key: 'boxes',     label: 'Boxes',     icon: Package },
+  { key: 'items',     label: 'Items',     icon: ClipboardList },
+  { key: 'packing',   label: 'Packing',   icon: Package },
+  { key: 'selling',   label: 'Selling',   icon: Tag },
+  { key: 'itinerary', label: 'Itinerary', icon: Plane },
 ]
 
 const NAV_SECONDARY_ITEMS = [
@@ -34,16 +36,30 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [profileOpen, setProfileOpen] = useState(false)
 
   // Derive active section from the current path
-  const activeSection = pathname.startsWith('/boxes') ? 'boxes' : 'decisions'
+  const activeSection =
+    pathname.startsWith('/boxes') || pathname.startsWith('/packing')
+      ? 'packing'
+      : pathname.startsWith('/selling')
+      ? 'selling'
+      : pathname.startsWith('/itinerary')
+      ? 'itinerary'
+      : pathname.startsWith('/settings')
+      ? 'settings'
+      : 'items'
 
   const handleNavigate = useCallback(
     (section: string) => {
-      if (section === 'decisions') {
-        router.push('/decisions')
-      } else if (section === 'boxes') {
+      if (section === 'items') {
+        router.push('/items')
+      } else if (section === 'packing') {
+        // Route stays as /boxes; the label is "Packing"
         router.push('/boxes')
+      } else if (section === 'selling') {
+        router.push('/selling')
+      } else if (section === 'itinerary') {
+        router.push('/itinerary')
       } else if (section === 'settings') {
-        setProfileOpen(true)
+        router.push('/settings')
       }
     },
     [router]

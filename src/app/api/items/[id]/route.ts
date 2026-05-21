@@ -34,6 +34,7 @@ interface PatchItemBody {
   verdict?: string
   advice_text?: string
   user_confirmed?: boolean
+  user_confirmed_biosecurity?: boolean
   estimated_ship_cost?: number
   currency?: string
   estimated_replace_cost?: number
@@ -41,6 +42,8 @@ interface PatchItemBody {
   processing_status?: ProcessingStatus
   confidence?: number
   needs_clarification?: boolean
+  images?: string[]
+  target_shipment_id?: string | null
 }
 
 // PATCH /api/items/:id
@@ -70,6 +73,7 @@ export async function PATCH(
     if (body.verdict !== undefined) changes.verdict = body.verdict as Verdict
     if (body.advice_text !== undefined) changes.advice_text = body.advice_text
     if (body.user_confirmed !== undefined) changes.user_confirmed = body.user_confirmed
+    if (body.user_confirmed_biosecurity !== undefined) changes.user_confirmed_biosecurity = body.user_confirmed_biosecurity
     if (body.estimated_ship_cost !== undefined) changes.estimated_ship_cost = body.estimated_ship_cost
     if (body.currency !== undefined) changes.currency = body.currency
     if (body.estimated_replace_cost !== undefined) changes.estimated_replace_cost = body.estimated_replace_cost
@@ -77,6 +81,18 @@ export async function PATCH(
     if (body.processing_status !== undefined) changes.processing_status = body.processing_status
     if (body.confidence !== undefined) changes.confidence = body.confidence
     if (body.needs_clarification !== undefined) changes.needs_clarification = body.needs_clarification
+    if (body.images !== undefined) {
+      if (!Array.isArray(body.images) || !body.images.every((s) => typeof s === 'string')) {
+        return Response.json({ ok: false, error: 'images must be an array of strings' }, { status: 400 })
+      }
+      changes.images = body.images
+    }
+    if (body.target_shipment_id !== undefined) {
+      if (body.target_shipment_id !== null && typeof body.target_shipment_id !== 'string') {
+        return Response.json({ ok: false, error: 'target_shipment_id must be a string or null' }, { status: 400 })
+      }
+      changes.target_shipment_id = body.target_shipment_id
+    }
 
     if (Object.keys(changes).length === 0) {
       return Response.json({ ok: false, error: 'Nothing to update' }, { status: 400 })

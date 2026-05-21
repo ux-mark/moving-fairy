@@ -178,6 +178,7 @@ type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
   | 'advice_text'
   | 'item_description'
   | 'image_url'
+  | 'images'
   | 'voltage_compatible'
   | 'needs_transformer'
   | 'estimated_ship_cost'
@@ -185,9 +186,14 @@ type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
   | 'estimated_replace_cost'
   | 'replace_currency'
   | 'user_confirmed'
+  | 'user_confirmed_biosecurity'
+  | 'biosecurity_flag'
+  | 'biosecurity_category'
+  | 'biosecurity_note'
   | 'processing_status'
   | 'confidence'
   | 'needs_clarification'
+  | 'target_shipment_id'
 >>
 
 export async function updateItemAssessment(

@@ -1,0 +1,157 @@
+.page {
+  min-height: 100vh;
+  background: #faf7f1;
+  padding-bottom: 120px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: none;
+  padding: 8px 4px;
+  margin-bottom: 8px;
+}
+
+.backLink:hover {
+  color: var(--color-text-primary);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 800px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 32px;
+    align-items: start;
+  }
+}
+
+.gallery {
+  background: #fff;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  overflow: hidden;
+}
+
+.info {
+  background: #fff;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  padding: 20px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: 26px;
+  }
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.unavailable {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.statusNote {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-bg-panel, #f9fafb);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+}
+
+.details {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary, #374151);
+  white-space: pre-line;
+}
+
+.specs {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.specsHeading {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0 0 10px;
+}
+
+.specGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.specRow {
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+}
+
+.specLabel {
+  font-size: 11px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.specValue {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 2px 0 0;
+  color: var(--color-text-primary);
+}
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

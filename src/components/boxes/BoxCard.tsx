@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo, useId } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
@@ -733,11 +734,14 @@ function MergedItemList({
             : undefined;
 
           const thumbNode = itemImageUrl ? (
-            <img
+            <Image
               src={itemImageUrl}
               alt=""
               aria-hidden="true"
+              width={36}
+              height={36}
               className={styles.itemThumb}
+              unoptimized
             />
           ) : (
             <div

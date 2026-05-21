@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronDown, Package } from "lucide-react";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
@@ -82,10 +83,13 @@ function UnboxedItemRow({
     >
       <div className={styles.rowLeft}>
         {itemImageUrl ? (
-          <img
+          <Image
             src={itemImageUrl}
             alt=""
+            width={36}
+            height={36}
             className={styles.itemThumb}
+            unoptimized
           />
         ) : (
           <div className={styles.itemThumbPlaceholder} aria-hidden="true">

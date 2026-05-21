@@ -1,0 +1,231 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heading {
+  font-size: var(--font-size-h2, 24px);
+  font-weight: 600;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.2;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--color-bg-muted, var(--color-neutral-100, #f3f3f3));
+  color: var(--color-text-muted, var(--color-neutral-700, #555));
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.emptyWrap {
+  margin-top: 24px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  appearance: none;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-default, #222);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.filterChip:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+}
+
+.filterChip:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.filterChipActive {
+  background: var(--color-primary, #2d7a4f);
+  color: var(--color-on-primary, #fff);
+  border-color: var(--color-primary, #2d7a4f);
+}
+
+.filterChipActive:hover {
+  background: var(--color-primary, #2d7a4f);
+}
+
+.filterCount {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+.emptyFilter {
+  text-align: center;
+  color: var(--color-text-muted, #666);
+  padding: 32px 16px;
+  margin: 0;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.card {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardLink {
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: -2px;
+}
+
+.thumbWrap {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--color-bg-muted, #f7f7f7);
+  overflow: hidden;
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #999);
+}
+
+.statusPill {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-text-default, #222);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+}
+
+.status_draft {
+  background: var(--color-neutral-100, #f3f3f3);
+  color: var(--color-neutral-800, #333);
+}
+.status_published {
+  background: var(--color-success-light, #e0f1e0);
+  color: var(--color-success-dark, #146427);
+  border-color: var(--color-success-dark, #146427);
+}
+.status_reserved {
+  background: var(--color-warning-light, #fdf3d2);
+  color: var(--color-warning-dark, #6b4f0a);
+  border-color: var(--color-warning-dark, #6b4f0a);
+}
+.status_sold {
+  background: var(--color-neutral-200, #e3e3e3);
+  color: var(--color-neutral-700, #555);
+}
+
+.cardBody {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardName {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.cardPrice {
+  font-size: 14px;
+  color: var(--color-text-muted, #666);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardActions {
+  padding: 0 14px 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

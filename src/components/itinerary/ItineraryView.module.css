@@ -1,0 +1,424 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heading {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--color-bg-muted, #f3f3f3);
+  border-radius: var(--radius-md, 8px);
+  width: max-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.tab {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #555);
+}
+
+.tab:hover { color: var(--color-text-default, #222); }
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.tabActive {
+  background: var(--color-bg-default, #fff);
+  color: var(--color-text-default, #222);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.emptyWrap {
+  margin-top: 16px;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.totalsTile {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.totalsLabel {
+  font-size: 13px;
+  color: var(--color-text-muted, #666);
+}
+
+.totalsValue {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.exportLink,
+.exportLinkDisabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border-default, #d4d4d4);
+  border-radius: var(--radius-md, 8px);
+  text-decoration: none;
+  color: var(--color-text-default, #222);
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 40px;
+  background: var(--color-bg-default, #fff);
+  cursor: pointer;
+}
+
+.exportLink:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+}
+
+.exportLink:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.exportLinkDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shareBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-info-light, #e0f0fb);
+  color: var(--color-info-dark, #0c4a6e);
+  border: 1px solid var(--color-info-dark, #0c4a6e);
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+
+.shareUrl {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  word-break: break-all;
+  flex: 1;
+}
+
+.shareToast {
+  font-weight: 600;
+}
+
+.shareCopyBtn {
+  background: transparent;
+  border: 1px solid var(--color-info-dark, #0c4a6e);
+  color: var(--color-info-dark, #0c4a6e);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.shareCopyBtn:hover {
+  background: var(--color-info-dark, #0c4a6e);
+  color: white;
+}
+
+.boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+}
+
+.boxRow {
+  border-bottom: 1px solid var(--color-border-default, #f0f0f0);
+}
+
+.boxRow:last-child {
+  border-bottom: none;
+}
+
+.boxHeader {
+  appearance: none;
+  background: none;
+  border: none;
+  width: 100%;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--color-text-default, #222);
+  text-align: left;
+}
+
+.boxHeader:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+}
+
+.boxHeader:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: -2px;
+}
+
+.boxLabel {
+  font-weight: 600;
+}
+
+.boxMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted, #666);
+  font-variant-numeric: tabular-nums;
+}
+
+.chevron {
+  transition: transform 150ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.itemsList {
+  list-style: none;
+  margin: 0;
+  padding: 0 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  border-top: 1px solid var(--color-border-default, #f3f3f3);
+}
+
+.itemName {
+  flex: 1;
+}
+
+.itemValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted, #555);
+}
+
+.biosecChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-warning-light, #fef3c7);
+  color: var(--color-warning-dark, #6b4f0a);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.biosec {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.biosecHeading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-warning-dark, #6b4f0a);
+}
+
+.biosecGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.biosecCategory {
+  text-transform: capitalize;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-muted, #555);
+}
+
+.biosecList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.biosecItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-default, #f0f0f0);
+  border-radius: var(--radius-md, 8px);
+}
+
+.biosecItemName {
+  font-weight: 500;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.biosecBoxRef {
+  font-size: 12px;
+  color: var(--color-text-muted, #666);
+  font-weight: 400;
+}
+
+.biosecNote {
+  font-size: 13px;
+  margin: 4px 0 0;
+  color: var(--color-text-muted, #666);
+}
+
+.biosecConfirmed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-success-dark, #146427);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Print: render a clean manifest -----------------------------------
+ * Browser "Save as PDF" pipes through @media print. We hide the leg tabs,
+ * the action row, and the share banner (all interactive chrome), then
+ * neutralise the accordion so every box's items show as a flat list.
+ * Page-breaks avoid splitting a box across pages where possible.
+ */
+@media print {
+  .root {
+    max-width: none;
+    padding: 0;
+    gap: 12px;
+  }
+
+  .tabs,
+  .actions,
+  .shareBanner {
+    display: none !important;
+  }
+
+  .totals {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .totalsTile {
+    border-color: #ccc;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .boxes {
+    border-color: #ccc;
+  }
+
+  .boxRow {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border-color: #ddd;
+  }
+
+  /* Make sure every box appears expanded in print — even if the user
+     prints without our button (e.g., Ctrl+P), the manifest reads cleanly. */
+  .itemsList {
+    display: flex !important;
+  }
+
+  .boxHeader {
+    cursor: default;
+  }
+
+  .chevron {
+    display: none;
+  }
+
+  .biosec {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border-color: #ccc;
+  }
+
+  .biosecItem {
+    border-color: #ddd;
+  }
+}
