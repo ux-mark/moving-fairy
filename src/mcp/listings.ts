@@ -154,7 +154,7 @@ export async function getListingsForUserWithItem(userProfileId: string): Promise
 export type PublicListing = Listing & {
   item_assessment: Pick<
     ItemAssessment,
-    'id' | 'item_name' | 'item_description' | 'images' | 'image_url' | 'category'
+    'id' | 'item_name' | 'item_description' | 'images' | 'image_url' | 'category' | 'care'
   > | null
 }
 
@@ -168,7 +168,7 @@ export async function getListingBySlug(slug: string): Promise<PublicListing | nu
   const { data, error } = await supabase
     .from('listing')
     .select(
-      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category)',
+      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category, care)',
     )
     .eq('slug', slug)
     .eq('visibility', ListingVisibility.PUBLIC)
@@ -185,7 +185,7 @@ export async function getPublishedListings(): Promise<PublicListing[]> {
   const { data, error } = await supabase
     .from('listing')
     .select(
-      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category)',
+      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category, care)',
     )
     .eq('visibility', ListingVisibility.PUBLIC)
     .in('listing_status', [ListingStatus.PUBLISHED, ListingStatus.RESERVED])

@@ -79,6 +79,14 @@ export const buyerCopy = {
   // Status copy on detail page
   itemReserved: 'Reserved — inquiries still welcome',
   itemSold: 'This item has been sold',
+
+  // Plant-care callout
+  careHeading: 'Plant care',
+  careLight: 'Light',
+  careWater: 'Water',
+  careSoil: 'Soil',
+  careFeed: 'Feed',
+  careLevelLabel: (filled: number) => `${filled} of 3`,
 } as const
 
 export type BuyerCopy = typeof buyerCopy

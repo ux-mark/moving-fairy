@@ -161,3 +161,111 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* Plant-care callout — bordered card, sits between specs and actions.
+   Same outer chrome as `.specRow` but with its own heading and rhythm so it
+   reads as a distinct callout rather than another spec line. */
+.care {
+  margin-top: 20px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-bg-panel, #f9fafb);
+}
+
+.careHeading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.careGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.careRow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+
+.careLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.careValue {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+
+.careText {
+  min-width: 0;
+}
+
+.careDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.careDotsVisualOnly {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.careDotFilled,
+.careDotEmpty {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full, 9999px);
+  box-sizing: border-box;
+}
+
+.careDotFilled {
+  background: var(--color-primary, #16a34a);
+  border: 1px solid var(--color-primary, #16a34a);
+}
+
+.careDotEmpty {
+  background: transparent;
+  border: 1px solid var(--color-border-default, #d1d5db);
+}
+
+.careDotsLabel {
+  /* Visually hidden — exposes the level reading to assistive tech without
+     duplicating the dot meter for sighted users. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.careSummary {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #374151);
+  font-style: italic;
+}
