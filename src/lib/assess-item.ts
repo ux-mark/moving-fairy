@@ -10,7 +10,7 @@ import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
 import { callCli, useCliMode, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { buildStorageUrl } from '@/lib/storage-url'
-import type { UserProfile } from '@/types/database'
+import type { PlantCare, UserProfile } from '@/types/database'
 import { writeFile, unlink } from 'fs/promises'
 
 // ─── render_assessment_card tool schema ──────────────────────────────────────
@@ -91,6 +91,21 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
         description:
           'Listing category for this item. Prefer one of the seller\'s existing categories; only propose a new short label when none of the existing options fit. Omit entirely if no category clearly applies.',
       },
+      care: {
+        type: 'object',
+        description:
+          'Plant-care record. Populate ONLY when biosecurity_category is "plant_matter"; omit for non-plant items. Partial records are fine — emit only what you are confident about.',
+        properties: {
+          light: { type: 'string', description: 'e.g. "Bright indirect", "Full sun", "Low – bright"' },
+          light_level: { type: 'number', description: '1 (low), 2 (medium), 3 (bright)' },
+          water: { type: 'string', description: 'e.g. "When dry", "Sparse", "Keep moist"' },
+          water_level: { type: 'number', description: '1 (sparse), 2 (medium), 3 (frequent)' },
+          soil: { type: 'string', description: 'e.g. "Standard mix", "Well-draining", "Cactus mix"' },
+          feed: { type: 'string', description: 'e.g. "Monthly", "Twice yearly", "Weekly in bloom"' },
+          feed_level: { type: 'number', description: '1 (sparse), 2 (monthly), 3 (weekly)' },
+          summary: { type: 'string', description: 'One-sentence prose covering light / water / soil / feed at a glance.' },
+        },
+      },
     },
     required: ['item', 'verdict', 'confidence', 'rationale', 'action'],
   },
@@ -116,6 +131,7 @@ interface AssessmentCardInput {
   estimated_replace_cost_usd?: number
   replace_currency?: string
   category?: string
+  care?: PlantCare
 }
 
 // ─── API key resolution ───────────────────────────────────────────────────────
@@ -485,6 +501,13 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
 
       const normalisedCategory = card.category?.trim() ? card.category.trim() : null
 
+      // Care is accepted for any item — the agent gates on biosec category
+      // in the prompt. Treat an empty object as null so we don't write `{}`.
+      const normalisedCare =
+        card.care && typeof card.care === 'object' && Object.keys(card.care).length > 0
+          ? card.care
+          : null
+
       await updateItemAssessment(
         itemId,
         {
@@ -504,6 +527,7 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
           biosecurity_category: biosecurityCategory,
           biosecurity_note: card.biosecurity_note ?? null,
           category: normalisedCategory,
+          care: normalisedCare,
           processing_status: ProcessingStatus.COMPLETED,
         },
         profileId

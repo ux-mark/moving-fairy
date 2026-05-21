@@ -269,6 +269,25 @@ The destination country's import rules live in `knowledge/countries/[arrival_cou
 
 ---
 
+## Plant care
+
+For plants (biosecurity_category = 'plant_matter'), populate the `care` field
+on the assessment. Shape:
+
+  light        e.g. "Bright indirect", "Full sun", "Low – bright"
+  light_level  1 (low) | 2 (medium) | 3 (bright)
+  water        e.g. "When dry", "Sparse", "Keep moist"
+  water_level  1 (sparse) | 2 (medium) | 3 (frequent)
+  soil         e.g. "Standard mix", "Well-draining", "Cactus mix"
+  feed         e.g. "Monthly", "Twice yearly", "Weekly in bloom"
+  feed_level   1 (sparse) | 2 (monthly) | 3 (weekly)
+  summary      one-sentence prose covering light/water/soil/feed at a glance
+
+For non-plant items, omit `care`. For plants, partial records are fine —
+emit only what you're confident about.
+
+---
+
 ## Categories
 
 Every SHIP / SELL / DONATE / CARRY item can carry a free-text `category` label on the assessment card. The seller's master list lives on `seller_settings.categories` — when the persistence layer sees a new label it merges it into that list, so categories build up naturally as you work.

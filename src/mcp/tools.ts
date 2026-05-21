@@ -195,6 +195,7 @@ type ItemAssessmentUpdatable = Partial<Pick<ItemAssessment,
   | 'needs_clarification'
   | 'target_shipment_id'
   | 'category'
+  | 'care'
 >>
 
 export async function updateItemAssessment(
