@@ -2,17 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { ListingStatus } from '@/lib/constants'
-import { buyerCopy, formatPrice } from '@/lib/copy/buyer'
+import { buyerCopy } from '@/lib/copy/buyer'
 import type { DiscountTier } from '@/lib/discount'
 import { proxyImageUrl } from '@/lib/storage-url'
 import { getListingBySlug, getPublishedListings, type PublicListing } from '@/mcp/listings'
 import { getSettings } from '@/mcp/settings'
-import { PublicAddToBundleButton } from '@/components/public/PublicAddToBundleButton'
 import { PublicBundleBar } from '@/components/public/PublicBundleBar'
-import { PublicConditionBadge } from '@/components/public/PublicConditionBadge'
-import { PublicInquireSingleButton } from '@/components/public/PublicInquireSingleButton'
-import { PublicMultiImageCarousel } from '@/components/public/PublicMultiImageCarousel'
+import { PublicListingDetail } from '@/components/public/PublicListingDetail'
 import styles from './page.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -89,16 +85,6 @@ export default async function PublicListingDetailPage({ params }: { params: Para
   const listing = await loadListing(slug)
   if (!listing) notFound()
 
-  const sold = listing.listing_status === ListingStatus.SOLD
-  const reserved = listing.listing_status === ListingStatus.RESERVED
-  const name = listing.item_assessment?.item_name ?? 'Untitled item'
-  const images = (() => {
-    const fromAssessment = listing.item_assessment?.images
-    if (Array.isArray(fromAssessment) && fromAssessment.length > 0) return fromAssessment
-    const legacy = listing.item_assessment?.image_url
-    return legacy ? [legacy] : []
-  })()
-
   const [catalogue, settings] = await Promise.all([
     loadCatalogue(),
     loadSettings(listing.user_profile_id),
@@ -106,15 +92,6 @@ export default async function PublicListingDetailPage({ params }: { params: Para
 
   const tiers = settings?.discount_tiers?.length ? settings.discount_tiers : FALLBACK_TIERS
   const contactEmail = settings?.contact_email ?? null
-
-  const specs: Array<{ label: string; value: string }> = []
-  if (listing.condition) {
-    specs.push({ label: buyerCopy.specCondition, value: buyerCopy.conditionLabels[listing.condition] })
-  }
-  if (listing.brand) specs.push({ label: buyerCopy.specBrand, value: listing.brand })
-  if (listing.model_name) specs.push({ label: buyerCopy.specModel, value: listing.model_name })
-  if (listing.dimensions) specs.push({ label: buyerCopy.specDimensions, value: listing.dimensions })
-  if (listing.included) specs.push({ label: buyerCopy.specIncluded, value: listing.included })
 
   return (
     <main className={styles.page}>
@@ -124,55 +101,12 @@ export default async function PublicListingDetailPage({ params }: { params: Para
           {buyerCopy.backToCollection}
         </Link>
 
-        <div className={styles.layout}>
-          <div className={styles.gallery}>
-            <PublicMultiImageCarousel images={images} alt={name} sold={sold} />
-          </div>
-
-          <div className={styles.info}>
-            <h1 className={styles.title}>{name}</h1>
-
-            <div className={styles.priceRow}>
-              {!sold ? (
-                <span className={styles.price}>{formatPrice(listing.asking_price, listing.currency)}</span>
-              ) : (
-                <span className={styles.unavailable}>{buyerCopy.unavailableLabel}</span>
-              )}
-              <PublicConditionBadge condition={listing.condition} />
-            </div>
-
-            {reserved && !sold ? (
-              <p className={styles.statusNote}>{buyerCopy.itemReserved}</p>
-            ) : null}
-            {sold ? <p className={styles.statusNote}>{buyerCopy.itemSold}</p> : null}
-
-            {listing.details ? <p className={styles.details}>{listing.details}</p> : null}
-
-            {specs.length > 0 ? (
-              <section className={styles.specs} aria-label={buyerCopy.detailsHeading}>
-                <h2 className={styles.specsHeading}>{buyerCopy.detailsHeading}</h2>
-                <dl className={styles.specGrid}>
-                  {specs.map((s) => (
-                    <div key={s.label} className={styles.specRow}>
-                      <dt className={styles.specLabel}>{s.label}</dt>
-                      <dd className={styles.specValue}>{s.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ) : null}
-
-            <div className={styles.actions}>
-              <PublicAddToBundleButton listingId={listing.id} disabled={sold} />
-              <PublicInquireSingleButton
-                listing={listing}
-                discountTiers={tiers}
-                contactEmail={contactEmail}
-                disabled={sold}
-              />
-            </div>
-          </div>
-        </div>
+        <PublicListingDetail
+          listing={listing}
+          discountTiers={tiers}
+          contactEmail={contactEmail}
+          variant="page"
+        />
       </div>
 
       <PublicBundleBar listings={catalogue} discountTiers={tiers} contactEmail={contactEmail} />

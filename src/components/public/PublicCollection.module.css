@@ -1,0 +1,45 @@
+/* Grid + empty-state layout for the buyer collection. Same dimensions and
+   breakpoints as the previous server-rendered grid — only difference is this
+   markup now lives inside a client wrapper so it can host the panel state. */
+
+.grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.empty {
+  max-width: 480px;
+  margin: 80px auto;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.emptyHeading {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.emptyBody {
+  margin: 8px 0 0;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 14px;
+  line-height: 1.5;
+}
