@@ -36,6 +36,7 @@ export function PublicListingDetail({
   const sold = listing.listing_status === ListingStatus.SOLD
   const reserved = listing.listing_status === ListingStatus.RESERVED
   const name = listing.item_assessment?.item_name ?? 'Untitled item'
+  const category = listing.item_assessment?.category ?? null
 
   const images = (() => {
     const fromAssessment = listing.item_assessment?.images
@@ -77,6 +78,12 @@ export function PublicListingDetail({
           )}
           <PublicConditionBadge condition={listing.condition} />
         </div>
+
+        {category ? (
+          <p className={styles.categoryLine}>
+            <span className={styles.categoryLineLabel}>Category:</span> {category}
+          </p>
+        ) : null}
 
         {reserved && !sold ? (
           <p className={styles.statusNote}>{buyerCopy.itemReserved}</p>

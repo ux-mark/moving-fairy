@@ -152,7 +152,10 @@ export async function getListingsForUserWithItem(userProfileId: string): Promise
 // ─── Read (public, RLS-gated) ───────────────────────────────────────────────
 
 export type PublicListing = Listing & {
-  item_assessment: Pick<ItemAssessment, 'id' | 'item_name' | 'item_description' | 'images' | 'image_url'> | null
+  item_assessment: Pick<
+    ItemAssessment,
+    'id' | 'item_name' | 'item_description' | 'images' | 'image_url' | 'category'
+  > | null
 }
 
 /**
@@ -164,7 +167,9 @@ export async function getListingBySlug(slug: string): Promise<PublicListing | nu
   const supabase = getAnonClient()
   const { data, error } = await supabase
     .from('listing')
-    .select('*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url)')
+    .select(
+      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category)',
+    )
     .eq('slug', slug)
     .eq('visibility', ListingVisibility.PUBLIC)
     .eq('listing_status', ListingStatus.PUBLISHED)
@@ -179,7 +184,9 @@ export async function getPublishedListings(): Promise<PublicListing[]> {
   const supabase = getAnonClient()
   const { data, error } = await supabase
     .from('listing')
-    .select('*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url)')
+    .select(
+      '*, item_assessment:item_assessment_id (id, item_name, item_description, images, image_url, category)',
+    )
     .eq('visibility', ListingVisibility.PUBLIC)
     .in('listing_status', [ListingStatus.PUBLISHED, ListingStatus.RESERVED])
     .order('published_at', { ascending: false })

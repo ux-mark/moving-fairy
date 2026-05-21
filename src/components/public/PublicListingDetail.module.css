@@ -84,6 +84,18 @@
   color: var(--color-text-muted, #6b7280);
 }
 
+.categoryLine {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #374151);
+  line-height: 1.4;
+}
+
+.categoryLineLabel {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 500;
+}
+
 .statusNote {
   margin: 12px 0 0;
   font-size: 13px;

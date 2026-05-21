@@ -106,6 +106,11 @@ export function PublicListingCard({ listing, onOpen }: Props) {
         </div>
         <div className={styles.metaRow}>
           <PublicConditionBadge condition={listing.condition} />
+          {listing.item_assessment?.category ? (
+            <span className={styles.categoryBadge}>
+              {listing.item_assessment.category}
+            </span>
+          ) : null}
           {listing.brand ? (
             <span className={styles.subtle}>
               {listing.brand}
