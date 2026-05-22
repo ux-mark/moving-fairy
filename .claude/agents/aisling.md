@@ -279,6 +279,11 @@ on the assessment. Shape:
   water        e.g. "When dry", "Sparse", "Keep moist"
   water_level  1 (sparse) | 2 (medium) | 3 (frequent)
   soil         e.g. "Standard mix", "Well-draining", "Cactus mix"
+  soil_type    'drain' | 'standard' | 'moist' | 'specialty'
+               (drain = gritty/cactus mix, standard = standard potting mix,
+                moist = moisture-loving, specialty = specialty mix like
+                African violet). Picks the soil-icon glyph on the buyer
+                surface — independent of the free-text `soil` label.
   feed         e.g. "Monthly", "Twice yearly", "Weekly in bloom"
   feed_level   1 (sparse) | 2 (monthly) | 3 (weekly)
   summary      one-sentence prose covering light/water/soil/feed at a glance

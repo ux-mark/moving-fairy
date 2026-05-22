@@ -176,6 +176,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Care preview sits between the title/price row and the meta row. ~12px
+   above the grid lines up with sale-fairy's `mt-3`; the surrounding meta
+   row keeps its existing 8px top margin so the card rhythm stays consistent
+   for both plant and non-plant listings. */
+.carePreview {
+  margin-top: 12px;
+}
+
 .metaRow {
   margin-top: 8px;
   display: flex;

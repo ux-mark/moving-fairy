@@ -101,6 +101,12 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
           water: { type: 'string', description: 'e.g. "When dry", "Sparse", "Keep moist"' },
           water_level: { type: 'number', description: '1 (sparse), 2 (medium), 3 (frequent)' },
           soil: { type: 'string', description: 'e.g. "Standard mix", "Well-draining", "Cactus mix"' },
+          soil_type: {
+            type: 'string',
+            enum: ['drain', 'standard', 'moist', 'specialty'],
+            description:
+              'Coarse soil-type bucket — picks the soil-icon glyph in the buyer-side care grid. "drain" = gritty / cactus mix; "standard" = standard potting mix; "moist" = moisture-loving; "specialty" = specialty mix (e.g. African violet).',
+          },
           feed: { type: 'string', description: 'e.g. "Monthly", "Twice yearly", "Weekly in bloom"' },
           feed_level: { type: 'number', description: '1 (sparse), 2 (monthly), 3 (weekly)' },
           summary: { type: 'string', description: 'One-sentence prose covering light / water / soil / feed at a glance.' },

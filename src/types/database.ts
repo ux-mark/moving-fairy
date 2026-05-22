@@ -44,6 +44,12 @@ export interface PlantCare {
   water?: string
   water_level?: 1 | 2 | 3
   soil?: string
+  /**
+   * Coarse soil-type bucket — drives the soil-icon glyph in the buyer-side
+   * care grid. Independent of the free-text `soil` label, which can still
+   * carry a richer description (e.g. "Well-draining cactus mix").
+   */
+  soil_type?: 'drain' | 'standard' | 'moist' | 'specialty'
   feed?: string
   feed_level?: 1 | 2 | 3
   summary?: string

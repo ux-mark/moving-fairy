@@ -6,6 +6,7 @@ import { buyerCopy, formatPrice } from '@/lib/copy/buyer'
 import { proxyImageUrl } from '@/lib/storage-url'
 import { cn } from '@/lib/utils'
 import type { PublicListing } from '@/mcp/listings'
+import { PlantCareGrid } from './PlantCareIcons'
 import { PublicConditionBadge } from './PublicConditionBadge'
 import { usePublicBundle } from './usePublicBundle'
 import styles from './PublicListingCard.module.css'
@@ -104,6 +105,11 @@ export function PublicListingCard({ listing, onOpen }: Props) {
             <span className={styles.price}>{formatPrice(listing.asking_price, listing.currency)}</span>
           ) : null}
         </div>
+        {listing.item_assessment?.care ? (
+          <div className={styles.carePreview}>
+            <PlantCareGrid care={listing.item_assessment.care} variant="card" />
+          </div>
+        ) : null}
         <div className={styles.metaRow}>
           <PublicConditionBadge condition={listing.condition} />
           {listing.item_assessment?.category ? (

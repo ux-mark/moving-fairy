@@ -148,6 +148,9 @@ export function PlantCareEditor({
         delete merged[k]
       } else if (k === 'light_level' || k === 'water_level' || k === 'feed_level') {
         if (v === 1 || v === 2 || v === 3) merged[k] = v
+      } else if (k === 'soil_type') {
+        // soil_type is a fixed enum; the owner-side editor doesn't expose
+        // it yet, so we never expect a patch here. Skip rather than coerce.
       } else if (typeof v === 'string') {
         merged[k] = v
       }

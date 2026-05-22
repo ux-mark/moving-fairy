@@ -4,7 +4,7 @@ import { ListingStatus } from '@/lib/constants'
 import { buyerCopy, formatPrice } from '@/lib/copy/buyer'
 import type { DiscountTier } from '@/lib/discount'
 import type { PublicListing } from '@/mcp/listings'
-import type { PlantCare } from '@/types/database'
+import { PlantCareGrid } from './PlantCareIcons'
 import { PublicAddToBundleButton } from './PublicAddToBundleButton'
 import { PublicConditionBadge } from './PublicConditionBadge'
 import { PublicInquireSingleButton } from './PublicInquireSingleButton'
@@ -108,7 +108,10 @@ export function PublicListingDetail({
         ) : null}
 
         {listing.item_assessment?.care ? (
-          <PlantCareCallout care={listing.item_assessment.care} />
+          <section className={styles.care} aria-label={buyerCopy.careHeading}>
+            <h2 className={styles.careHeading}>{buyerCopy.careHeading}</h2>
+            <PlantCareGrid care={listing.item_assessment.care} variant="panel" />
+          </section>
         ) : null}
 
         <div className={styles.actions}>
@@ -125,83 +128,3 @@ export function PublicListingDetail({
   )
 }
 
-type CareRow = {
-  label: string
-  text: string
-  level?: 1 | 2 | 3
-}
-
-/**
- * Plant-care callout — populated by Aisling for `biosecurity_category =
- * 'plant_matter'` items. Each row shows a text label + optional 3-dot
- * intensity meter; rows are skipped when their text is absent, and the dot
- * meter is hidden when the matching `_level` is absent.
- */
-function PlantCareCallout({ care }: { care: PlantCare }) {
-  const rows: CareRow[] = []
-  if (care.light) {
-    rows.push(
-      care.light_level
-        ? { label: buyerCopy.careLight, text: care.light, level: care.light_level }
-        : { label: buyerCopy.careLight, text: care.light },
-    )
-  }
-  if (care.water) {
-    rows.push(
-      care.water_level
-        ? { label: buyerCopy.careWater, text: care.water, level: care.water_level }
-        : { label: buyerCopy.careWater, text: care.water },
-    )
-  }
-  if (care.soil) rows.push({ label: buyerCopy.careSoil, text: care.soil })
-  if (care.feed) {
-    rows.push(
-      care.feed_level
-        ? { label: buyerCopy.careFeed, text: care.feed, level: care.feed_level }
-        : { label: buyerCopy.careFeed, text: care.feed },
-    )
-  }
-
-  if (rows.length === 0 && !care.summary) return null
-
-  return (
-    <section className={styles.care} aria-label={buyerCopy.careHeading}>
-      <h2 className={styles.careHeading}>{buyerCopy.careHeading}</h2>
-      {rows.length > 0 ? (
-        <dl className={styles.careGrid}>
-          {rows.map((row) => (
-            <div key={row.label} className={styles.careRow}>
-              <dt className={styles.careLabel}>{row.label}</dt>
-              <dd className={styles.careValue}>
-                <span className={styles.careText}>{row.text}</span>
-                {row.level ? <CareLevelDots level={row.level} /> : null}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      {care.summary ? <p className={styles.careSummary}>{care.summary}</p> : null}
-    </section>
-  )
-}
-
-/**
- * Three-dot intensity meter. Decorative by itself (`aria-hidden`), but
- * accompanied by a visually-hidden text label so screen readers get the
- * level out loud (e.g. "2 of 3").
- */
-function CareLevelDots({ level }: { level: 1 | 2 | 3 }) {
-  return (
-    <span className={styles.careDots}>
-      <span className={styles.careDotsVisualOnly} aria-hidden="true">
-        {[1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className={i <= level ? styles.careDotFilled : styles.careDotEmpty}
-          />
-        ))}
-      </span>
-      <span className={styles.careDotsLabel}>{buyerCopy.careLevelLabel(level)}</span>
-    </span>
-  )
-}
