@@ -28,6 +28,16 @@ function fallbackSettings(profileId: string): SellerSettings {
     biosecurity_destination_preset: null,
     default_collection_name: 'For sale',
     default_condition: null,
+    categories: [
+      'Plants',
+      'Kitchen & appliances',
+      'Furniture',
+      'Electronics',
+      'Tools & hardware',
+      'Home & decor',
+      'Outdoor & garden',
+      'Other',
+    ],
     created_at: now,
     updated_at: now,
   }

@@ -3,6 +3,7 @@ import { deleteItemAssessment, getItemAssessment, updateItemAssessment, appendIt
 import { getAuthenticatedProfile } from '@/lib/auth'
 import type { Verdict } from '@/lib/constants'
 import { ProcessingStatus } from '@/lib/constants'
+import type { PlantCare } from '@/types/database'
 
 // GET /api/items/:id
 // Returns a single item by ID for the authenticated user.
@@ -44,6 +45,78 @@ interface PatchItemBody {
   needs_clarification?: boolean
   images?: string[]
   target_shipment_id?: string | null
+  category?: string | null
+  care?: PlantCare | null
+}
+
+// Category labels are free text — we don't gate against
+// seller_settings.categories because users can freely set obsolete labels
+// (see brief). We only guard the shape: non-empty string, ≤ 80 chars.
+const CATEGORY_MAX_LENGTH = 80
+
+// Plant-care guards. We accept a partial PlantCare object (every field
+// optional — Aisling may emit a subset, and the owner UI may clear one
+// field without touching the others). The whitelist below mirrors the
+// PlantCare interface in `src/types/database.ts`.
+const CARE_TEXT_MAX_LENGTH = 200
+const CARE_JSON_MAX_BYTES = 2048
+const CARE_TEXT_KEYS = ['light', 'water', 'soil', 'feed', 'summary'] as const
+const CARE_LEVEL_KEYS = ['light_level', 'water_level', 'feed_level'] as const
+const CARE_ALL_KEYS: ReadonlySet<string> = new Set<string>([
+  ...CARE_TEXT_KEYS,
+  ...CARE_LEVEL_KEYS,
+])
+
+function validateCare(input: unknown): { ok: true; value: PlantCare | null } | { ok: false; error: string } {
+  if (input === null) return { ok: true, value: null }
+  if (typeof input !== 'object' || Array.isArray(input)) {
+    return { ok: false, error: 'care must be a plain object or null' }
+  }
+  const raw = input as Record<string, unknown>
+
+  // Size cap on the JSON encoding to keep the JSONB column predictable.
+  try {
+    const encoded = JSON.stringify(raw)
+    if (encoded.length > CARE_JSON_MAX_BYTES) {
+      return { ok: false, error: `care exceeds ${CARE_JSON_MAX_BYTES}-byte limit` }
+    }
+  } catch {
+    return { ok: false, error: 'care is not JSON-serialisable' }
+  }
+
+  const out: PlantCare = {}
+  for (const key of Object.keys(raw)) {
+    if (!CARE_ALL_KEYS.has(key)) {
+      return { ok: false, error: `Unknown care field: ${key}` }
+    }
+  }
+
+  for (const k of CARE_TEXT_KEYS) {
+    const v = raw[k]
+    if (v === undefined) continue
+    if (typeof v !== 'string') {
+      return { ok: false, error: `care.${k} must be a string` }
+    }
+    if (v.length > CARE_TEXT_MAX_LENGTH) {
+      return { ok: false, error: `care.${k} must be ${CARE_TEXT_MAX_LENGTH} characters or fewer` }
+    }
+    if (v.length > 0) {
+      out[k] = v
+    }
+  }
+
+  for (const k of CARE_LEVEL_KEYS) {
+    const v = raw[k]
+    if (v === undefined) continue
+    if (v !== 1 && v !== 2 && v !== 3) {
+      return { ok: false, error: `care.${k} must be 1, 2 or 3` }
+    }
+    out[k] = v
+  }
+
+  // Collapse an effectively-empty record back to null so the DB column
+  // stays NULL rather than `{}` — keeps "has care" checks consistent.
+  return { ok: true, value: Object.keys(out).length === 0 ? null : out }
 }
 
 // PATCH /api/items/:id
@@ -92,6 +165,34 @@ export async function PATCH(
         return Response.json({ ok: false, error: 'target_shipment_id must be a string or null' }, { status: 400 })
       }
       changes.target_shipment_id = body.target_shipment_id
+    }
+    if (body.category !== undefined) {
+      if (body.category === null) {
+        changes.category = null
+      } else {
+        if (typeof body.category !== 'string') {
+          return Response.json({ ok: false, error: 'category must be a string or null' }, { status: 400 })
+        }
+        const trimmed = body.category.trim()
+        if (trimmed.length === 0) {
+          return Response.json({ ok: false, error: 'category must not be empty' }, { status: 400 })
+        }
+        if (trimmed.length > CATEGORY_MAX_LENGTH) {
+          return Response.json(
+            { ok: false, error: `category must be ${CATEGORY_MAX_LENGTH} characters or fewer` },
+            { status: 400 },
+          )
+        }
+        changes.category = trimmed
+      }
+    }
+
+    if (body.care !== undefined) {
+      const checked = validateCare(body.care)
+      if (!checked.ok) {
+        return Response.json({ ok: false, error: checked.error }, { status: 400 })
+      }
+      changes.care = checked.value
     }
 
     if (Object.keys(changes).length === 0) {

@@ -27,6 +27,34 @@ export interface Equipment {
   transformer?: TransformerEquipment
 }
 
+/**
+ * Plant-care information attached to an item assessment. All fields are
+ * optional — Aisling may emit a partial record. Populated only when
+ * `biosecurity_category === 'plant_matter'`; non-plant items leave `care`
+ * null on the row.
+ *
+ * `*_level` values are 1 / 2 / 3:
+ *   light_level: 1 low, 2 medium, 3 bright
+ *   water_level: 1 sparse, 2 medium, 3 frequent
+ *   feed_level:  1 sparse, 2 monthly, 3 weekly
+ */
+export interface PlantCare {
+  light?: string
+  light_level?: 1 | 2 | 3
+  water?: string
+  water_level?: 1 | 2 | 3
+  soil?: string
+  /**
+   * Coarse soil-type bucket — drives the soil-icon glyph in the buyer-side
+   * care grid. Independent of the free-text `soil` label, which can still
+   * carry a richer description (e.g. "Well-draining cactus mix").
+   */
+  soil_type?: 'drain' | 'standard' | 'moist' | 'specialty'
+  feed?: string
+  feed_level?: 1 | 2 | 3
+  summary?: string
+}
+
 export interface UserProfile {
   id: string
   created_at: string
@@ -72,6 +100,17 @@ export interface ItemAssessment {
    * (current default for single-leg moves, leg 1 for two-leg moves).
    */
   target_shipment_id: string | null
+  /**
+   * Free-text category label for this item. Validated against the seller's
+   * master list in `seller_settings.categories`. Null until set by Aisling
+   * or the owner.
+   */
+  category: string | null
+  /**
+   * Plant-care record, populated by Aisling when this item is a plant
+   * (biosecurity_category = 'plant_matter'). Null for non-plant items.
+   */
+  care: PlantCare | null
   created_at: string
   updated_at: string
 }
@@ -199,6 +238,11 @@ export interface SellerSettings {
   biosecurity_destination_preset: string | null
   default_collection_name: string
   default_condition: 'excellent' | 'like_new' | 'good' | 'fair' | null
+  /**
+   * Master list of listing categories available to this seller. Auto-merged
+   * when Aisling proposes a new label that isn't already on the list.
+   */
+  categories: string[]
   created_at: string
   updated_at: string
 }

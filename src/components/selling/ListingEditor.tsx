@@ -15,14 +15,16 @@ import {
 } from 'lucide-react'
 import { Button } from '@thefairies/design-system/components'
 
+import { CategoryPicker } from '@/components/shared/CategoryPicker'
 import { Field } from '@/components/shared/Field'
+import { PlantCareEditor } from '@/components/shared/PlantCareEditor'
 import { proxyImageUrl } from '@/lib/storage-url'
 import {
   ListingCondition,
   ListingStatus,
 } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
-import type { ItemAssessment, Listing } from '@/types/database'
+import type { ItemAssessment, Listing, PlantCare } from '@/types/database'
 
 import styles from './ListingEditor.module.css'
 
@@ -67,6 +69,12 @@ export function ListingEditor({ listing, item }: Props) {
   )
   const [currency, setCurrency] = useState(listing.currency)
   const [condition, setCondition] = useState<string>(listing.condition ?? '')
+  const [category, setCategory] = useState<string | null>(item.category ?? null)
+  const [care, setCare] = useState<PlantCare | null>(item.care ?? null)
+  // Master list is fetched once on mount — categories are seller-scoped and
+  // change rarely. Empty initial state shows just "No category" + "Add new…"
+  // until the fetch resolves; safe because the picker handles both shapes.
+  const [categories, setCategories] = useState<string[]>([])
   const [brand, setBrand] = useState(listing.brand ?? '')
   const [modelName, setModelName] = useState(listing.model_name ?? '')
   const [dimensions, setDimensions] = useState(listing.dimensions ?? '')
@@ -94,6 +102,28 @@ export function ListingEditor({ listing, item }: Props) {
     const t = window.setTimeout(() => setToast(null), 3000)
     return () => window.clearTimeout(t)
   }, [toast])
+
+  // Load the seller's master category list so the picker can render the
+  // available options. Categories are stable enough that a one-shot fetch
+  // is fine — adding a new one updates `categories` locally inline.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const list = (data as { categories?: unknown }).categories
+        if (Array.isArray(list) && list.every((c) => typeof c === 'string')) {
+          setCategories(list as string[])
+        }
+      })
+      .catch(() => {
+        // Non-fatal — the picker still works for "No category" + "Add new…".
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const persistImages = async (next: string[]) => {
     setImages(next)
@@ -149,14 +179,28 @@ export function ListingEditor({ listing, item }: Props) {
     setSaving(true)
     setError(null)
     try {
-      // Save item name first if changed
+      // Collect any item-level changes (name, category, care) into a single
+      // PATCH. Listing-level fields go to /api/listings below.
+      const itemChanges: Record<string, unknown> = {}
       if (name.trim() && name.trim() !== item.item_name) {
+        itemChanges.item_name = name.trim()
+      }
+      if (category !== (item.category ?? null)) {
+        itemChanges.category = category
+      }
+      // Compare care via JSON identity. PlantCareEditor normalises to a
+      // canonical shape (empty fields stripped, or null when fully cleared),
+      // so a string-equal comparison is safe and avoids deep-equal churn.
+      if (JSON.stringify(care) !== JSON.stringify(item.care ?? null)) {
+        itemChanges.care = care
+      }
+      if (Object.keys(itemChanges).length > 0) {
         const res = await fetch(`/api/items/${item.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item_name: name.trim() }),
+          body: JSON.stringify(itemChanges),
         })
-        if (!res.ok) throw new Error('Failed to save item name')
+        if (!res.ok) throw new Error('Failed to save item details')
       }
 
       const parsedPrice = price.trim() === '' ? null : Number(price)
@@ -382,6 +426,34 @@ export function ListingEditor({ listing, item }: Props) {
             ))}
           </select>
         </Field>
+
+        <Field label={ownerCopy.selling.fields.category} htmlFor="listing-category">
+          <CategoryPicker
+            selectId="listing-category"
+            value={category}
+            categories={categories}
+            onChange={setCategory}
+            onCategoriesUpdated={setCategories}
+            selectClassName={styles.select}
+            inputClassName={styles.input}
+            disabled={saving}
+          />
+        </Field>
+
+        {/* Plant care — visible only for plants (by category or biosec class).
+            Reacts to the live category select so toggling to "Plants" reveals
+            the editor immediately, without waiting on a save round-trip. */}
+        {(category === 'Plants' ||
+          item.biosecurity_category === 'plant_matter') && (
+          <PlantCareEditor
+            value={care}
+            onChange={setCare}
+            disabled={saving}
+            inputClassName={styles.input}
+            selectClassName={styles.select}
+            textareaClassName={styles.textarea}
+          />
+        )}
 
         <div className={styles.row}>
           <Field label={ownerCopy.selling.fields.brand} htmlFor="listing-brand" className={styles.flex1}>

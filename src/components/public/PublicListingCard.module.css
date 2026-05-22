@@ -25,12 +25,26 @@
 .imageWrap {
   position: relative;
   display: block;
+  width: 100%;
   aspect-ratio: 1 / 1;
   background: #faf7f1;
   overflow: hidden;
   cursor: pointer;
   color: inherit;
   text-decoration: none;
+  /* Reset button defaults so the wrapping <button> looks like the old <a>. */
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.imageWrap:focus-visible,
+.body:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -2px;
 }
 
 .image {
@@ -123,10 +137,18 @@
 
 .body {
   display: block;
+  width: 100%;
   padding: 12px;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
+  /* Reset button defaults so the body <button> matches the previous <a>. */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
 }
 
 .titleRow {
@@ -154,6 +176,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Care preview sits between the title/price row and the meta row. ~12px
+   above the grid lines up with sale-fairy's `mt-3`; the surrounding meta
+   row keeps its existing 8px top margin so the card rhythm stays consistent
+   for both plant and non-plant listings. */
+.carePreview {
+  margin-top: 12px;
+}
+
 .metaRow {
   margin-top: 8px;
   display: flex;
@@ -168,6 +198,23 @@
   color: var(--color-text-muted, #6b7280);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Category badge: discreet, matches the condition badge's visual weight so
+   it sits in the meta row without claiming attention. Same pill geometry,
+   neutral palette to distinguish it from the tone-coded condition badge. */
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 999px);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  background: var(--color-bg-panel, #f9fafb);
+  color: var(--color-text-secondary, #374151);
+  line-height: 1.4;
   white-space: nowrap;
 }
 

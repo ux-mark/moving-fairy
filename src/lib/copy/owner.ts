@@ -65,6 +65,7 @@ export const ownerCopy = {
       details: 'Details',
       status: 'Status',
       photos: 'Photos',
+      category: 'Category',
     },
     conditionLabels: {
       excellent: 'Excellent',
@@ -75,6 +76,12 @@ export const ownerCopy = {
     savedToast: 'Listing saved.',
     soldToast: 'Marked as sold.',
     uploadFailed: 'Photo upload failed. Try again.',
+    categoryNoCategory: 'No category',
+    categoryAddNewOption: '+ Add new category…',
+    categoryAddPlaceholder: 'e.g. Garden tools',
+    categoryAddButton: 'Add',
+    categoryAddCancel: 'Cancel',
+    categoryAddFailed: 'Couldn\'t add the category. Try again.',
   },
   itinerary: {
     heading: 'Itinerary',
@@ -117,6 +124,16 @@ export const ownerCopy = {
       discountHelper:
         'How much off when buyers bundle items. Lower bound is the number of items they buy at once.',
       defaultCondition: 'Default condition for new listings',
+      categories: 'Categories',
+      categoriesHelper:
+        'Used to group your listings on the public sale page. Aisling may suggest a category — anything new gets added here automatically.',
+      categoriesAddPlaceholder: 'e.g. Garden tools',
+      categoriesAddButton: 'Add',
+      categoriesAddEmpty: 'Add at least one category — categories help buyers browse.',
+      categoriesRemoveLabel: 'Remove category',
+      categoriesRemoveWarning:
+        'Removing a category won\'t change items already assigned to it.',
+      categoriesEmpty: 'No categories yet. Add one below to get started.',
       saveToast: 'Settings saved.',
     },
     shipments: {

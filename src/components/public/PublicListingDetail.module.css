@@ -1,0 +1,185 @@
+/* Shared layout for the listing-detail surface — rendered both by the full
+   `[slug]` page (variant=page, two-column on wide viewports) and the right-hand
+   slide-in panel (variant=panel, always single column inside a 480px sheet). */
+
+.layoutPage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 800px) {
+  .layoutPage {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 32px;
+    align-items: start;
+  }
+}
+
+.layoutPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gallery {
+  background: #fff;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  overflow: hidden;
+}
+
+.layoutPanel .gallery {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.info {
+  background: #fff;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  padding: 20px;
+}
+
+.layoutPanel .info {
+  border: none;
+  border-radius: 0;
+  padding: 0 20px 20px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+}
+
+@media (min-width: 768px) {
+  .layoutPage .title {
+    font-size: 26px;
+  }
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.unavailable {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.categoryLine {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #374151);
+  line-height: 1.4;
+}
+
+.categoryLineLabel {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 500;
+}
+
+.statusNote {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-bg-panel, #f9fafb);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+}
+
+.details {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary, #374151);
+  white-space: pre-line;
+}
+
+.specs {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.specsHeading {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0 0 10px;
+}
+
+.specGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.specRow {
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+}
+
+.specLabel {
+  font-size: 11px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.specValue {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 2px 0 0;
+  color: var(--color-text-primary);
+}
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Plant-care callout — bordered card, sits between specs and actions.
+   Same outer chrome as `.specRow` but with its own heading and rhythm so it
+   reads as a distinct callout rather than another spec line. */
+.care {
+  margin-top: 20px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-bg-panel, #f9fafb);
+}
+
+.careHeading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+/* Grid + dots styling moved to PlantCareIcons.module.css — only the
+   callout chrome (border, padding, heading) lives here now. */

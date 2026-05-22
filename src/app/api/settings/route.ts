@@ -26,7 +26,12 @@ interface PatchSettingsBody {
   biosecurity_destination_preset?: string | null
   default_collection_name?: string
   default_condition?: 'excellent' | 'like_new' | 'good' | 'fair' | null
+  categories?: string[]
 }
+
+// Matches the constraint in src/app/api/items/[id]/route.ts so an owner can't
+// hand-craft a category through one surface that the other would reject.
+const CATEGORY_MAX_LENGTH = 80
 
 const ALLOWED_CONDITIONS = ['excellent', 'like_new', 'good', 'fair'] as const
 
@@ -79,6 +84,30 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: false, error: 'discount_tiers must be an array of {min, max, percent}' }, { status: 400 })
     }
     changes.discount_tiers = body.discount_tiers
+  }
+  if (body.categories !== undefined) {
+    if (!Array.isArray(body.categories) || !body.categories.every((c) => typeof c === 'string')) {
+      return Response.json({ ok: false, error: 'categories must be an array of strings' }, { status: 400 })
+    }
+    // Normalise: trim, drop empties, dedupe case-insensitively while
+    // preserving the order the client sent us.
+    const seen = new Set<string>()
+    const normalised: string[] = []
+    for (const raw of body.categories) {
+      const trimmed = raw.trim()
+      if (!trimmed) continue
+      if (trimmed.length > CATEGORY_MAX_LENGTH) {
+        return Response.json(
+          { ok: false, error: `Each category must be ${CATEGORY_MAX_LENGTH} characters or fewer` },
+          { status: 400 },
+        )
+      }
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      normalised.push(trimmed)
+    }
+    changes.categories = normalised
   }
 
   if (Object.keys(changes).length === 0) {

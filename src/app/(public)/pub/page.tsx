@@ -1,9 +1,9 @@
+import { Suspense } from 'react'
 import { buyerCopy } from '@/lib/copy/buyer'
 import type { DiscountTier } from '@/lib/discount'
 import { getPublishedListings, type PublicListing } from '@/mcp/listings'
 import { getSettings } from '@/mcp/settings'
-import { PublicBundleBar } from '@/components/public/PublicBundleBar'
-import { PublicListingCard } from '@/components/public/PublicListingCard'
+import { PublicCollection } from '@/components/public/PublicCollection'
 import styles from './page.module.css'
 
 /**
@@ -69,20 +69,15 @@ export default async function PublicHomePage() {
         </div>
       </header>
 
-      {listings.length === 0 ? (
-        <section className={styles.empty} aria-label="Empty collection">
-          <h2 className={styles.emptyHeading}>{buyerCopy.emptyCollectionHeading}</h2>
-          <p className={styles.emptyBody}>{buyerCopy.emptyCollectionBody}</p>
-        </section>
-      ) : (
-        <section className={styles.grid} aria-label="Items for sale">
-          {listings.map((listing) => (
-            <PublicListingCard key={listing.id} listing={listing} />
-          ))}
-        </section>
-      )}
-
-      <PublicBundleBar listings={listings} discountTiers={tiers} contactEmail={contactEmail} />
+      {/* Suspense boundary required for useSearchParams() inside PublicCollection.
+          Fallback is empty — the static hero above stays visible during hydration. */}
+      <Suspense fallback={null}>
+        <PublicCollection
+          listings={listings}
+          discountTiers={tiers}
+          contactEmail={contactEmail}
+        />
+      </Suspense>
     </main>
   )
 }

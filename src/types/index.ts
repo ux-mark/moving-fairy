@@ -3,6 +3,7 @@ export type {
   BoxItem,
   Equipment,
   ItemAssessment,
+  PlantCare,
   TransformerEquipment,
   UserProfile,
 } from './database'

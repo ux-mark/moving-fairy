@@ -1,0 +1,132 @@
+/* Grid + empty-state layout for the buyer collection. Same dimensions and
+   breakpoints as the previous server-rendered grid — only difference is this
+   markup now lives inside a client wrapper so it can host the panel state. */
+
+.chipRail {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+  /* Horizontal scroll on narrow viewports so chips never wrap into a
+     multi-row pile that pushes the grid down. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.chipRail::-webkit-scrollbar {
+  display: none;
+}
+
+.chipRailInner {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  /* Padding-right keeps the trailing chip clear of the viewport edge when the
+     rail overflows horizontally. */
+  padding-right: 20px;
+}
+
+.chip {
+  appearance: none;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.chip:hover {
+  background: var(--color-bg-panel, #f9fafb);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.chipActive {
+  background: var(--color-primary, #16a34a);
+  border-color: var(--color-primary, #16a34a);
+  color: #fff;
+}
+
+.chipActive:hover {
+  background: var(--color-primary, #16a34a);
+  filter: brightness(1.08);
+}
+
+.chipCount {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.clearFilterBtn {
+  margin-top: 16px;
+  appearance: none;
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.clearFilterBtn:hover {
+  filter: brightness(1.08);
+}
+
+.grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.empty {
+  max-width: 480px;
+  margin: 80px auto;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.emptyHeading {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.emptyBody {
+  margin: 8px 0 0;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 14px;
+  line-height: 1.5;
+}

@@ -1,0 +1,85 @@
+/* Sale-fairy-derived palette for the plant-care icon tiles. Four tints, each
+   pairing a pale background with a darker glyph colour. Defined as locally-
+   scoped CSS variables so the values live next to the component that uses
+   them — the buyer surface is the only consumer right now. */
+.tile {
+  --tile-bg-sun:    hsl(38 92% 95%);
+  --tile-fg-sun:    hsl(28 90% 42%);
+  --tile-bg-sky:    hsl(199 89% 95%);
+  --tile-fg-sky:    hsl(199 90% 38%);
+  --tile-bg-soil:   hsl(25 35% 94%);
+  --tile-fg-soil:   hsl(20 35% 38%);
+  --tile-bg-leaf:   hsl(160 80% 94%);
+  --tile-fg-leaf:   hsl(160 84% 30%);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+
+.tileSun  { background: var(--tile-bg-sun);  color: var(--tile-fg-sun); }
+.tileSky  { background: var(--tile-bg-sky);  color: var(--tile-fg-sky); }
+.tileSoil { background: var(--tile-bg-soil); color: var(--tile-fg-soil); }
+.tileLeaf { background: var(--tile-bg-leaf); color: var(--tile-fg-leaf); }
+
+/* 2x2 grid of care cells — used by both the listing card preview and the
+   detail panel. Same shape in both surfaces; the panel variant just adds a
+   prose summary below. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8px;
+  row-gap: 8px;
+}
+
+/* One care cell: tile on the left, label-over-value on the right. The cell
+   stays on a single row; the value truncates when narrow rather than
+   wrapping under the tile (matches sale-fairy's `truncate` behaviour). */
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cellText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.cellLabel {
+  font-size: 11px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.cellValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Panel variant: same grid as the card preview, plus a prose paragraph
+   underneath separated by a hairline rule. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panelSummary {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #374151);
+}

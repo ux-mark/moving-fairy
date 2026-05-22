@@ -20,6 +20,22 @@ const DEFAULT_DISCOUNT_TIERS: DiscountTier[] = [
 ]
 
 /**
+ * Default master list of listing categories. Mirrors the SQL default in
+ * 20260521000002_listing_categories.sql so a row inserted from this code
+ * path matches what Postgres would write.
+ */
+const DEFAULT_CATEGORIES: string[] = [
+  'Plants',
+  'Kitchen & appliances',
+  'Furniture',
+  'Electronics',
+  'Tools & hardware',
+  'Home & decor',
+  'Outdoor & garden',
+  'Other',
+]
+
+/**
  * Read seller settings for a user. If the row doesn't exist yet, insert a
  * default row and return it — common Supabase pattern for 1:1 child tables
  * with sensible defaults.
@@ -44,6 +60,7 @@ export async function getSettings(userProfileId: string): Promise<SellerSettings
       discount_tiers: DEFAULT_DISCOUNT_TIERS,
       default_collection_name: 'For sale',
       default_condition: null,
+      categories: DEFAULT_CATEGORIES,
     })
     .select()
     .single()
@@ -63,6 +80,7 @@ type SellerSettingsUpdatable = Partial<Pick<SellerSettings,
   | 'biosecurity_destination_preset'
   | 'default_collection_name'
   | 'default_condition'
+  | 'categories'
 >>
 
 export async function updateSettings(
@@ -84,4 +102,31 @@ export async function updateSettings(
 
   if (error || !data) throw new Error(error?.message ?? 'Failed to update seller settings')
   return data as SellerSettings
+}
+
+/**
+ * Append a category to the seller's master list if it isn't already present
+ * (case-insensitive match). Idempotent — calling with an existing name is a
+ * no-op. Used by Aisling's persistence path when she proposes a label that
+ * doesn't already exist on the seller's list.
+ */
+export async function addCategory(
+  userProfileId: string,
+  name: string,
+): Promise<SellerSettings> {
+  const trimmed = name.trim()
+  if (!trimmed) {
+    // Nothing to do — return current settings unchanged.
+    return getSettings(userProfileId)
+  }
+
+  const settings = await getSettings(userProfileId)
+  const current = settings.categories ?? []
+
+  const alreadyPresent = current.some(
+    (existing) => existing.toLowerCase() === trimmed.toLowerCase(),
+  )
+  if (alreadyPresent) return settings
+
+  return updateSettings(userProfileId, { categories: [...current, trimmed] })
 }
