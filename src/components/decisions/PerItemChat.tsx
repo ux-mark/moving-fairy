@@ -30,6 +30,10 @@ interface PerItemChatProps {
   /** Navigation back to the list page (Decisions or Boxes). */
   backHref?: string | undefined
   backLabel?: string | undefined
+  /** When true, suppress the chat's own header chrome (title, collapse,
+   *  maximise icons). Use this when embedding the chat inside a host that
+   *  already provides a title bar (e.g. the ItemDetailDrawer tabs). */
+  hideHeader?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -48,6 +52,7 @@ export function PerItemChat({
   onCollapse,
   backHref,
   backLabel,
+  hideHeader = false,
 }: PerItemChatProps) {
   const { messages, isStreaming, isLoadingHistory, error, toolStatus, loadHistory, sendMessage, clearError } =
     usePerItemChat({
@@ -59,8 +64,10 @@ export function PerItemChat({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const loadedRef = useRef<string | null>(null)
 
-  // Collapsed state (only meaningful in non-fullscreen mode)
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  // Collapsed state (only meaningful in non-fullscreen mode).
+  // When embedded with hideHeader, the host controls visibility — chat is
+  // always-on so we initialise expanded and ignore the toggle internally.
+  const [isCollapsed, setIsCollapsed] = useState(!hideHeader)
 
   // Track whether streaming has ever occurred so we only focus-return post-stream,
   // not on initial mount.
@@ -335,56 +342,59 @@ export function PerItemChat({
         </div>
       )}
 
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerRow}>
-          <h2 className={styles.headerTitle}>Chat with Aisling</h2>
-          <div className={styles.headerActions}>
-            {/* Full-screen toggle */}
-            <button
-              ref={fullscreenTriggerRef as React.RefObject<HTMLButtonElement>}
-              type="button"
-              className={styles.headerIconButton}
-              onClick={onToggleFullscreen}
-              aria-label="Open full-screen chat"
-              title="Full-screen chat"
-            >
-              <Maximize2 size={16} aria-hidden="true" />
-            </button>
-            {/* Collapse toggle (inline expand/collapse) */}
-            <button
-              type="button"
-              className={styles.headerIconButton}
-              onClick={() => setIsCollapsed((c) => !c)}
-              aria-expanded={!isCollapsed}
-              aria-controls="per-item-chat-messages"
-              aria-label={isCollapsed ? 'Expand chat' : 'Collapse chat'}
-            >
-              {isCollapsed
-                ? <ChevronDown size={16} aria-hidden="true" />
-                : <ChevronUp size={16} aria-hidden="true" />
-              }
-            </button>
-            {/* Close sheet button — only shown when parent provides onCollapse */}
-            {onCollapse && (
+      {/* Header — hidden when the host (e.g. ItemDetailDrawer) already
+          provides a title bar and tab strip. */}
+      {!hideHeader && (
+        <div className={styles.header}>
+          <div className={styles.headerRow}>
+            <h2 className={styles.headerTitle}>Chat with Aisling</h2>
+            <div className={styles.headerActions}>
+              {/* Full-screen toggle */}
+              <button
+                ref={fullscreenTriggerRef as React.RefObject<HTMLButtonElement>}
+                type="button"
+                className={styles.headerIconButton}
+                onClick={onToggleFullscreen}
+                aria-label="Open full-screen chat"
+                title="Full-screen chat"
+              >
+                <Maximize2 size={16} aria-hidden="true" />
+              </button>
+              {/* Collapse toggle (inline expand/collapse) */}
               <button
                 type="button"
                 className={styles.headerIconButton}
-                onClick={onCollapse}
-                aria-label="Close chat"
-                title="Close chat"
+                onClick={() => setIsCollapsed((c) => !c)}
+                aria-expanded={!isCollapsed}
+                aria-controls="per-item-chat-messages"
+                aria-label={isCollapsed ? 'Expand chat' : 'Collapse chat'}
               >
-                <XIcon size={16} aria-hidden="true" />
+                {isCollapsed
+                  ? <ChevronDown size={16} aria-hidden="true" />
+                  : <ChevronUp size={16} aria-hidden="true" />
+                }
               </button>
-            )}
+              {/* Close sheet button — only shown when parent provides onCollapse */}
+              {onCollapse && (
+                <button
+                  type="button"
+                  className={styles.headerIconButton}
+                  onClick={onCollapse}
+                  aria-label="Close chat"
+                  title="Close chat"
+                >
+                  <XIcon size={16} aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
+          {!isCollapsed && (
+            <p className={styles.headerSubtitle}>
+              Ask Aisling anything about this item — she can revise her assessment based on what you tell her.
+            </p>
+          )}
         </div>
-        {!isCollapsed && (
-          <p className={styles.headerSubtitle}>
-            Ask Aisling anything about this item — she can revise her assessment based on what you tell her.
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Message list — hidden when collapsed */}
       {!isCollapsed && (

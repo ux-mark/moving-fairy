@@ -6,10 +6,14 @@ import { ConfirmDialog, Button } from '@thefairies/design-system/components'
 import { Camera, Sparkles } from 'lucide-react'
 
 import { useItems } from '@/lib/hooks/useItems'
+import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
 import { ItemCard } from '@/components/decisions/ItemCard'
+import { ItemTile } from '@/components/items/ItemTile'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
 import { BatchUploadButton } from '@/components/decisions/BatchUploadButton'
 import { TextAddInput } from '@/components/decisions/TextAddInput'
+import { ItemDetailDrawer } from '@/components/items/ItemDetailDrawer'
+import { Fab } from '@/components/layout/Fab'
 import { ListingStatus, Verdict } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { ownerCopy } from '@/lib/copy/owner'
@@ -102,6 +106,8 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeFilters = parseFilters(searchParams.get('status'))
+  const isDesktop = useIsDesktop()
+  const selectedItemId = searchParams.get('item')
 
   // Live items via the existing hook for realtime updates.
   const {
@@ -228,7 +234,29 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const handleVerdictChange = async (id: string, verdict: string) => {
     await updateVerdict(id, verdict)
     setPickerItemId(null)
+    markJustDecided(id)
   }
+
+  // ── Delight: track items that were just decided so the tile can flash ──
+  const [justDecidedIds, setJustDecidedIds] = useState<Set<string>>(new Set())
+
+  const markJustDecided = useCallback((id: string) => {
+    setJustDecidedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    // Animation runs for ~2.6s; clear shortly after so the same item can
+    // trigger again on a future verdict change.
+    setTimeout(() => {
+      setJustDecidedIds((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, 3000)
+  }, [])
 
   // ── Delete-from-list ───────────────────────────────────────────────────
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -262,6 +290,21 @@ export function ItemsView({ profileId, initialItems }: Props) {
 
   const hasAnyItems = itemsWithCtx.length > 0
 
+  // ── Cockpit rail data (desktop only — CSS hides it on mobile) ──────────
+  const totalCount = itemsWithCtx.length
+  const doneCount = counts.done
+  const needsDecisionCount = counts['needs-decision']
+  const toPackCount = counts['to-pack']
+  const toSellCount = counts['to-sell']
+  const percentDone = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
+  const nextUp = useMemo(
+    () =>
+      itemsWithCtx
+        .filter((ctx) => bucketFor(ctx) === 'needs-decision')
+        .slice(0, 3),
+    [itemsWithCtx],
+  )
+
   return (
     <div className={styles.root}>
       <header className={styles.header}>
@@ -275,6 +318,10 @@ export function ItemsView({ profileId, initialItems }: Props) {
           <TextAddInput onSubmit={handleAddByText} disabled={isLoading} />
         </div>
       )}
+
+      {/* Cockpit grid: list left, progress rail right (desktop only). */}
+      <div className={styles.cockpit}>
+      <div className={styles.cockpitMain}>
 
       {/* Filter chips */}
       {hasAnyItems && (
@@ -370,19 +417,49 @@ export function ItemsView({ profileId, initialItems }: Props) {
         <ul className={styles.list} aria-label="Items">
           {filtered.map((ctx) => (
             <li key={ctx.item.id} className={styles.row}>
-              <ItemCard
-                item={ctx.item}
-                onConfirm={(id) => { confirmItem(id).catch(console.error) }}
-                onRetry={(id) => { retryAssessment(id).catch(console.error) }}
-                onClick={(id) => router.push(`/decisions/${id}`)}
-                onVerdictChange={() =>
-                  setPickerItemId((prev) => (prev === ctx.item.id ? null : ctx.item.id))
+              {/* Decision surface vs browse surface: once an item has a
+                  decided verdict, the whole card becomes a scannable tile that
+                  opens the detail drawer to edit. Items that still need a
+                  decision keep the rich card with inline Accept / Change
+                  verdict actions so the user can decide in place. */}
+              {(() => {
+                const isDecided = bucketFor(ctx) !== 'needs-decision'
+                const handleCardClick = (id: string) => {
+                  if (isDesktop) {
+                    const params = new URLSearchParams(searchParams.toString())
+                    params.set('item', id)
+                    router.replace(`/items?${params.toString()}`, { scroll: false })
+                  } else {
+                    router.push(`/decisions/${id}`)
+                  }
                 }
-                onDelete={(id) => {
-                  setDeleteError(null)
-                  setPendingDeleteId(id)
-                }}
-              />
+                return isDecided ? (
+                  <ItemTile
+                    item={ctx.item}
+                    justDecided={justDecidedIds.has(ctx.item.id)}
+                    onClick={handleCardClick}
+                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
+                  />
+                ) : (
+                  <ItemCard
+                    item={ctx.item}
+                    justDecided={justDecidedIds.has(ctx.item.id)}
+                    onConfirm={(id) => {
+                      confirmItem(id).catch(console.error)
+                      markJustDecided(id)
+                    }}
+                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
+                    onClick={handleCardClick}
+                    onVerdictChange={() =>
+                      setPickerItemId((prev) => (prev === ctx.item.id ? null : ctx.item.id))
+                    }
+                    onDelete={(id) => {
+                      setDeleteError(null)
+                      setPendingDeleteId(id)
+                    }}
+                  />
+                )
+              })()}
               {pickerItemId === ctx.item.id && ctx.item.verdict && (
                 <div className={styles.pickerWrap}>
                   <VerdictPicker
@@ -397,6 +474,111 @@ export function ItemsView({ profileId, initialItems }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      </div>{/* /.cockpitMain */}
+
+      {/* Cockpit rail — visible on desktop only via CSS. */}
+      {hasAnyItems && (
+        <aside className={styles.cockpitRail} aria-label="Progress at a glance">
+          <div className={styles.railCard}>
+            <p className={styles.railEyebrow}>Progress</p>
+            <div className={styles.railProgressRow}>
+              <span className={styles.railProgressNumber}>{percentDone}%</span>
+              <span className={styles.railProgressLabel}>decided</span>
+            </div>
+            <div
+              className={styles.railProgressTrack}
+              role="progressbar"
+              aria-valuenow={percentDone}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${doneCount} of ${totalCount} items decided`}
+            >
+              <span
+                className={styles.railProgressFill}
+                style={{ width: `${percentDone}%` }}
+              />
+            </div>
+            <dl className={styles.railStats}>
+              <div className={styles.railStat}>
+                <dt>To decide</dt>
+                <dd>{needsDecisionCount}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>To pack</dt>
+                <dd>{toPackCount}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>To sell</dt>
+                <dd>{toSellCount}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Done</dt>
+                <dd>{doneCount}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {nextUp.length > 0 && (
+            <div className={styles.railCard}>
+              <p className={styles.railEyebrow}>What&rsquo;s next</p>
+              <ul className={styles.railNextList}>
+                {nextUp.map((ctx) => (
+                  <li key={ctx.item.id}>
+                    <button
+                      type="button"
+                      className={styles.railNextItem}
+                      onClick={() => router.push(`/decisions/${ctx.item.id}`)}
+                    >
+                      <span className={styles.railNextName}>
+                        {ctx.item.item_name || 'Unnamed item'}
+                      </span>
+                      <span className={styles.railNextHint}>Decide →</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
+      )}
+
+      </div>{/* /.cockpit */}
+
+      {/* In-place item detail drawer (desktop only). Closes via Escape, the
+          backdrop, or removing ?item from the URL. The full route still works
+          for direct links / refreshes — links surface via the drawer header. */}
+      {isDesktop && selectedItemId && (() => {
+        const selectedItem = items.find((i) => i.id === selectedItemId)
+        if (!selectedItem) return null
+        return (
+          <ItemDetailDrawer
+            item={selectedItem}
+            onRetry={async (id) => { await retryAssessment(id) }}
+            onItemUpdate={(updated) => {
+              refresh()
+              // Any save inside the drawer (verdict, confirm, reassessment)
+              // triggers the just-decided beat on the matching tile.
+              markJustDecided(updated.id)
+            }}
+            onClose={() => {
+              const params = new URLSearchParams(searchParams.toString())
+              params.delete('item')
+              const qs = params.toString()
+              router.replace(qs ? `/items?${qs}` : '/items', { scroll: false })
+            }}
+          />
+        )
+      })()}
+
+      {hasAnyItems && (
+        <Fab
+          label="Add"
+          icon={<Camera size={20} aria-hidden="true" />}
+          onClick={() => document.getElementById('batch-upload-trigger')?.click()}
+          title="Add an item via photo"
+        />
       )}
 
       <ConfirmDialog

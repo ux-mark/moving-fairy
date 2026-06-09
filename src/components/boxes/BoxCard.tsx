@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ChevronDown,
   Package,
   Briefcase,
   Luggage,
@@ -14,6 +13,7 @@ import {
   Check,
   Pencil,
   Info,
+  ShieldAlert,
 } from "lucide-react";
 import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
@@ -27,9 +27,11 @@ import { StickerLightbox } from "@/components/boxes/StickerLightbox";
 import { StickerScanButton } from "@/components/boxes/StickerScanButton";
 import { StickerScanSummary } from "@/components/boxes/StickerScanSummary";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS } from "@/lib/constants";
+import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS, BOX_LABEL_PREFIX, roomCode } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/storage-url";
+import { ownerCopy } from "@/lib/copy/owner";
+import { useDroppableBox } from "@/components/boxes/PackingDrag";
 
 import styles from "./BoxCard.module.css";
 
@@ -60,7 +62,24 @@ interface BoxCardProps {
   onAddExistingItem?: ((boxId: string, assessmentId: string) => void) | undefined;
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
-  onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
+  onUpdateBox?: ((boxId: string, updates: { label?: string; room_name?: string; room_code?: string; size?: string; is_biosecurity?: boolean }) => void) | undefined;
+  /** Whether this is the active "packing into" box (left accent + Active chip). */
+  isActive?: boolean | undefined;
+  /** Select / deselect this box as the active "packing into" target. */
+  /** Set this box active (click the header body). Only wired for packing boxes. */
+  onSetActive?: ((active: boolean) => void) | undefined;
+  /** Count of biosecurity-flagged items in this box — drives the nudge. */
+  /** Count of biosecurity-flagged items currently in this box. >0 auto-marks
+   *  the box as biosecurity (badge), independent of the manual override. */
+  biosecItemCount?: number | undefined;
+  /** Manually mark this box as biosecurity (override for boxes with no flagged
+   *  items). Boxes that contain flagged items are marked automatically. */
+  onMarkBiosecurity?: ((boxId: string) => void) | undefined;
+  /** Renumber this box. The handler decides swap-vs-confirm against the list. */
+  onRenumber?: ((boxId: string, newNumber: number) => void) | undefined;
+  /** When set, this card is a live pointer-drag drop target. The id is written
+   *  to `data-droppable-box-id` and used to read the hovered-target state. */
+  droppableBoxId?: string | undefined;
   /** Sticker scan state — set when a scan has been initiated or completed */
   scanResult?: ScanResult | null | undefined;
   /** Flagged items from sticker scan that need user action */
@@ -75,6 +94,13 @@ interface BoxCardProps {
   isScanning?: boolean | undefined;
   /** Item IDs currently being resolved (ship anyway / remove) */
   resolvingItemIds?: Set<string> | undefined;
+  /** Controlled open state. When undefined, BoxCard manages its own expand/collapse. */
+  open?: boolean | undefined;
+  /** Called when the user toggles. Required if `open` is provided. */
+  onOpenChange?: ((open: boolean) => void) | undefined;
+  /** Hide the chevron and disable header click — used when rendered inside a drawer
+   *  where the card is always fully expanded and a close button lives elsewhere. */
+  hideExpandAffordance?: boolean | undefined;
 }
 
 function BoxIcon({ boxType }: { boxType: Box["box_type"] }) {
@@ -479,6 +505,174 @@ function EditableLabel({
 }
 
 // ---------------------------------------------------------------------------
+// Editable room code — the per-ROOM suffix after WH<nn>-. Editing it relabels
+// every box in the room (the code is room-scoped, not per-box).
+// ---------------------------------------------------------------------------
+
+function EditableCodeChip({
+  prefix,
+  code,
+  roomName,
+  onSave,
+  disabled,
+}: {
+  prefix: string;
+  code: string;
+  roomName: string;
+  onSave: (newCode: string) => void;
+  disabled: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(code);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const title = `Code for all ${roomName} boxes`;
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const startEditing = useCallback(() => {
+    setDraft(code);
+    setEditing(true);
+  }, [code]);
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== code) {
+      onSave(trimmed);
+    } else {
+      setDraft(code);
+    }
+    setEditing(false);
+  }, [draft, code, onSave]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setDraft(code);
+        setEditing(false);
+      }
+    },
+    [commit, code]
+  );
+
+  if (editing) {
+    return (
+      <span className={styles.codeChip} title={title}>
+        {prefix}
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          // Keep entry constrained to the stored format: letters/digits, ≤4.
+          onChange={(e) =>
+            setDraft(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 4))
+          }
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          className={styles.codeChipInput}
+          aria-label={title}
+          maxLength={4}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.codeChipButton}
+      onClick={(e) => {
+        if (disabled) return;
+        e.stopPropagation();
+        startEditing();
+      }}
+      disabled={disabled}
+      title={title}
+      aria-label={`${title}: ${code}. Edit.`}
+    >
+      <span className={styles.codeChip}>
+        {prefix}
+        {code}
+      </span>
+      {!disabled && (
+        <Pencil
+          className={styles.editIcon}
+          style={{ width: 12, height: 12 }}
+          aria-hidden
+        />
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Box number editor — renumber a box (the NN in WHNN-K)
+// ---------------------------------------------------------------------------
+
+function BoxNumberField({
+  currentNumber,
+  onApply,
+  disabled,
+}: {
+  currentNumber: number;
+  onApply: (n: number) => void;
+  disabled: boolean;
+}) {
+  const [draft, setDraft] = useState(String(currentNumber));
+  const [lastNumber, setLastNumber] = useState(currentNumber);
+  // Re-seed when the server-confirmed number changes (e.g. after a swap).
+  if (currentNumber !== lastNumber) {
+    setLastNumber(currentNumber);
+    setDraft(String(currentNumber));
+  }
+
+  const commit = () => {
+    const n = parseInt(draft, 10);
+    if (!Number.isInteger(n) || n < 1) {
+      setDraft(String(currentNumber));
+      return;
+    }
+    if (n !== currentNumber) onApply(n);
+    else setDraft(String(currentNumber));
+  };
+
+  return (
+    <div className={styles.renumberRow}>
+      <span className={styles.renumberLabel}>Box number</span>
+      <input
+        type="number"
+        min={1}
+        inputMode="numeric"
+        className={styles.renumberInput}
+        value={draft}
+        disabled={disabled}
+        aria-label="Box number"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            setDraft(String(currentNumber));
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Size editor with dimension disclosure
 // ---------------------------------------------------------------------------
 
@@ -855,9 +1049,33 @@ export function BoxCard({
   onRemoveFlaggedItem,
   isScanning = false,
   resolvingItemIds,
+  open: openProp,
+  onOpenChange,
+  hideExpandAffordance = false,
+  isActive = false,
+  onSetActive,
+  biosecItemCount = 0,
+  onMarkBiosecurity,
+  onRenumber,
+  droppableBoxId,
 }: BoxCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  // Controlled when `open` is supplied, else internal state.
+  const isControlled = openProp !== undefined;
+  const isOpen = isControlled ? openProp : internalOpen;
+  const setIsOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === 'function' ? next(isOpen) : next;
+      if (isControlled) onOpenChange?.(value);
+      else setInternalOpen(value);
+    },
+    [isControlled, isOpen, onOpenChange],
+  );
   const [isAnimating, setIsAnimating] = useState(true);
+  // True only while THIS card is the box under the pointer during a drag. The
+  // single source of the "active target" highlight — the rest of the board
+  // stays calm.
+  const isDropTarget = useDroppableBox(droppableBoxId);
   const [confirmPackedOpen, setConfirmPackedOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [localStickerUrl, setLocalStickerUrl] = useState<string | null>(null);
@@ -894,15 +1112,26 @@ export function BoxCard({
     box.box_type !== BoxType.CARRYON &&
     box.box_type !== BoxType.CHECKED_LUGGAGE;
 
+  // Desktop list cards are controlled-closed and open a right-hand drawer when
+  // clicked; mobile cards expand inline; the in-drawer card is always open.
+  // In drawer-trigger mode the whole card is one click target, so the inline
+  // name/size editors are deferred to the drawer (where there's room and the
+  // dropdowns aren't clipped) rather than intercepting the click.
+  const opensDrawer = isControlled && !hideExpandAffordance;
+  const canEditSize =
+    !!onUpdateBox &&
+    isPacking &&
+    !opensDrawer &&
+    box.box_type !== BoxType.CARRYON &&
+    box.box_type !== BoxType.CHECKED_LUGGAGE;
+
   const handleToggle = useCallback(() => {
-    setIsOpen((prev) => {
-      if (!prev) {
-        // Opening: reset isAnimating so overflow is clipped during enter animation
-        setIsAnimating(true);
-      }
-      return !prev;
-    });
-  }, []);
+    if (!isOpen) {
+      // Opening: reset isAnimating so overflow is clipped during enter animation
+      setIsAnimating(true);
+    }
+    setIsOpen(!isOpen);
+  }, [isOpen, setIsOpen]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -935,9 +1164,10 @@ export function BoxCard({
     setConfirmPackedOpen(false);
   }, [box.id, onMarkPacked]);
 
-  const handleLabelSave = useCallback(
-    (newLabel: string) => {
-      onUpdateBox?.(box.id, { label: newLabel });
+  const handleRoomNameSave = useCallback(
+    (newName: string) => {
+      // The backend re-derives the WH label letter/number from the new name.
+      onUpdateBox?.(box.id, { room_name: newName });
     },
     [box.id, onUpdateBox]
   );
@@ -945,6 +1175,14 @@ export function BoxCard({
   const handleSizeChange = useCallback(
     (newSize: BoxSize) => {
       onUpdateBox?.(box.id, { size: newSize });
+    },
+    [box.id, onUpdateBox]
+  );
+
+  const handleRoomCodeSave = useCallback(
+    (newCode: string) => {
+      // Room-scoped: the server relabels every box in this room.
+      onUpdateBox?.(box.id, { room_code: newCode });
     },
     [box.id, onUpdateBox]
   );
@@ -997,50 +1235,125 @@ export function BoxCard({
       : `Mark ${box.label} as packed? You can still edit it later.`;
   const confirmPackedLabel = unresolvedFlagCount > 0 ? "Pack anyway" : "Yes, packed";
 
+  // Biosecurity nudge: pure function of box contents + the box flag, minus a
+  // session-only dismissal.
+  // A box reads as biosecurity automatically when it holds any flagged item;
+  // the stored is_biosecurity is a manual override layered on top.
+  const boxIsBiosec = box.is_biosecurity || biosecItemCount > 0;
+  // Manual-override mark only makes sense for a box with no flagged items
+  // (flagged boxes are already biosecurity automatically).
+  const canManuallyMark =
+    isPacking && !box.is_biosecurity && biosecItemCount === 0 && !!onMarkBiosecurity;
+
+  // Header body click sets this box active (packing boxes only); the chevron
+  // and edit controls stop propagation so they keep their own behaviour.
+  const handleHeaderClick = useCallback(() => {
+    // Card click opens the drawer (desktop) or toggles the accordion (mobile).
+    // Choosing the active "packing into" box is the checkbox, not a body click.
+    if (opensDrawer) {
+      handleToggle();
+      return;
+    }
+    if (!hideExpandAffordance) handleToggle();
+  }, [opensDrawer, hideExpandAffordance, handleToggle]);
+
   return (
     <>
       <div
-        className={cn(styles.card, isShipped && styles.cardShipped)}
+        className={cn(
+          styles.card,
+          isShipped && styles.cardShipped,
+          isActive && styles.cardActive,
+          // Single, calm highlight: ONLY the card under the pointer lights up.
+          // The rest of the board is untouched during a drag.
+          isDropTarget && styles.cardDropTarget,
+          opensDrawer && styles.cardClickable,
+        )}
         data-open={isOpen ? "true" : "false"}
         data-box-type={box.box_type}
+        {...(droppableBoxId ? { [`data-droppable-box-id`]: droppableBoxId } : {})}
       >
-        {/* Collapsed header — always visible */}
+        {/* Collapsed header — always visible. When `hideExpandAffordance` is on,
+            the header is not interactive (drawer mode: box is always open). */}
         <div
-          role="button"
-          tabIndex={0}
-          onClick={handleToggle}
-          onKeyDown={handleKeyDown}
+          {...(hideExpandAffordance
+            ? {}
+            : {
+                role: 'button' as const,
+                tabIndex: 0,
+                onClick: handleHeaderClick,
+                onKeyDown: handleKeyDown,
+              })}
           className={styles.header}
-          aria-expanded={isOpen}
-          aria-label={`${box.label}, ${items.length} ${items.length === 1 ? "item" : "items"}, status: ${box.status}`}
+          aria-expanded={hideExpandAffordance ? undefined : isOpen}
+          aria-label={`${box.label}, ${items.length} ${items.length === 1 ? "item" : "items"}, status: ${box.status}${isActive ? ", packing into this box" : ""}`}
         >
+          {onSetActive && isPacking && (
+            <input
+              type="checkbox"
+              className={styles.selectBox}
+              checked={isActive}
+              data-box-select
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => onSetActive(e.target.checked)}
+              aria-label={isActive ? `Packing into ${box.label}` : `Pack into ${box.label}`}
+              title={isActive ? "Packing into this box" : "Pack into this box"}
+            />
+          )}
           <BoxIcon boxType={box.box_type} />
 
           <div className={styles.headerContent}>
             <div className={styles.headerTopRow}>
-              {onUpdateBox && isPacking ? (
-                <EditableLabel
-                  value={box.label}
-                  onSave={handleLabelSave}
-                  disabled={isShipped}
-                />
-              ) : (
-                <span className={styles.boxLabel}>{box.label}</span>
-              )}
+              <div className={styles.nameAndCode}>
+                {box.box_type === BoxType.STANDARD &&
+                onUpdateBox &&
+                isPacking &&
+                !opensDrawer ? (
+                  <EditableCodeChip
+                    prefix={`${BOX_LABEL_PREFIX}${String(box.box_number).padStart(2, "0")}-`}
+                    code={box.room_code ?? roomCode(box.room_name)}
+                    roomName={box.room_name}
+                    onSave={handleRoomCodeSave}
+                    disabled={isShipped}
+                  />
+                ) : (
+                  <span className={styles.codeChip} title="Warehouse code">
+                    {box.label}
+                  </span>
+                )}
+                {onUpdateBox && isPacking && !opensDrawer ? (
+                  <EditableLabel
+                    value={box.room_name}
+                    onSave={handleRoomNameSave}
+                    disabled={isShipped}
+                  />
+                ) : (
+                  <span className={styles.boxLabel}>{box.room_name}</span>
+                )}
+              </div>
               <div className={styles.badgeGroup}>
-                {showSize && onUpdateBox && isPacking ? (
+                {canEditSize ? (
                   <SizeEditor
-                    currentSize={box.size!}
+                    currentSize={box.size ?? "M"}
                     onSizeChange={handleSizeChange}
                     disabled={isShipped}
                   />
                 ) : showSize ? (
                   <BoxSizeBadge size={box.size!} />
                 ) : null}
+                {boxIsBiosec && (
+                  <span className={styles.biosecBadge}>
+                    <ShieldAlert style={{ width: 12, height: 12 }} aria-hidden />
+                    {ownerCopy.packing.biosecBadge}
+                  </span>
+                )}
                 <BoxStatusBadge status={box.status} />
               </div>
             </div>
             <div className={styles.headerMeta}>
+              {isActive && (
+                <span className={styles.activeChip}>{ownerCopy.packing.activeChip}</span>
+              )}
               <motion.span
                 key={itemCountKey}
                 initial={itemCountKey > 0 ? { scale: 1.15 } : false}
@@ -1055,16 +1368,20 @@ export function BoxCard({
               </motion.span>
               <FlagIndicator count={unresolvedFlagCount} />
               {showCbm && <span>{box.cbm} CBM</span>}
+              {/* Single cue, shown ONLY on the hovered target. Text (not just
+                  colour) names the box being dropped into. */}
+              {isDropTarget && (
+                <span className={styles.dropHint}>
+                  {ownerCopy.packing.dropInto(box.label)}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className={styles.chevronWrap}>
-            <ChevronDown
-              className={cn(styles.chevron, isOpen && styles.chevronOpen)}
-              style={{ width: 16, height: 16 }}
-            />
-          </div>
         </div>
+
+        {/* Biosecurity is automatic: a box containing any flagged item shows the
+            badge above without a prompt. No nudge needed. */}
 
         {/* Expanded content */}
         <AnimatePresence initial={false}>
@@ -1181,6 +1498,47 @@ export function BoxCard({
                       isScanning={isScanning}
                     />
                   </div>
+                )}
+
+                {/* Manual biosecurity override — only when the box has no flagged
+                    items (flagged boxes are biosecurity automatically). */}
+                {isPacking && onUpdateBox && biosecItemCount === 0 && (
+                  box.is_biosecurity ? (
+                    <div className={styles.unmarkRow}>
+                      <button
+                        type="button"
+                        className={styles.unmarkButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateBox(box.id, { is_biosecurity: false });
+                        }}
+                      >
+                        {ownerCopy.packing.biosecUnmark}
+                      </button>
+                    </div>
+                  ) : canManuallyMark ? (
+                    <div className={styles.unmarkRow}>
+                      <button
+                        type="button"
+                        className={styles.unmarkButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkBiosecurity?.(box.id);
+                        }}
+                      >
+                        {ownerCopy.packing.biosecMark}
+                      </button>
+                    </div>
+                  ) : null
+                )}
+
+                {/* Renumber — set the box's sequential number (swaps if taken) */}
+                {isPacking && onRenumber && (
+                  <BoxNumberField
+                    currentNumber={box.box_number}
+                    onApply={(n) => onRenumber(box.id, n)}
+                    disabled={isShipped}
+                  />
                 )}
 
                 {/* Mark as packed button */}

@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 
 import { BoxList } from "@/components/boxes/BoxList";
 import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWarning";
+import { PackingToast } from "@/components/boxes/PackingToast";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import type { BoxSize, BoxType } from "@/lib/constants";
+import { BoxStatus, type BoxSize, type BoxType } from "@/lib/constants";
+import { ownerCopy } from "@/lib/copy/owner";
 
 import styles from "./BoxManagement.module.css";
+
+const ACTIVE_BOX_STORAGE_KEY = "mf_active_box";
+
+interface ToastState {
+  message: string;
+  /** Optional undo action — when present an Undo button is shown. */
+  onUndo?: () => void;
+  variant: "success" | "error";
+}
 
 interface BoxManagementProps {
   initialBoxes: Box[];
@@ -62,6 +73,92 @@ export function BoxManagement({
   const [scanResults, setScanResults] = useState<Record<string, ScanResult>>({});
   const [flaggedItemsByBox, setFlaggedItemsByBox] = useState<Record<string, FlaggedItem[]>>({});
   const [resolvingItemIds, setResolvingItemIds] = useState<Set<string>>(new Set());
+
+  // Active "packing into" box — the default target for new items.
+  const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
+  // Transient toast (add confirmation + undo, biosec mark, errors).
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const packingBoxes = useMemo(
+    () => boxes.filter((b) => b.status === BoxStatus.PACKING),
+    [boxes],
+  );
+
+  // Smart default + persistence for the active box. Runs on mount and whenever
+  // the set of packing boxes changes. Reads sessionStorage on first run.
+  useEffect(() => {
+    setActiveBoxId((current) => {
+      const isValid = (id: string | null): id is string =>
+        !!id && packingBoxes.some((b) => b.id === id);
+
+      if (isValid(current)) return current;
+
+      // Try the persisted id before falling back to the smart default.
+      if (typeof window !== "undefined") {
+        const stored = window.sessionStorage.getItem(ACTIVE_BOX_STORAGE_KEY);
+        if (isValid(stored)) return stored;
+      }
+
+      if (packingBoxes.length === 0) return null;
+
+      // Most-recently-updated packing box.
+      const mostRecent = [...packingBoxes].sort(
+        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+      )[0];
+      return mostRecent ? mostRecent.id : null;
+    });
+  }, [packingBoxes]);
+
+  // Mirror the active box to sessionStorage so reloads remember it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeBoxId) {
+      window.sessionStorage.setItem(ACTIVE_BOX_STORAGE_KEY, activeBoxId);
+    } else {
+      window.sessionStorage.removeItem(ACTIVE_BOX_STORAGE_KEY);
+    }
+  }, [activeBoxId]);
+
+  // Auto-dismiss the toast after 3s.
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const handleMarkBiosecurity = useCallback(
+    async (boxId: string) => {
+      const box = boxes.find((b) => b.id === boxId);
+      // Optimistic: flip the flag locally, surface a toast.
+      setBoxes((prev) =>
+        prev.map((b) => (b.id === boxId ? { ...b, is_biosecurity: true } : b)),
+      );
+      if (box) {
+        setToast({
+          message: ownerCopy.packing.biosecMarkedToast(box.label),
+          variant: "success",
+        });
+      }
+      try {
+        const res = await fetch(`/api/boxes/${boxId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_biosecurity: true }),
+        });
+        if (!res.ok) throw new Error("Failed to mark box as biosecurity");
+        const updatedBox: Box = await res.json();
+        setBoxes((prev) => prev.map((b) => (b.id === boxId ? updatedBox : b)));
+      } catch (err) {
+        console.error("Failed to mark box as biosecurity:", err);
+        // Roll back.
+        setBoxes((prev) =>
+          prev.map((b) => (b.id === boxId ? { ...b, is_biosecurity: false } : b)),
+        );
+        setToast({ message: ownerCopy.itinerary.saveError, variant: "error" });
+      }
+    },
+    [boxes],
+  );
 
   const handleCreateBox = useCallback(
     async (data: {
@@ -200,8 +297,10 @@ export function BoxManagement({
     }
   }, []);
 
-  const handleAddToBox = useCallback(
-    async (itemAssessmentId: string, boxId: string) => {
+  // Core add: POSTs a single assessment to a box, updates local state, and
+  // returns the created BoxItem (or null on failure). No toast — callers decide.
+  const addOneToBox = useCallback(
+    async (itemAssessmentId: string, boxId: string): Promise<BoxItem | null> => {
       try {
         const res = await fetch(`/api/boxes/${boxId}/items`, {
           method: "POST",
@@ -215,15 +314,85 @@ export function BoxManagement({
           ...prev,
           [boxId]: [...(prev[boxId] ?? []), newItem],
         }));
+        return newItem;
       } catch (err) {
         console.error("Failed to add item to box:", err);
+        return null;
       }
     },
     []
   );
 
+  // Single add (mobile tap, combobox, drag of one item) — toast + undo.
+  const handleAddToBox = useCallback(
+    async (itemAssessmentId: string, boxId: string) => {
+      const assessment = assessments.find((a) => a.id === itemAssessmentId);
+      const box = boxes.find((b) => b.id === boxId);
+      const newItem = await addOneToBox(itemAssessmentId, boxId);
+      if (!newItem) {
+        setToast({
+          message: ownerCopy.packing.addErrorToast(assessment?.item_name ?? "item"),
+          variant: "error",
+        });
+        return;
+      }
+      setToast({
+        message: ownerCopy.packing.addedToast(
+          assessment?.item_name ?? "item",
+          box?.label ?? "box",
+        ),
+        variant: "success",
+        onUndo: () => handleRemoveItem(boxId, newItem.id),
+      });
+    },
+    [addOneToBox, assessments, boxes, handleRemoveItem]
+  );
+
+  // Batch add (desktop multi-select, drag of a selection) — one summary toast.
+  const handleAddManyToBox = useCallback(
+    async (itemAssessmentIds: string[], boxId: string) => {
+      const box = boxes.find((b) => b.id === boxId);
+      const results = await Promise.all(
+        itemAssessmentIds.map((id) => addOneToBox(id, boxId)),
+      );
+      const added = results.filter((r): r is BoxItem => r !== null);
+      const failed = results.length - added.length;
+
+      if (failed === 0) {
+        setToast({
+          message: ownerCopy.packing.addedManyToast(added.length, box?.label ?? "box"),
+          variant: "success",
+          onUndo: () => {
+            for (const item of added) handleRemoveItem(boxId, item.id);
+          },
+        });
+      } else {
+        setToast({
+          message: ownerCopy.packing.addedPartialToast(
+            added.length,
+            results.length,
+            failed,
+          ),
+          variant: "error",
+          ...(added.length > 0
+            ? {
+                onUndo: () => {
+                  for (const item of added) handleRemoveItem(boxId, item.id);
+                },
+              }
+            : {}),
+        });
+      }
+      return { addedCount: added.length, failedCount: failed };
+    },
+    [addOneToBox, boxes, handleRemoveItem]
+  );
+
   const handleUpdateBox = useCallback(
-    async (boxId: string, updates: { label?: string; size?: string }) => {
+    async (
+      boxId: string,
+      updates: { label?: string; room_name?: string; room_code?: string; size?: string; is_biosecurity?: boolean },
+    ) => {
       try {
         const res = await fetch(`/api/boxes/${boxId}`, {
           method: "PATCH",
@@ -231,33 +400,67 @@ export function BoxManagement({
           body: JSON.stringify(updates),
         });
 
-        if (!res.ok) throw new Error("Failed to update box");
+        if (!res.ok) {
+          // Surface the server message (e.g. a code collision) to the user.
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(data?.error ?? "Failed to update box");
+        }
+
+        // A room_code edit is room-wide and returns every relabelled box.
+        if (updates.room_code !== undefined) {
+          const { boxes: updated } = (await res.json()) as { boxes: Box[] };
+          setBoxes((prev) =>
+            prev.map((b) => updated.find((u) => u.id === b.id) ?? b),
+          );
+          return;
+        }
+
         const updatedBox: Box = await res.json();
         setBoxes((prev) =>
           prev.map((b) => (b.id === boxId ? updatedBox : b))
         );
       } catch (err) {
         console.error("Failed to update box:", err);
+        const message = err instanceof Error ? err.message : ownerCopy.itinerary.saveError;
+        setToast({ message, variant: "error" });
       }
     },
     []
   );
 
-  const handleShipAll = useCallback(async () => {
+  // Manual renumber. The server returns 1 box, or 2 when a swap happened
+  // (the target box and the box it traded numbers with).
+  const handleRenumberBox = useCallback(async (boxId: string, newNumber: number) => {
     try {
-      const res = await fetch("/api/boxes/ship-all", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to ship all");
+      const res = await fetch(`/api/boxes/${boxId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ box_number: newNumber }),
+      });
+      if (!res.ok) throw new Error("Failed to renumber box");
+      const { boxes: updated } = (await res.json()) as { boxes: Box[] };
+      setBoxes((prev) =>
+        prev.map((b) => updated.find((u) => u.id === b.id) ?? b),
+      );
+    } catch (err) {
+      console.error("Failed to renumber box:", err);
+      setToast({ message: ownerCopy.itinerary.saveError, variant: "error" });
+    }
+  }, []);
 
-      // Update all packing/packed boxes to shipped
+  const handlePackAll = useCallback(async () => {
+    try {
+      const res = await fetch("/api/boxes/pack-all", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to pack all");
+
+      // Move every box still being packed to packed.
       setBoxes((prev) =>
         prev.map((b) =>
-          b.status === "packing" || b.status === "packed"
-            ? { ...b, status: "shipped" as const }
-            : b
+          b.status === "packing" ? { ...b, status: "packed" as const } : b
         )
       );
     } catch (err) {
-      console.error("Failed to ship all:", err);
+      console.error("Failed to pack all:", err);
     }
   }, []);
 
@@ -525,8 +728,9 @@ export function BoxManagement({
         onRemoveItem={handleRemoveItem}
         onMarkPacked={handleMarkPacked}
         onAddToBox={handleAddToBox}
+        onAddManyToBox={handleAddManyToBox}
         onUpdateBox={handleUpdateBox}
-        onShipAll={handleShipAll}
+        onPackAll={handlePackAll}
         isCreating={isCreating}
         scanResults={scanResults}
         flaggedItemsByBox={flaggedItemsByBox}
@@ -535,7 +739,20 @@ export function BoxManagement({
         onRemoveFlaggedItem={handleRemoveFlaggedItem}
         scanningBoxes={scanningBoxes}
         resolvingItemIds={resolvingItemIds}
+        activeBoxId={activeBoxId}
+        onSetActiveBox={setActiveBoxId}
+        onMarkBiosecurity={handleMarkBiosecurity}
+        onRenumberBox={handleRenumberBox}
       />
+
+      {toast && (
+        <PackingToast
+          message={toast.message}
+          variant={toast.variant}
+          {...(toast.onUndo ? { onUndo: toast.onUndo } : {})}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

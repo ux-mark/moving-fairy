@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { getShipmentByShareToken, getManifest } from '@/mcp'
+import { BoxPill } from '@/components/boxes/BoxPill'
 import styles from './share.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -83,7 +84,9 @@ export default async function SharePage({
           manifest.boxes.map(({ box, items, cbm, declared_value }) => (
             <article key={box.id} className={styles.boxCard}>
               <header className={styles.boxHeader}>
-                <h3>{box.label}</h3>
+                <h3>
+                  <BoxPill code={box.label} name={box.room_name} />
+                </h3>
                 <span className={styles.boxMeta}>
                   {items.length} item{items.length === 1 ? '' : 's'} ·
                   {' '}{cbm !== null ? `${cbm.toFixed(2)} CBM` : '—'} ·

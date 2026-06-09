@@ -76,6 +76,26 @@ input, select, textarea {
   font-size: max(16px, 1em);
 }
 
+/* ---- DS EditPanel off-screen fix (vendored design-system bug) ----
+ * The DS EditPanel slides in from the right: `.panel { right: -100vw }` when
+ * closed, `.panelOpen { right: 0 }` when open. But its `@media (min-width:480px)`
+ * block re-declares `.panel { right: -460px }` LATER in the stylesheet with equal
+ * specificity, so on desktop it overrides `.panelOpen { right: 0 }` and the OPEN
+ * panel is parked off-screen — leaving only the grey overlay. This broke "New box"
+ * and every other right-side EditPanel on desktop.
+ *
+ * Real fix belongs upstream in thefairies-ds (scope the closed position to
+ * `.panel:not(.panelOpen)`, or repeat `right: 0` inside the media query). Until
+ * that ships, re-assert the on-screen position here. The panel only exists in the
+ * DOM while open/closing, so this just guarantees it's visible; the trade-off is
+ * the slide transition is skipped on desktop.
+ */
+@media (min-width: 480px) {
+  aside[role="dialog"][aria-modal="true"] {
+    right: 0 !important;
+  }
+}
+
 /* ---- Print baseline ----
  * Hide chrome (DS Navigation, profile edit overlay) so "Save as PDF" produces
  * a clean manifest. Page-level modules layer their own @media print rules on

@@ -9,6 +9,13 @@
   box-sizing: border-box;
 }
 
+@media (min-width: 1200px) {
+  .root {
+    max-width: 880px;
+    padding: 24px 24px 48px;
+  }
+}
+
 .header {
   display: flex;
   flex-direction: column;
@@ -23,10 +30,19 @@
   color: var(--color-text-muted, #555);
   text-decoration: none;
   width: max-content;
+  min-height: 44px;
+  padding: 4px 8px 4px 0;
+  margin-left: -4px;
+  border-radius: var(--radius-md, 8px);
 }
 
 .back:hover {
   color: var(--color-primary, #2d7a4f);
+}
+
+.back:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
 }
 
 .heading {

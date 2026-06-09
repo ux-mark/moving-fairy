@@ -16,12 +16,19 @@ import { spawn as nodeSpawn } from 'child_process'
 
 /**
  * Returns true when we should use the CLI subprocess instead of the SDK.
- * Dev mode by default; set FORCE_SDK=true in .env.local to override.
+ *
+ * - Dev mode uses the CLI by default (the developer's logged-in `claude`).
+ * - Set FORCE_SDK=true to force the SDK path even in dev.
+ * - Set FORCE_CLI=true to use the CLI from a *local* production server — e.g. a
+ *   prod build running inside this container, where the `claude` CLI is logged
+ *   in and no ANTHROPIC_API_KEY is configured. A real cloud deploy leaves
+ *   FORCE_CLI unset and uses the SDK + API key.
  */
 export function useCliMode(): boolean {
+  if (process.env.FORCE_SDK === 'true') return false
   return (
-    process.env.NODE_ENV === 'development' &&
-    process.env.FORCE_SDK !== 'true'
+    process.env.NODE_ENV === 'development' ||
+    process.env.FORCE_CLI === 'true'
   )
 }
 

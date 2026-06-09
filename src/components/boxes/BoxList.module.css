@@ -6,6 +6,185 @@
   gap: var(--space-section, 24px);
 }
 
+/* ── Cockpit grid (≥1280px): boxes left, summary + unboxed rail right ──
+   Rail appears at 1280+ only so box cards on a 1024px laptop keep the
+   full main column. Unified with /items, /decisions, /selling. */
+.cockpit {
+  display: contents;
+}
+.cockpitMain {
+  display: contents;
+}
+.cockpitRail {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .cockpit {
+    display: grid;
+    /* Rail widened ~33% (320 → 426) so the not-yet-boxed drag source has room
+       to breathe — grip handle, thumbnail, name, verdict on one comfortable row.
+       Gap bumped with it so the wider panel doesn't crowd the box column. */
+    grid-template-columns: minmax(0, 1fr) 426px;
+    gap: 32px;
+    align-items: start;
+  }
+  /* Boxes stay on screen: the box column is pinned and scrolls within itself,
+     so the user always sees the boxes while scrolling the longer rail. */
+  .cockpitMain {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .cockpitRail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .cockpit {
+    /* 360 → 480 (~33%). */
+    grid-template-columns: minmax(0, 1fr) 480px;
+    gap: 36px;
+  }
+}
+
+.railCard {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Sort control — choose box ordering (number vs name). */
+.sortRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sortLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.sortToggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-full, 9999px);
+  overflow: hidden;
+  background: var(--color-bg-card, #fff);
+}
+
+.sortBtn {
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  min-height: 36px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+}
+
+.sortBtn:not(:first-child) {
+  border-left: 1px solid var(--color-border-default, #e5e5e5);
+}
+
+.sortBtnActive {
+  background: var(--color-primary, #2d7a4f);
+  color: var(--color-text-inverse, #fff);
+}
+
+.sortBtn:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: -2px;
+}
+
+@media (max-width: 767px) {
+  .sortBtn {
+    min-height: 44px;
+    padding: 8px 18px;
+    font-size: 15px;
+  }
+}
+
+.railEyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railStats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.railStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.railStat dt {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.railStat dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.railFooterStat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railFooterStat strong {
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+.railUnboxedCard {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  /* Roomier padding to match the wider rail — the drag source should feel
+     deliberate, not stretched. Extra side padding gives the dashed armed-card
+     hint room without clipping against the panel edge. */
+  padding: 18px 18px 20px;
+}
+
 .shipAllRow {
   display: flex;
   justify-content: flex-end;
@@ -25,6 +204,28 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Desktop: boxes become a tile grid. iPad-portrait (768) stays
+   single-column. When a box is expanded it spans the full row via
+   :has(), so the items inside don't sit cramped in one column. */
+@media (min-width: 1024px) {
+  .sectionCards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .sectionCards > [data-open="true"] {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1440px) {
+  .sectionCards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
 }
 
 .divider {
@@ -81,6 +282,297 @@
 }
 
 .newBoxLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   Active box selector (desktop rail radiogroup)
+   ============================================================ */
+.activeBoxCard {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activeBoxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.activeBoxRadio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-card, #fff);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.activeBoxRadio:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.activeBoxRadio:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.activeBoxRadioOn {
+  background: var(--color-primary-light, rgba(22, 163, 74, 0.1));
+  border-color: var(--color-primary, #16a34a);
+  border-left: 3px solid var(--color-primary, #16a34a);
+  font-weight: 600;
+  color: var(--color-primary-hover, #15803d);
+}
+
+.activeBoxRadioLabel {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.activeBoxRadioCount {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+.activeBoxEmpty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activeBoxEmptyText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ============================================================
+   Sticky "Packing into" bar (mobile)
+   ============================================================ */
+.stickyBar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  margin: -4px -4px 4px;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+}
+
+.stickyBarPrefix {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.stickyBarEmptyLabel {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+}
+
+.stickyBarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-subtle, #f9fafb);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  cursor: pointer;
+}
+
+.stickyBarButton:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.stickyBarBox {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+.stickyBarCount {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Bottom-sheet box picker (mobile)
+   ============================================================ */
+.sheetLayer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 900);
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheetBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card, #fff);
+  border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: sheetUp 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.sheetHeading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.sheetClose {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+}
+
+.sheetClose:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -2px;
+}
+
+.sheetList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+}
+
+.sheetOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary, #111827);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheetOption:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.sheetOption:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: -2px;
+}
+
+.sheetOptionLabel {
+  flex: 1;
+  overflow-wrap: break-word;
+}
+
+.sheetFooter {
+  padding: 8px 16px 16px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.sheetNewBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary, #16a34a);
+  cursor: pointer;
+}
+
+.sheetNewBox:focus-visible {
   outline: 2px solid var(--color-primary, #16a34a);
   outline-offset: 2px;
   border-radius: 2px;

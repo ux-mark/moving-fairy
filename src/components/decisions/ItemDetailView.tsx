@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Camera, Sparkles, ChevronUp } from 'lucide-react'
 import { Button, ConfirmDialog, Spinner } from '@thefairies/design-system/components'
@@ -211,11 +210,21 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
   )?.id ?? ''
   const availableBoxes = boxes.filter(b => b.status === 'packing')
 
+  // Hide item content on MOBILE during fullscreen or expanded chat; on desktop
+  // (≥1024px) the split layout always shows both columns regardless of state,
+  // so CSS keeps the content visible via the .itemContentDesktopVisible class.
+  const itemContentHidden = isFullscreen || isChatExpanded
+
   return (
     <div className={isFullscreen ? styles.fullscreenLayout : styles.root}>
-      {/* Item content — hidden during fullscreen or expanded chat */}
-      {!isFullscreen && !isChatExpanded && (
-        <div className={styles.itemContent}>
+      {/* Item content — single render path. Mobile hides via styles.itemContentHidden
+          when fullscreen/expanded; desktop CSS overrides that to keep it visible. */}
+      {(
+        <div className={
+          itemContentHidden
+            ? `${styles.itemContent} ${styles.itemContentHidden}`
+            : styles.itemContent
+        }>
           <nav aria-label="Breadcrumb">
             <Link href={backHref} className={styles.backLink}>
               <ArrowLeft size={16} aria-hidden="true" />
@@ -230,14 +239,16 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 <p className={styles.imageErrorText}>Photo could not be loaded</p>
               </div>
             ) : (
-              <Image
+              // Plain <img> — natural file dimensions drive layout. The
+              // CSS sizes the figure to the image's actual aspect (contain
+              // inside a capped envelope) so portrait phone shots don't
+              // float in fat white margins.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={thumbnail}
                 alt={itemName}
-                width={1200}
-                height={900}
                 className={styles.itemImg}
                 onError={() => setImageError(true)}
-                unoptimized
               />
             )
           ) : isCompleted ? (
@@ -273,7 +284,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 )}
                 <Button
                   ref={cancelDeleteButtonRef}
-                  variant="dangerGhost"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     setDeleteError(null)
@@ -300,7 +311,7 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
                 </Button>
                 <Button
                   ref={cancelDeleteButtonRef}
-                  variant="dangerGhost"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     setDeleteError(null)
@@ -351,19 +362,20 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
         </div>
       )}
 
-      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen/sheet toggle */}
+      {/* Per-item chat — SINGLE instance, never unmounts on fullscreen/sheet toggle.
+          On desktop the .chatColumnDesktop class promotes it to a persistent right column. */}
       <div className={
-        isFullscreen
+        (isFullscreen
           ? styles.chatSectionFullscreen
           : isChatExpanded
             ? styles.chatSheetExpanded
-            : styles.chatSheet
+            : styles.chatSheet) + ' ' + styles.chatColumnDesktop
       }>
-        {/* Collapsed bar — shown only when not fullscreen and chat is collapsed */}
+        {/* Collapsed bar — mobile-only affordance, hidden on desktop via CSS. */}
         {!isFullscreen && !isChatExpanded && (
           <button
             type="button"
-            className={styles.chatBar}
+            className={`${styles.chatBar} ${styles.chatBarMobileOnly}`}
             onClick={() => setIsChatExpanded(true)}
             aria-label="Open chat with Aisling"
           >
@@ -373,11 +385,11 @@ export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRet
           </button>
         )}
 
-        {/* Chat body — hidden (not unmounted) when sheet is collapsed */}
+        {/* Chat body — hidden on mobile when collapsed; CSS reveals it on desktop. */}
         <div className={
-          !isFullscreen && !isChatExpanded
+          (!isFullscreen && !isChatExpanded
             ? styles.chatBodyHidden
-            : styles.chatBody
+            : styles.chatBody) + ' ' + styles.chatBodyDesktopVisible
         }>
           <PerItemChat
             itemId={item.id}

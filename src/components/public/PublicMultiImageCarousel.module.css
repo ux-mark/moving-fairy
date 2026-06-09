@@ -1,7 +1,13 @@
 .wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  /* Frame aspect adapts to the tallest slide in the album (set via the
+     --carousel-aspect CSS var on this element). Default 4/5 ≈ phone
+     portrait — closer to typical uploads than a forced 1/1 square,
+     which left a 44% horizontal gutter around 9:16 photos. Capped in
+     height so a portrait shot doesn't sprawl on desktop. */
+  aspect-ratio: var(--carousel-aspect, 4 / 5);
+  max-height: min(70svh, 640px);
   background: #faf7f1;
   border-radius: var(--radius-lg, 8px);
   overflow: hidden;
@@ -9,7 +15,16 @@
   user-select: none;
 }
 
+@media (min-width: 1024px) {
+  .wrap {
+    max-height: min(65svh, 560px);
+  }
+}
+
 .empty {
+  /* Empty / no-images placeholder keeps a square so the page doesn't
+     collapse to zero height before any image is present. */
+  aspect-ratio: 1 / 1;
   background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
 }
 
@@ -55,8 +70,8 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(4px);
@@ -68,10 +83,16 @@
   color: var(--color-text-primary);
   cursor: pointer;
   z-index: 2;
+  padding: 0;
 }
 
 .navBtn:hover {
   background: #fff;
+}
+
+.navBtn:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
 }
 
 .prev {
@@ -88,29 +109,57 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 6px;
-  padding: 6px 10px;
+  /* Visual gap stays tight (6px) even though each dot button has a 24×24
+     hitbox — buttons overlap their parents' padding via negative margin. */
+  gap: 0;
+  padding: 0 4px;
   border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   z-index: 2;
 }
 
+/* Dot is the visual; an inner background pip stays small while the button
+   itself gets a 24×24 tap hitbox via padding. Hard-to-tap dots are a common
+   mobile pain point — this keeps the visual size identical. */
 .dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot::before {
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.55);
-  border: none;
-  padding: 0;
-  cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.dot:hover {
+.dot:hover::before {
   background: rgba(255, 255, 255, 0.85);
 }
 
-.dotActive {
+.dotActive::before {
   background: #fff;
+}
+
+.dot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .dot::before {
+    transition: none;
+  }
 }

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { deleteItemAssessment, getItemAssessment, updateItemAssessment, appendItemEditSystemMessages } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
-import type { Verdict } from '@/lib/constants'
-import { ProcessingStatus } from '@/lib/constants'
+import type { BiosecurityCategory, BiosecurityFlag, Verdict } from '@/lib/constants'
+import { BiosecurityCategory as BiosecurityCategoryEnum, BiosecurityFlag as BiosecurityFlagEnum, ProcessingStatus } from '@/lib/constants'
 import type { PlantCare } from '@/types/database'
 
 // GET /api/items/:id
@@ -47,7 +47,13 @@ interface PatchItemBody {
   target_shipment_id?: string | null
   category?: string | null
   care?: PlantCare | null
+  biosecurity_flag?: string | null
+  biosecurity_category?: string | null
+  biosecurity_note?: string | null
 }
+
+// Biosecurity note guard — free text, trimmed, capped to keep the column sane.
+const BIOSECURITY_NOTE_MAX_LENGTH = 500
 
 // Category labels are free text — we don't gate against
 // seller_settings.categories because users can freely set obsolete labels
@@ -195,6 +201,48 @@ export async function PATCH(
       changes.care = checked.value
     }
 
+    if (body.biosecurity_flag !== undefined) {
+      if (body.biosecurity_flag === null) {
+        changes.biosecurity_flag = null
+      } else {
+        const validFlags = Object.values(BiosecurityFlagEnum) as string[]
+        if (!validFlags.includes(body.biosecurity_flag)) {
+          return Response.json({ ok: false, error: 'Invalid biosecurity_flag' }, { status: 400 })
+        }
+        changes.biosecurity_flag = body.biosecurity_flag as BiosecurityFlag
+      }
+    }
+
+    if (body.biosecurity_category !== undefined) {
+      if (body.biosecurity_category === null) {
+        changes.biosecurity_category = null
+      } else {
+        const validCategories = Object.values(BiosecurityCategoryEnum) as string[]
+        if (!validCategories.includes(body.biosecurity_category)) {
+          return Response.json({ ok: false, error: 'Invalid biosecurity_category' }, { status: 400 })
+        }
+        changes.biosecurity_category = body.biosecurity_category as BiosecurityCategory
+      }
+    }
+
+    if (body.biosecurity_note !== undefined) {
+      if (body.biosecurity_note === null) {
+        changes.biosecurity_note = null
+      } else {
+        if (typeof body.biosecurity_note !== 'string') {
+          return Response.json({ ok: false, error: 'biosecurity_note must be a string or null' }, { status: 400 })
+        }
+        const trimmed = body.biosecurity_note.trim()
+        if (trimmed.length > BIOSECURITY_NOTE_MAX_LENGTH) {
+          return Response.json(
+            { ok: false, error: `biosecurity_note must be ${BIOSECURITY_NOTE_MAX_LENGTH} characters or fewer` },
+            { status: 400 },
+          )
+        }
+        changes.biosecurity_note = trimmed.length === 0 ? null : trimmed
+      }
+    }
+
     if (Object.keys(changes).length === 0) {
       return Response.json({ ok: false, error: 'Nothing to update' }, { status: 400 })
     }
@@ -206,7 +254,8 @@ export async function PATCH(
       body.item_name !== undefined ||
       body.estimated_ship_cost !== undefined ||
       body.estimated_replace_cost !== undefined ||
-      body.advice_text !== undefined
+      body.advice_text !== undefined ||
+      body.biosecurity_flag !== undefined
 
     const before = isMeaningfulEdit
       ? await getItemAssessment(id, profile.id)

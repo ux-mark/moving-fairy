@@ -21,11 +21,20 @@
   width: 100%;
   max-width: 480px;
   height: 100%;
+  /* Small viewport units shrink with the iOS keyboard. */
+  max-height: 100svh;
   background: #fff;
   display: flex;
   flex-direction: column;
   box-shadow: -8px 0 24px -8px rgba(0, 0, 0, 0.18);
   animation: slideIn 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .sheet {
+    animation: none;
+  }
 }
 
 @keyframes fadeIn {
@@ -65,9 +74,9 @@
 }
 
 .closeBtn {
-  width: 32px;
-  height: 32px;
-  margin-right: -8px;
+  width: 44px;
+  height: 44px;
+  margin-right: -12px;
   border: none;
   background: transparent;
   border-radius: var(--radius-md, 6px);
@@ -76,6 +85,11 @@
   justify-content: center;
   cursor: pointer;
   color: var(--color-text-muted, #6b7280);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
 }
 
 .closeBtn:hover {
@@ -129,14 +143,16 @@
 .input,
 .textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border-input, #d1d5db);
   border-radius: var(--radius-md, 6px);
-  font-size: 14px;
+  /* 16px prevents iOS Safari from zooming on focus. */
+  font-size: 16px;
   background: #fff;
   font-family: inherit;
   color: var(--color-text-primary);
   box-sizing: border-box;
+  min-height: 44px;
 }
 
 .textarea {
@@ -144,7 +160,7 @@
   min-height: 220px;
   line-height: 1.5;
   font-family: var(--font-mono, ui-monospace), monospace;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .input:focus,
@@ -219,6 +235,7 @@
   border-radius: var(--radius-md, 6px);
   cursor: pointer;
   color: var(--color-text-primary);
+  min-height: 44px;
 }
 
 .cancelBtn:hover {
@@ -235,6 +252,12 @@
   border-radius: var(--radius-md, 6px);
   cursor: pointer;
   transition: filter 0.15s ease;
+  min-height: 44px;
+}
+
+.submitBtn:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
 }
 
 .submitBtn:hover:not(:disabled) {

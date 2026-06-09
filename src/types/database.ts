@@ -123,10 +123,18 @@ export interface Box {
   cbm: number | null
   room_name: string
   box_number: number
+  /**
+   * Per-room box code — the suffix after `WH<nn>-`. All boxes in a room share
+   * one code; codes are distinct across a user's rooms. Null for single_item
+   * boxes and for legacy rows not yet touched by the room-code migration (the
+   * app falls back to roomCode(room_name) in that case).
+   */
+  room_code: string | null
   label: string
   manifest_image_url: string | null
   status: BoxStatus
   shipment_id: string | null
+  is_biosecurity: boolean
   created_at: string
   updated_at: string
 }

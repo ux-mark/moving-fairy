@@ -39,3 +39,27 @@
   padding: 24px 16px;
   box-sizing: border-box;
 }
+
+@media (min-width: 1024px) {
+  .headerInner,
+  .main {
+    max-width: 1280px;
+  }
+  .main {
+    padding: 28px 24px 48px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .headerInner,
+  .main {
+    max-width: 1440px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .headerInner,
+  .main {
+    max-width: 1600px;
+  }
+}

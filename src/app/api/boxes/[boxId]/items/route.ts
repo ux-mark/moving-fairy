@@ -22,10 +22,13 @@ export async function POST(
   if (body.item_name !== undefined) opts.itemName = body.item_name
 
   try {
-    const boxItem = await addItemToBox(boxId, opts)
+    const boxItem = await addItemToBox(boxId, opts, profile.id)
     return Response.json(boxItem, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
+    if (message === 'Box not found') {
+      return Response.json({ ok: false, error: message }, { status: 404 })
+    }
     return Response.json({ ok: false, error: message }, { status: 500 })
   }
 }

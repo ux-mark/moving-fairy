@@ -24,6 +24,45 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'account',     label: ownerCopy.settings.tabs.account },
 ]
 
+const HELP_BY_TAB: Record<TabKey, { title: string; body: React.ReactNode }> = {
+  sale: {
+    title: 'About sale defaults',
+    body: (
+      <>
+        <p>These settings prefill every new listing. Aisling uses your discount tiers when she calculates the economic verdict for items she suggests you sell.</p>
+        <p>Your seller name and pickup location appear on the public listing page buyers see.</p>
+      </>
+    ),
+  },
+  shipments: {
+    title: 'About your shipments',
+    body: (
+      <>
+        <p>Shipments are the legs of your move. Aisling rolls every SHIP / CARRY item into the right leg so the itinerary stays honest.</p>
+        <p>Update statuses as legs progress — &ldquo;in transit&rdquo; and &ldquo;arrived&rdquo; both lock the manifest from accidental edits.</p>
+      </>
+    ),
+  },
+  biosecurity: {
+    title: 'About biosecurity',
+    body: (
+      <>
+        <p>The arrival country drives every biosec call Aisling makes. Wooden items, plants, food and outdoor gear get flagged here long before customs sees them.</p>
+        <p>For onward moves to Australia, expect the strictest rules — declare-on-arrival is the default.</p>
+      </>
+    ),
+  },
+  account: {
+    title: 'About your account',
+    body: (
+      <>
+        <p>Your email is your sign-in identity. Magic links are sent here — no passwords stored.</p>
+        <p>Need to start fresh? Contact support to archive your data; nothing is deleted by accident.</p>
+      </>
+    ),
+  },
+}
+
 const CURRENCIES = ['USD', 'EUR', 'AUD'] as const
 
 const CONDITION_OPTIONS = [
@@ -92,47 +131,56 @@ export function SettingsView({
         </div>
       )}
 
-      {activeTab === 'sale' && (
-        <SaleDefaultsTab
-          settings={settings}
-          onSaved={() => {
-            setToast(ownerCopy.settings.sale.saveToast)
-            setError(null)
-            router.refresh()
-            window.setTimeout(() => setToast(null), 2500)
-          }}
-          onError={(msg) => {
-            setError(msg)
-            setToast(null)
-          }}
-        />
-      )}
+      <div className={styles.cockpit}>
+        <div className={styles.tabContent}>
+          {activeTab === 'sale' && (
+            <SaleDefaultsTab
+              settings={settings}
+              onSaved={() => {
+                setToast(ownerCopy.settings.sale.saveToast)
+                setError(null)
+                router.refresh()
+                window.setTimeout(() => setToast(null), 2500)
+              }}
+              onError={(msg) => {
+                setError(msg)
+                setToast(null)
+              }}
+            />
+          )}
 
-      {activeTab === 'shipments' && (
-        <ShipmentsTab
-          shipments={shipments}
-          onSaved={() => {
-            setToast('Shipment saved.')
-            setError(null)
-            router.refresh()
-            window.setTimeout(() => setToast(null), 2500)
-          }}
-          onError={(msg) => {
-            setError(msg)
-            setToast(null)
-          }}
-        />
-      )}
+          {activeTab === 'shipments' && (
+            <ShipmentsTab
+              shipments={shipments}
+              onSaved={() => {
+                setToast('Shipment saved.')
+                setError(null)
+                router.refresh()
+                window.setTimeout(() => setToast(null), 2500)
+              }}
+              onError={(msg) => {
+                setError(msg)
+                setToast(null)
+              }}
+            />
+          )}
 
-      {activeTab === 'biosecurity' && (
-        <BiosecurityTab
-          settings={settings}
-          arrivalCountry={arrivalCountry}
-          onwardCountry={onwardCountry}
-        />
-      )}
+          {activeTab === 'biosecurity' && (
+            <BiosecurityTab
+              settings={settings}
+              arrivalCountry={arrivalCountry}
+              onwardCountry={onwardCountry}
+            />
+          )}
 
-      {activeTab === 'account' && <AccountTab email={email} />}
+          {activeTab === 'account' && <AccountTab email={email} />}
+        </div>
+
+        <aside className={styles.helpRail} aria-label="Help">
+          <h2 className={styles.helpTitle}>{HELP_BY_TAB[activeTab].title}</h2>
+          <div className={styles.helpBody}>{HELP_BY_TAB[activeTab].body}</div>
+        </aside>
+      </div>
     </div>
   )
 }

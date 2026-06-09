@@ -11,6 +11,28 @@
   height: 100%;
 }
 
+/* Desktop split: image+verdict left, persistent chat right. The chat is no
+   longer a bottom sheet — it lives in its own column at full height. */
+@media (min-width: 1024px) {
+  .root {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
+    gap: 24px;
+    max-width: 1200px;
+    padding: 0 24px;
+    align-items: stretch;
+    height: 100%;
+  }
+}
+
+@media (min-width: 1440px) {
+  .root {
+    grid-template-columns: minmax(0, 1fr) 520px;
+    max-width: 1320px;
+    gap: 32px;
+  }
+}
+
 /* ---- Back navigation ---- */
 
 .backLink {
@@ -88,21 +110,34 @@
   line-height: 1.5;
 }
 
-/* ---- Item image ---- */
+/* ---- Item image ----
+   Detail surface — show the WHOLE photo. The image draws at its natural
+   aspect, capped in height so it never owns the whole viewport, capped
+   in width so a tall portrait can't sprawl across a 720px text column.
+   No fixed aspect-ratio — that would force letterbox or crop. Centred
+   so the column doesn't feel lopsided around a narrow portrait. */
 
 .itemImg {
-  width: 100%;
-  max-height: 50vh;
-  min-height: 160px;
-  object-fit: contain;
-  background: var(--color-bg-subtle, #f9fafb);
   display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(55svh, 460px);
+  object-fit: contain;
   border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-subtle, #f9fafb);
+  margin: 0 auto;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 767px) and (orientation: landscape) {
   .itemImg {
-    max-height: 400px;
+    max-height: 60svh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .itemImg {
+    max-height: min(60svh, 520px);
   }
 }
 
@@ -269,6 +304,60 @@
 @media (min-width: 768px) {
   .itemContent {
     padding: 24px;
+  }
+}
+
+/* ---- Mobile state classes ---- */
+
+.itemContentHidden {
+  display: none;
+}
+
+/* ---- Desktop overrides (≥1024) ---- */
+
+@media (min-width: 1024px) {
+  .itemContentHidden {
+    display: flex;
+  }
+
+  .chatColumnDesktop {
+    display: flex;
+    flex-direction: column;
+    border-top: none;
+    border-left: 1px solid var(--color-border-default, #e5e7eb);
+    box-shadow: none;
+    padding-bottom: 0;
+    min-height: 0;
+    height: 100%;
+    background: var(--color-bg-card, #fff);
+  }
+
+  .chatBarMobileOnly {
+    display: none;
+  }
+
+  .chatBodyDesktopVisible {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .itemContent {
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .fullscreenLayout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    align-items: stretch;
+    height: 100%;
   }
 }
 

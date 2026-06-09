@@ -1,6 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
-import { BOX_SIZE_CBM, BoxScanStatus, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
+import { BOX_SIZE_CBM, BoxScanStatus, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict, computeBoxLabel, roomCode, roomFamily, uniqueRoomCode } from '@/lib/constants'
 import type { Box, BoxItem, BoxScan, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
 // ─── Supabase client helpers ───────────────────────────────────────────────
@@ -379,22 +379,73 @@ export async function getCostSummary(userProfileId: string): Promise<{
 
 // ─── Box ───────────────────────────────────────────────────────────────────
 
-export function computeBoxLabel(
-  boxType: BoxType,
-  roomName: string,
-  boxNumber: number,
-  itemLabel?: string
-): string {
-  switch (boxType) {
-    case BoxType.STANDARD:
-      return `${roomName} ${boxNumber}`
-    case BoxType.CHECKED_LUGGAGE:
-      return `Checked Luggage ${boxNumber}`
-    case BoxType.CARRYON:
-      return 'Carry-on'
-    case BoxType.SINGLE_ITEM:
-      return itemLabel ?? roomName
+/**
+ * Ownership guard for box mutations. The MCP layer uses the service-role client
+ * (bypasses RLS), so ownership must be enforced in code. Throws a clear error
+ * when the box is missing or owned by another user — callers map this to 404.
+ */
+async function assertBoxOwner(boxId: string, userProfileId: string): Promise<void> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .select('user_profile_id')
+    .eq('id', boxId)
+    .single()
+
+  if (error || !box || box.user_profile_id !== userProfileId) {
+    throw new Error('Box not found')
   }
+}
+
+// computeBoxLabel lives in @/lib/constants (pure + client-safe); re-export the
+// imported binding so existing `@/mcp` / `./tools` importers keep working.
+export { computeBoxLabel }
+
+/**
+ * The stored code for a box, resilient to a NULL `room_code` on legacy rows:
+ * luggage/carryon are fixed L/C, standard falls back to roomCode(room_name),
+ * single_item has no code.
+ */
+function effectiveRoomCode(box: { box_type: BoxType; room_name: string; room_code: string | null }): string | null {
+  if (box.room_code) return box.room_code
+  switch (box.box_type) {
+    case BoxType.CHECKED_LUGGAGE:
+      return 'L'
+    case BoxType.CARRYON:
+      return 'C'
+    case BoxType.STANDARD:
+      return roomCode(box.room_name)
+    case BoxType.SINGLE_ITEM:
+      return null
+  }
+}
+
+/**
+ * Build this user's room-family → code map (from standard boxes that already
+ * carry a room_code) plus the set of codes in use. Codes group by family — the
+ * first word of the room name (see roomFamily) — so name variants like
+ * "Bedroom 1"/"Bedroom 2" share one code. Used to reuse a family's existing
+ * code or resolve a fresh collision-free one for a new/renamed room.
+ */
+async function loadRoomCodeMap(
+  supabase: ReturnType<typeof getAdminClient>,
+  userProfileId: string
+): Promise<{ byFamily: Map<string, string>; used: Set<string> }> {
+  const { data, error } = await supabase
+    .from('box')
+    .select('room_name, room_code, box_type')
+    .eq('user_profile_id', userProfileId)
+    .eq('box_type', BoxType.STANDARD)
+  if (error) throw new Error(error.message)
+
+  const byFamily = new Map<string, string>()
+  const used = new Set<string>()
+  for (const b of data ?? []) {
+    const code = (b.room_code as string | null) ?? roomCode(b.room_name as string)
+    byFamily.set(roomFamily(b.room_name as string), code)
+    used.add(code)
+  }
+  return { byFamily, used }
 }
 
 export async function createBox(
@@ -406,20 +457,45 @@ export async function createBox(
 ): Promise<Box> {
   const supabase = getAdminClient()
 
-  // Compute next box_number for this user + room_name
+  // Box numbers are a single per-user sequence, never reused — the next box is
+  // simply max(box_number) + 1 across all of this user's boxes, regardless of
+  // room or type. The room only decides the label suffix (WH<nn>-<letter>).
   const { data: existing, error: countErr } = await supabase
     .from('box')
     .select('box_number')
     .eq('user_profile_id', userProfileId)
-    .ilike('room_name', roomName)
-    .order('box_number', { ascending: false })
-    .limit(1)
 
   if (countErr) throw new Error(countErr.message)
 
-  const firstResult = existing && existing.length > 0 ? existing[0] : null
-  const boxNumber = firstResult ? (firstResult.box_number as number) + 1 : 1
-  const label = computeBoxLabel(boxType, roomName, boxNumber, itemLabel)
+  const maxNumber = (existing ?? []).reduce(
+    (max, b) => Math.max(max, (b.box_number as number) ?? 0),
+    0
+  )
+
+  const boxNumber = maxNumber + 1
+
+  // Resolve this box's room code. Luggage/carryon are fixed L/C; single_item
+  // has none. Standard reuses the room's existing code or resolves a fresh
+  // collision-free one against the user's other rooms.
+  let roomCodeValue: string | null
+  switch (boxType) {
+    case BoxType.CHECKED_LUGGAGE:
+      roomCodeValue = 'L'
+      break
+    case BoxType.CARRYON:
+      roomCodeValue = 'C'
+      break
+    case BoxType.SINGLE_ITEM:
+      roomCodeValue = null
+      break
+    case BoxType.STANDARD: {
+      const { byFamily, used } = await loadRoomCodeMap(supabase, userProfileId)
+      roomCodeValue = byFamily.get(roomFamily(roomName)) ?? uniqueRoomCode(roomName, used)
+      break
+    }
+  }
+
+  const label = computeBoxLabel(boxType, roomName, boxNumber, itemLabel, roomCodeValue ?? undefined)
 
   // CBM from size for standard/checked_luggage boxes
   const cbm = size ? BOX_SIZE_CBM[size] : null
@@ -433,6 +509,7 @@ export async function createBox(
       cbm,
       room_name: roomName,
       box_number: boxNumber,
+      room_code: roomCodeValue,
       label,
       status: BoxStatus.PACKING,
     })
@@ -445,9 +522,12 @@ export async function createBox(
 
 export async function addItemToBox(
   boxId: string,
-  opts: { itemAssessmentId?: string; itemName?: string }
+  opts: { itemAssessmentId?: string; itemName?: string },
+  userProfileId?: string
 ): Promise<BoxItem> {
   const supabase = getAdminClient()
+
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
 
   let itemName = opts.itemName ?? ''
   let fromAssessment = false
@@ -512,8 +592,15 @@ export async function addItemToBox(
   return boxItem as BoxItem
 }
 
-export async function removeItemFromBox(boxId: string, boxItemId: string): Promise<void> {
+export async function removeItemFromBox(
+  boxId: string,
+  boxItemId: string,
+  userProfileId?: string
+): Promise<void> {
   const supabase = getAdminClient()
+
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+
   const { error } = await supabase
     .from('box_item')
     .delete()
@@ -573,18 +660,34 @@ export async function getBox(boxId: string): Promise<Box & { items: BoxItem[] }>
 
 export async function getBoxes(userProfileId: string): Promise<(Box & { items: BoxItem[] })[]> {
   const supabase = getAdminClient()
+  // Single round-trip: boxes + their box_items + each item's canonical name,
+  // via PostgREST embeds. Replaces the old N+1 (one getBox() = 3 queries per
+  // box, so ~40 round-trips for a 13-box account → 1 here).
   const { data, error } = await supabase
     .from('box')
-    .select('*')
+    .select('*, box_item(*, item_assessment(item_name))')
     .eq('user_profile_id', userProfileId)
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  const boxes = (data ?? []) as Box[]
 
-  // Fetch items for each box so callers get accurate item counts
-  const boxesWithItems = await Promise.all(boxes.map((box) => getBox(box.id)))
-  return boxesWithItems
+  type NestedItem = BoxItem & { item_assessment: { item_name: string | null } | null }
+  type NestedBox = Box & { box_item: NestedItem[] }
+
+  return ((data ?? []) as NestedBox[]).map((row) => {
+    const { box_item, ...box } = row
+    const items: BoxItem[] = [...(box_item ?? [])]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map(({ item_assessment, ...bi }) => ({
+        ...bi,
+        // Resolve canonical name from item_assessment for assessed items; fall
+        // back to box_item.item_name for unassessed (handwritten) entries.
+        item_name: bi.item_assessment_id
+          ? (item_assessment?.item_name ?? bi.item_name ?? '[Item name unavailable]')
+          : bi.item_name,
+      }))
+    return { ...(box as Box), items }
+  })
 }
 
 export async function saveBoxManifestPhoto(boxId: string, imageUrl: string): Promise<Box> {
@@ -610,21 +713,26 @@ export async function getBoxManifest(
   }
 }
 
-export async function setAllBoxesShipped(userProfileId: string): Promise<number> {
+export async function setAllBoxesPacked(userProfileId: string): Promise<number> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('box')
-    .update({ status: BoxStatus.SHIPPED, updated_at: new Date().toISOString() })
+    .update({ status: BoxStatus.PACKED, updated_at: new Date().toISOString() })
     .eq('user_profile_id', userProfileId)
-    .in('status', [BoxStatus.PACKING, BoxStatus.PACKED])
+    .eq('status', BoxStatus.PACKING)
     .select('id')
 
   if (error) throw new Error(error.message)
   return (data ?? []).length
 }
 
-export async function updateBoxStatus(boxId: string, status: BoxStatus): Promise<Box> {
+export async function updateBoxStatus(
+  boxId: string,
+  status: BoxStatus,
+  userProfileId?: string
+): Promise<Box> {
   const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
   const { data: box, error } = await supabase
     .from('box')
     .update({ status, updated_at: new Date().toISOString() })
@@ -636,8 +744,13 @@ export async function updateBoxStatus(boxId: string, status: BoxStatus): Promise
   return box as Box
 }
 
-export async function updateBoxCbm(boxId: string, cbm: number): Promise<Box> {
+export async function updateBoxCbm(
+  boxId: string,
+  cbm: number,
+  userProfileId?: string
+): Promise<Box> {
   const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
   const { data: box, error } = await supabase
     .from('box')
     .update({ cbm, updated_at: new Date().toISOString() })
@@ -649,8 +762,13 @@ export async function updateBoxCbm(boxId: string, cbm: number): Promise<Box> {
   return box as Box
 }
 
-export async function updateBoxLabel(boxId: string, label: string): Promise<Box> {
+export async function updateBoxLabel(
+  boxId: string,
+  label: string,
+  userProfileId?: string
+): Promise<Box> {
   const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
   const { data: box, error } = await supabase
     .from('box')
     .update({ label, updated_at: new Date().toISOString() })
@@ -662,8 +780,279 @@ export async function updateBoxLabel(boxId: string, label: string): Promise<Box>
   return box as Box
 }
 
-export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> {
+/**
+ * Rename a box's room (its human name) and keep the warehouse `label` in sync.
+ *
+ * The label encodes the room as a single letter — `WH<code><nn>` — so renaming
+ * may change that letter. Behaviour by box type:
+ *   - single_item: the label *is* the name → update both.
+ *   - checked_luggage / carryon: the code is fixed (L / C), independent of the
+ *     name → update the name only.
+ *   - standard: derive the code from the new name. If the code is unchanged the
+ *     label stays put; if it changes, take the next free number for the new code
+ *     (mirrors createBox's per-code numbering) and recompute the label. This can
+ *     leave a gap in the old code's numbering, which is fine — warehouse numbers
+ *     tolerate gaps, and renumbering siblings would surprise the user by changing
+ *     labels they didn't touch.
+ */
+export async function renameBoxRoom(
+  boxId: string,
+  newRoomName: string,
+  userProfileId?: string
+): Promise<Box> {
   const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+
+  const trimmed = newRoomName.trim()
+  if (!trimmed) throw new Error('Room name cannot be empty')
+
+  const { data: current, error: loadErr } = await supabase
+    .from('box')
+    .select('user_profile_id, box_type, box_number, room_name')
+    .eq('id', boxId)
+    .single()
+  if (loadErr || !current) throw new Error(loadErr?.message ?? 'Box not found')
+
+  const boxType = current.box_type as BoxType
+
+  // Resolve the destination room's code. Reuse the target room's existing code
+  // if it already exists for this user, else resolve a fresh collision-free one.
+  // Exclude this box's own current room from the used-set so renaming back and
+  // forth doesn't needlessly inflate the code. Luggage/carryon keep their fixed
+  // L/C code; single_item has none.
+  let newCode: string | null
+  if (boxType === BoxType.STANDARD) {
+    const { byFamily, used } = await loadRoomCodeMap(supabase, current.user_profile_id as string)
+    const oldFamily = roomFamily(current.room_name as string)
+    const newFamily = roomFamily(trimmed)
+    const existingForTarget = byFamily.get(newFamily)
+    if (existingForTarget) {
+      newCode = existingForTarget
+    } else {
+      // Free the old family's code if this is the only standard box in it, so a
+      // rename can reclaim that letter for the new room.
+      const oldCode = byFamily.get(oldFamily)
+      const usedForResolve = new Set(used)
+      if (oldCode && oldFamily !== newFamily) {
+        const { data: familyBoxes } = await supabase
+          .from('box')
+          .select('room_name')
+          .eq('user_profile_id', current.user_profile_id as string)
+          .eq('box_type', BoxType.STANDARD)
+        const count = (familyBoxes ?? []).filter(
+          (b) => roomFamily(b.room_name as string) === oldFamily
+        ).length
+        if (count <= 1) usedForResolve.delete(oldCode)
+      }
+      newCode = uniqueRoomCode(trimmed, usedForResolve)
+    }
+  } else if (boxType === BoxType.CHECKED_LUGGAGE) {
+    newCode = 'L'
+  } else if (boxType === BoxType.CARRYON) {
+    newCode = 'C'
+  } else {
+    newCode = null
+  }
+
+  // The number is the box's permanent ID — renaming only re-derives the label
+  // suffix (WH05-K → WH05-A), or the descriptive label for single-item boxes.
+  const label = computeBoxLabel(boxType, trimmed, current.box_number as number, trimmed, newCode ?? undefined)
+
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ room_name: trimmed, room_code: newCode, label, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to rename box')
+  return box as Box
+}
+
+/**
+ * Set the code for a whole room family (every standard box whose room name
+ * shares the first word of `roomName` for the user — see roomFamily). The code
+ * is family-scoped, so editing it relabels all of the family's standard boxes
+ * ("Bedroom 1"/"Bedroom 2" together) and new boxes in the family inherit it.
+ *
+ * Validates: trim; 1–4 chars; letters/digits only; non-blank; and rejects a
+ * code already used by a DIFFERENT family of this user's (collision → Error the
+ * route maps to 400). Owner-guarded via the passed `userProfileId`.
+ *
+ * Returns every box in the family that was updated so the client can relabel
+ * them together.
+ */
+export async function setRoomCode(
+  userProfileId: string,
+  roomName: string,
+  newCode: string
+): Promise<Box[]> {
+  const supabase = getAdminClient()
+
+  const code = (newCode ?? '').trim()
+  if (!code) throw new Error('Code cannot be empty')
+  if (code.length > 4) throw new Error('Code must be 1–4 characters')
+  if (!/^[A-Za-z0-9]+$/.test(code)) throw new Error('Code may only contain letters and digits')
+
+  const family = roomFamily(roomName)
+
+  // Fetch the user's standard boxes once: drives both the collision check and
+  // the family fan-out below.
+  const { data: others, error: othersErr } = await supabase
+    .from('box')
+    .select('id, box_type, room_name, room_code, box_number')
+    .eq('user_profile_id', userProfileId)
+    .eq('box_type', BoxType.STANDARD)
+  if (othersErr) throw new Error(othersErr.message)
+
+  // Collision check: reject if a DIFFERENT family (same user) already uses this
+  // code, case-insensitively (codes are short identifiers — treat AB and ab as
+  // one).
+  for (const b of others ?? []) {
+    if (roomFamily(b.room_name as string) === family) continue
+    const existing = (b.room_code as string | null) ?? roomCode(b.room_name as string)
+    if (existing.toLowerCase() === code.toLowerCase()) {
+      throw new Error(`Code "${code}" is already used by ${b.room_name}`)
+    }
+  }
+
+  // Every standard box in this family, relabelled from its own number.
+  const roomBoxes = (others ?? []).filter(
+    (b) => roomFamily(b.room_name as string) === family
+  )
+  if (roomBoxes.length === 0) throw new Error('Room not found')
+
+  const stamp = new Date().toISOString()
+  const updated: Box[] = []
+  for (const b of roomBoxes) {
+    const label = computeBoxLabel(
+      b.box_type as BoxType,
+      b.room_name as string,
+      b.box_number as number,
+      b.room_name as string,
+      code
+    )
+    const { data: box, error } = await supabase
+      .from('box')
+      .update({ room_code: code, label, updated_at: stamp })
+      .eq('id', b.id)
+      .select()
+      .single()
+    if (error || !box) throw new Error(error?.message ?? 'Failed to set room code')
+    updated.push(box as Box)
+  }
+
+  return updated
+}
+
+/**
+ * Resolve a box's `room_name`, owner-guarded. Used by the PATCH route to scope
+ * a room-code edit (which is room-wide) from a single box id.
+ */
+export async function getBoxRoomName(boxId: string, userProfileId: string): Promise<string> {
+  const supabase = getAdminClient()
+  const { data: box, error } = await supabase
+    .from('box')
+    .select('user_profile_id, room_name')
+    .eq('id', boxId)
+    .single()
+  if (error || !box || box.user_profile_id !== userProfileId) throw new Error('Box not found')
+  return box.room_name as string
+}
+
+/**
+ * Set a box's number (manual renumber). Numbers are a per-user global sequence
+ * and unique, so if the target number is already taken the two boxes **swap**
+ * numbers. The caller (UI) is expected to confirm the swap with the user first.
+ *
+ * Returns every box whose number/label changed (1 or 2) so the client can
+ * update them together. The swap parks the moving box on a temporary negative
+ * number to avoid tripping the (user, box_number) unique constraint mid-swap.
+ */
+export async function setBoxNumber(
+  boxId: string,
+  newNumber: number,
+  userProfileId?: string
+): Promise<Box[]> {
+  const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+
+  if (!Number.isInteger(newNumber) || newNumber < 1) {
+    throw new Error('Box number must be a positive whole number')
+  }
+
+  const { data: target, error: loadErr } = await supabase
+    .from('box')
+    .select('id, user_profile_id, box_type, room_name, room_code, box_number, label')
+    .eq('id', boxId)
+    .single()
+  if (loadErr || !target) throw new Error(loadErr?.message ?? 'Box not found')
+
+  const oldNumber = target.box_number as number
+  if (oldNumber === newNumber) return [target as Box]
+
+  // Relabel from the box's stored room_code (fall back to roomCode if null) so
+  // we never re-derive a collision-resolved code from the name.
+  const relabel = (b: { box_type: BoxType; room_name: string; room_code: string | null }, n: number) =>
+    computeBoxLabel(b.box_type as BoxType, b.room_name, n, b.room_name, effectiveRoomCode(b) ?? undefined)
+
+  // Is another of this user's boxes already on the target number?
+  const { data: clashRows, error: clashErr } = await supabase
+    .from('box')
+    .select('id, box_type, room_name, room_code, box_number')
+    .eq('user_profile_id', target.user_profile_id)
+    .eq('box_number', newNumber)
+    .neq('id', boxId)
+  if (clashErr) throw new Error(clashErr.message)
+  const clash = clashRows?.[0]
+
+  if (!clash) {
+    const { data: box, error } = await supabase
+      .from('box')
+      .update({
+        box_number: newNumber,
+        label: relabel(target, newNumber),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', boxId)
+      .select()
+      .single()
+    if (error || !box) throw new Error(error?.message ?? 'Failed to renumber box')
+    return [box as Box]
+  }
+
+  // Swap: park target on a temp negative number, move the clashing box onto the
+  // target's old number, then move target onto the requested number.
+  const stamp = new Date().toISOString()
+  const park = await supabase.from('box').update({ box_number: -1, updated_at: stamp }).eq('id', boxId)
+  if (park.error) throw new Error(park.error.message)
+
+  const moveClash = await supabase
+    .from('box')
+    .update({ box_number: oldNumber, label: relabel(clash, oldNumber), updated_at: stamp })
+    .eq('id', clash.id)
+    .select()
+    .single()
+  if (moveClash.error || !moveClash.data) throw new Error(moveClash.error?.message ?? 'Renumber swap failed')
+
+  const moveTarget = await supabase
+    .from('box')
+    .update({ box_number: newNumber, label: relabel(target, newNumber), updated_at: stamp })
+    .eq('id', boxId)
+    .select()
+    .single()
+  if (moveTarget.error || !moveTarget.data) throw new Error(moveTarget.error?.message ?? 'Renumber swap failed')
+
+  return [moveTarget.data as Box, moveClash.data as Box]
+}
+
+export async function updateBoxSize(
+  boxId: string,
+  size: BoxSize,
+  userProfileId?: string
+): Promise<Box> {
+  const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
   const cbm = BOX_SIZE_CBM[size]
   const { data: box, error } = await supabase
     .from('box')
@@ -676,8 +1065,13 @@ export async function updateBoxSize(boxId: string, size: BoxSize): Promise<Box> 
   return box as Box
 }
 
-export async function updateBoxManifestUrl(boxId: string, manifestImageUrl: string): Promise<Box> {
+export async function updateBoxManifestUrl(
+  boxId: string,
+  manifestImageUrl: string,
+  userProfileId?: string
+): Promise<Box> {
   const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
   const { data: box, error } = await supabase
     .from('box')
     .update({ manifest_image_url: manifestImageUrl, updated_at: new Date().toISOString() })
@@ -687,6 +1081,79 @@ export async function updateBoxManifestUrl(boxId: string, manifestImageUrl: stri
 
   if (error || !box) throw new Error(error?.message ?? 'Failed to update box manifest URL')
   return box as Box
+}
+
+export async function setBoxBiosecurity(
+  boxId: string,
+  value: boolean,
+  userProfileId?: string
+): Promise<Box> {
+  const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+  const { data: box, error } = await supabase
+    .from('box')
+    .update({ is_biosecurity: value, updated_at: new Date().toISOString() })
+    .eq('id', boxId)
+    .select()
+    .single()
+
+  if (error || !box) throw new Error(error?.message ?? 'Failed to update box biosecurity flag')
+  return box as Box
+}
+
+/**
+ * Reassign a box_item to a different box. Guards that both the source box (the
+ * one currently holding the item) and the destination box belong to the same
+ * owner, so items can't be moved across user boundaries.
+ */
+export async function moveItemToBox(
+  boxItemId: string,
+  toBoxId: string,
+  userProfileId?: string
+): Promise<BoxItem> {
+  const supabase = getAdminClient()
+
+  // Fetch the box_item and its current box's owner
+  const { data: boxItem, error: itemErr } = await supabase
+    .from('box_item')
+    .select('id, box_id')
+    .eq('id', boxItemId)
+    .single()
+
+  if (itemErr || !boxItem) throw new Error('Box item not found')
+
+  // Resolve owners of both source and destination boxes
+  const { data: boxes, error: boxesErr } = await supabase
+    .from('box')
+    .select('id, user_profile_id')
+    .in('id', [boxItem.box_id as string, toBoxId])
+
+  if (boxesErr) throw new Error(boxesErr.message)
+
+  const fromBox = (boxes ?? []).find((b) => b.id === boxItem.box_id)
+  const toBox = (boxes ?? []).find((b) => b.id === toBoxId)
+
+  if (!toBox) throw new Error('Destination box not found')
+  if (!fromBox) throw new Error('Source box not found')
+  if (fromBox.user_profile_id !== toBox.user_profile_id) {
+    throw new Error('Cannot move item between boxes owned by different users')
+  }
+  // Enforce caller ownership of both boxes (service-role bypasses RLS)
+  if (userProfileId && fromBox.user_profile_id !== userProfileId) {
+    throw new Error('Box item not found')
+  }
+
+  if (boxItem.box_id === toBoxId) return boxItem as BoxItem
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('box_item')
+    .update({ box_id: toBoxId })
+    .eq('id', boxItemId)
+    .select()
+    .single()
+
+  if (updateErr || !updated) throw new Error(updateErr?.message ?? 'Failed to move item to box')
+  return updated as BoxItem
 }
 
 // ─── BoxScan ─────────────────────────────────────────────────────────────────
@@ -859,6 +1326,14 @@ const VERDICT_LABELS: Record<string, string> = {
   REVISIT: 'Decide later',
 }
 
+// Human-readable labels for the biosecurity risk flags.
+const BIOSECURITY_FLAG_LABELS: Record<string, string> = {
+  none: 'No biosecurity risk',
+  declare: 'Declare on arrival',
+  high_risk: 'High biosecurity risk',
+  prohibited: 'Prohibited',
+}
+
 /**
  * After a user edits an item, persist system messages into the item's
  * conversation so that Aisling (and the user) can see what changed.
@@ -872,8 +1347,8 @@ const VERDICT_LABELS: Record<string, string> = {
 export async function appendItemEditSystemMessages(
   itemAssessmentId: string,
   userProfileId: string,
-  before: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency'>,
-  after: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency'>
+  before: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency' | 'biosecurity_flag'>,
+  after: Pick<ItemAssessment, 'verdict' | 'item_name' | 'estimated_ship_cost' | 'estimated_replace_cost' | 'advice_text' | 'currency' | 'replace_currency' | 'biosecurity_flag'>
 ): Promise<void> {
   const notes: string[] = []
 
@@ -884,6 +1359,15 @@ export async function appendItemEditSystemMessages(
   if (before.verdict !== after.verdict && after.verdict) {
     const label = VERDICT_LABELS[after.verdict] ?? after.verdict
     notes.push(`You changed the decision to ${label}.`)
+  }
+
+  if (before.biosecurity_flag !== after.biosecurity_flag) {
+    if (after.biosecurity_flag) {
+      const label = BIOSECURITY_FLAG_LABELS[after.biosecurity_flag] ?? after.biosecurity_flag
+      notes.push(`You changed the biosecurity status to ${label}.`)
+    } else {
+      notes.push('You cleared the biosecurity status.')
+    }
   }
 
   if (before.estimated_ship_cost !== after.estimated_ship_cost) {

@@ -103,9 +103,12 @@
   color: var(--color-text-primary);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 599px) {
   .clearLabel {
     display: none;
+  }
+  .clearBtn {
+    padding: 8px 10px;
   }
 }
 

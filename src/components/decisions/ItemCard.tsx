@@ -12,6 +12,9 @@ interface ItemCardProps {
   onClick: (id: string) => void
   onVerdictChange?: (() => void) | undefined
   onDelete?: ((id: string) => void) | undefined
+  /** When true, flashes the verdict-coloured left edge for ~2.6s as a
+   *  delight beat after a confirm / verdict change. */
+  justDecided?: boolean
 }
 
 // Verdict colours matching the CostSummary palette
@@ -42,9 +45,20 @@ function formatCost(amount: number, currency: string | null): string {
   }).format(amount)
 }
 
-export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, onDelete }: ItemCardProps) {
+// Verdict accent colours for the left-edge stripe (same scale as ItemTile).
+const VERDICT_ACCENT: Record<string, string> = {
+  SHIP:    'var(--verdict-ship, #16a34a)',
+  CARRY:   'var(--verdict-carry, #2563eb)',
+  SELL:    'var(--verdict-sell, #d97706)',
+  DONATE:  'var(--verdict-donate, #6b7280)',
+  DISCARD: 'var(--verdict-discard, #6b7280)',
+  REVISIT: 'var(--verdict-decide-later, #3b82f6)',
+}
+
+export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, onDelete, justDecided }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
+  const verdictAccent = item.verdict ? VERDICT_ACCENT[item.verdict] : undefined
 
   const badge = verdictColors && verdictLabel
     ? { label: verdictLabel, color: verdictColors.bg, fgColor: verdictColors.fg }
@@ -89,7 +103,11 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, o
   const showDeleteTrigger = onDelete && item.processing_status !== 'completed'
 
   return (
-    <div className={styles.cardWrap}>
+    <div
+      className={styles.cardWrap}
+      data-just-decided={justDecided ? 'true' : undefined}
+      style={verdictAccent ? ({ '--card-accent': verdictAccent } as React.CSSProperties) : undefined}
+    >
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic prop construction */}
       <RecommendationCard {...(cardProps as any)} />
       {showVerdictTrigger && (

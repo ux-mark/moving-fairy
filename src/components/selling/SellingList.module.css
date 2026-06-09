@@ -9,6 +9,191 @@
   box-sizing: border-box;
 }
 
+@media (min-width: 1024px) {
+  .root {
+    max-width: 1280px;
+    padding: 24px 24px 48px;
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .root {
+    max-width: 1440px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .root {
+    max-width: 1600px;
+  }
+}
+
+/* ── Cockpit grid (≥1280px) ──
+   Rail appears at 1280+ only so the main column has room for a useful
+   tile grid below that. Unified with /items, /decisions, /boxes. */
+.cockpit {
+  display: contents;
+}
+.cockpitMain {
+  display: contents;
+}
+.cockpitRail {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .cockpit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    align-items: start;
+  }
+  .cockpitMain {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .cockpitRail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 16px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .cockpit {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 32px;
+  }
+}
+
+.railCard {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.railEyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railStats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.railStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.railStat dt {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.railStat dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.railRevenue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.railFooterStat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railFooterStat strong {
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+.railNextList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.railNextItem {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.railNextItem:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.railNextItem:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.railNextName {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  /* No truncation — UX_STANDARDS prohibits ellipsis. Long names wrap. */
+}
+
+.railNextHint {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
+}
+
 .header {
   display: flex;
   flex-direction: column;
@@ -61,7 +246,7 @@
   background: var(--color-bg-card, #fff);
   border: 1px solid var(--color-border-default, #e5e5e5);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 8px 14px;
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-default, #222);
@@ -69,7 +254,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 40px;
+  white-space: nowrap;
   transition: background 120ms ease, border-color 120ms ease;
 }
 
@@ -120,9 +306,18 @@
   }
 }
 
-@media (min-width: 960px) {
+/* Desktop: auto-fill keeps tile width capped (~240-280px) regardless of
+   main-column width — prevents giant hero tiles when the rail is absent
+   or the viewport is wide. */
+@media (min-width: 1024px) {
   .grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+@media (min-width: 1400px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -152,6 +347,12 @@
   aspect-ratio: 4 / 3;
   background: var(--color-bg-muted, #f7f7f7);
   overflow: hidden;
+}
+
+@media (max-width: 599px) {
+  .thumbWrap {
+    aspect-ratio: 16 / 10;
+  }
 }
 
 .thumb {

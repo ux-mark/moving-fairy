@@ -1,5 +1,75 @@
 import { describe, it, expect } from 'vitest'
-import { BOX_SIZE_CBM, BoxSize, Country, OnwardTimeline, Verdict, BoxType, BoxStatus } from './constants'
+import { BOX_SIZE_CBM, BoxSize, Country, OnwardTimeline, Verdict, BoxType, BoxStatus, roomFamily, uniqueRoomCode, computeBoxLabel } from './constants'
+
+describe('roomFamily()', () => {
+  it('returns the first word, lowercased, for multi-word names', () => {
+    expect(roomFamily('Bedroom 1')).toBe('bedroom')
+    expect(roomFamily('Bedroom 2')).toBe('bedroom')
+    expect(roomFamily('Kitchen WH19')).toBe('kitchen')
+    expect(roomFamily('Camping & Kitchen')).toBe('camping')
+  })
+
+  it('lowercases and trims a single-word name', () => {
+    expect(roomFamily('  Garage  ')).toBe('garage')
+    expect(roomFamily('OFFICE')).toBe('office')
+  })
+
+  it('returns empty string when there is no word', () => {
+    expect(roomFamily('')).toBe('')
+    expect(roomFamily('   ')).toBe('')
+  })
+
+  it('groups Bedroom variants to one family but keeps distinct families apart', () => {
+    expect(roomFamily('Bedroom 1')).toBe(roomFamily('Bedroom 3'))
+    expect(roomFamily('Bedroom')).not.toBe(roomFamily('Books'))
+  })
+})
+
+describe('uniqueRoomCode()', () => {
+  it('returns the base single letter when unused', () => {
+    expect(uniqueRoomCode('Bedroom', new Set())).toBe('B')
+    expect(uniqueRoomCode('Kitchen', new Set())).toBe('K')
+  })
+
+  it('extends with the next consonant when the base collides (Books → Bk)', () => {
+    expect(uniqueRoomCode('Books', new Set(['B']))).toBe('Bk')
+  })
+
+  it('skips vowels when choosing the extension consonant (Attic → At? no — base A, next consonant t)', () => {
+    expect(uniqueRoomCode('Attic', new Set(['A']))).toBe('At')
+  })
+
+  it('falls back to the next letter when no consonant is free', () => {
+    // "Bee" → base B; consonants after the leading B: none (e, e are vowels) →
+    // next letter is 'e'.
+    expect(uniqueRoomCode('Bee', new Set(['B']))).toBe('Be')
+  })
+
+  it('falls back to a digit when all letter extensions are taken', () => {
+    expect(uniqueRoomCode('Bo', new Set(['B', 'Bo']))).toBe('B2')
+  })
+
+  it('never returns a code already in usedCodes', () => {
+    const used = new Set(['B', 'Bk'])
+    const code = uniqueRoomCode('Books', used)
+    expect(used.has(code)).toBe(false)
+  })
+})
+
+describe('computeBoxLabel() with explicit code', () => {
+  it('uses the passed code for a standard box', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Books', 4, undefined, 'Bk')).toBe('WH04-Bk')
+  })
+
+  it('falls back to roomCode() when no code is passed', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Books', 4)).toBe('WH04-B')
+  })
+
+  it('ignores the code for fixed-suffix box types', () => {
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 1, undefined, 'X')).toBe('WH01-L')
+    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 2, undefined, 'X')).toBe('WH02-C')
+  })
+})
 
 describe('BOX_SIZE_CBM values', () => {
   it('XS is 0.04 CBM', () => {

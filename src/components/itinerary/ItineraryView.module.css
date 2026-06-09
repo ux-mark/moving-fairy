@@ -2,11 +2,32 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 960px;
+  max-width: none;
   margin: 0 auto;
   padding: 16px 16px 40px;
   gap: 16px;
   box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .root {
+    padding: 24px 24px 48px;
+    gap: 20px;
+  }
+}
+
+/* Full-width manifest: the boxes table spans the page; the biosecurity
+   declarations panel stacks full-width beneath it. */
+.cockpit {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .cockpit {
+    gap: 24px;
+  }
 }
 
 .header {
@@ -40,16 +61,35 @@
   flex-wrap: wrap;
 }
 
+@media (max-width: 599px) {
+  .tabs {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; flex-shrink: 0; }
+}
+
 .tab {
   appearance: none;
   border: none;
   background: none;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: var(--radius-md, 6px);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-muted, #555);
+  min-height: 40px;
+}
+
+@media (max-width: 767px) {
+  .tab {
+    min-height: 44px;
+  }
 }
 
 .tab:hover { color: var(--color-text-default, #222); }
@@ -71,8 +111,14 @@
 
 .totals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+}
+
+@media (min-width: 768px) {
+  .totals {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .totalsTile {
@@ -108,14 +154,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--color-border-default, #d4d4d4);
   border-radius: var(--radius-md, 8px);
   text-decoration: none;
   color: var(--color-text-default, #222);
   font-size: 14px;
   font-weight: 500;
-  min-height: 40px;
+  min-height: 44px;
   background: var(--color-bg-default, #fff);
   cursor: pointer;
 }
@@ -151,6 +197,14 @@
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
   word-break: break-all;
   flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .shareUrl {
+    font-size: 13px;
+  }
 }
 
 .shareToast {
@@ -161,16 +215,28 @@
   background: transparent;
   border: 1px solid var(--color-info-dark, #0c4a6e);
   color: var(--color-info-dark, #0c4a6e);
-  padding: 4px 10px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm, 6px);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  min-height: 40px;
 }
 
 .shareCopyBtn:hover {
   background: var(--color-info-dark, #0c4a6e);
   color: white;
+}
+
+.shareCopyBtn:focus-visible {
+  outline: 2px solid var(--color-info-dark, #0c4a6e);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .shareCopyBtn {
+    min-height: 44px;
+  }
 }
 
 .boxes {
@@ -200,10 +266,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   cursor: pointer;
   font-size: 15px;
   color: var(--color-text-default, #222);
   text-align: left;
+  min-height: 44px;
 }
 
 .boxHeader:hover {
@@ -336,6 +404,32 @@
   flex-wrap: wrap;
 }
 
+.biosecItemLink {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.biosecItemLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--color-primary, #16a34a);
+}
+
+.biosecItemLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
 .biosecBoxRef {
   font-size: 12px;
   color: var(--color-text-muted, #666);
@@ -358,6 +452,24 @@
   white-space: nowrap;
 }
 
+/* Print-only manifest header — hidden on screen, shown by @media print. */
+.printHeader {
+  display: none;
+}
+
+.printTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: #000;
+}
+
+.printMeta {
+  font-size: 12px;
+  margin: 2px 0 0;
+  color: #000;
+}
+
 /* ---- Print: render a clean manifest -----------------------------------
  * Browser "Save as PDF" pipes through @media print. We hide the leg tabs,
  * the action row, and the share banner (all interactive chrome), then
@@ -371,10 +483,26 @@
     gap: 12px;
   }
 
+  /* Interactive chrome and edit-only affordances come off the page. */
   .tabs,
   .actions,
-  .shareBanner {
+  .shareBanner,
+  .openBoxLink,
+  .removeBtn,
+  .actionsCell,
+  .savedTick,
+  .chevron {
     display: none !important;
+  }
+
+  /* Print-only manifest header (hidden on screen). */
+  .printHeader {
+    display: block !important;
+  }
+
+  /* Stack boxes then the biosecurity rail full-width — no cramped cockpit. */
+  .cockpit {
+    display: block !important;
   }
 
   .totals {
@@ -398,21 +526,12 @@
     border-color: #ddd;
   }
 
-  /* Make sure every box appears expanded in print — even if the user
-     prints without our button (e.g., Ctrl+P), the manifest reads cleanly. */
-  .itemsList {
-    display: flex !important;
-  }
-
   .boxHeader {
     cursor: default;
   }
 
-  .chevron {
-    display: none;
-  }
-
-  .biosec {
+  .biosec,
+  .biosecRail {
     page-break-inside: avoid;
     break-inside: avoid;
     border-color: #ccc;
@@ -420,5 +539,327 @@
 
   .biosecItem {
     border-color: #ddd;
+  }
+
+  /* Drop the Actions column — a manifest doesn't carry edit controls. */
+  .colHeader,
+  .itemGridRow {
+    grid-template-columns:
+      minmax(0, 1.6fr) minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(96px, 0.9fr) minmax(100px, 0.9fr);
+  }
+
+  .colHeader .colHeaderCell:last-child {
+    display: none;
+  }
+
+  /* The currency prints as the prefix (e.g. "EUR 120"); reveal it. The
+     CurrencySelect trigger hides itself in print (see CurrencySelect.module.css). */
+  .currencyPrefix {
+    display: inline !important;
+  }
+
+  /* Flatten the remaining editable controls to plain text — no borders,
+     no native dropdown chevrons, no input chrome. Their current value is
+     what prints. */
+  .valueInput,
+  .boxSelect {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    color: #000 !important;
+    font-size: 13px !important;
+  }
+}
+
+/* ============================================================
+   Inline-editable manifest — desktop ARIA grid
+   ============================================================ */
+.boxHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  min-height: 44px;
+}
+
+.openBoxLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted, #666);
+  cursor: pointer;
+  border-radius: var(--radius-md, 6px);
+}
+
+.openBoxLink:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+  color: var(--color-text-default, #222);
+}
+
+.openBoxLink:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+/* Shared grid template so columns align across all rows of a box. */
+.itemGrid {
+  padding: 0 14px 12px;
+}
+
+.colHeader,
+.itemGridRow {
+  display: grid;
+  /* Content-independent tracks so the header and every row share identical
+     column widths. (max-content resolves separately in each row's own grid,
+     so columns never line up — that was the misalignment.) */
+  grid-template-columns:
+    minmax(0, 1.6fr)
+    minmax(88px, 0.8fr)
+    minmax(140px, 1fr)
+    minmax(100px, 0.9fr)
+    minmax(104px, 0.9fr)
+    minmax(76px, 0.7fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.colHeader {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-default, #e5e5e5);
+}
+
+.colHeaderCell {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #666);
+}
+
+.itemGridRow {
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border-default, #f3f3f3);
+  font-size: 14px;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.numCol {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.colHeader .numCol {
+  text-align: right;
+}
+
+.actionsCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* ============================================================
+   Editable field controls
+   ============================================================ */
+.valueField {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Hidden on screen — the currency <select> already shows the currency, so a
+   prefix would just double it (e.g. "AUD 220 AUD"). Revealed only in print,
+   where the select is hidden and the value needs to read as "EUR 120". */
+.currencyPrefix {
+  display: none;
+  font-size: 12px;
+  color: var(--color-text-muted, #666);
+  font-variant-numeric: tabular-nums;
+}
+
+.valueInput {
+  width: 64px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border-default, #d4d4d4);
+  border-radius: var(--radius-md, 6px);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-card, #fff);
+  color: var(--color-text-default, #222);
+  /* Hide the native number spinner arrows — keep numeric behaviour. */
+  -webkit-appearance: none;
+  appearance: none;
+  -moz-appearance: textfield;
+}
+
+.valueInput::-webkit-outer-spin-button,
+.valueInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.valueInput:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 1px;
+}
+
+.fieldErrorInput {
+  border-color: var(--color-danger, #b91c1c);
+}
+
+.boxSelect {
+  padding: 4px 6px;
+  border: 1px solid var(--color-border-default, #d4d4d4);
+  border-radius: var(--radius-md, 6px);
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--color-bg-card, #fff);
+  color: var(--color-text-default, #222);
+  cursor: pointer;
+  max-width: 100%;
+  min-width: 96px;
+}
+
+.boxSelect:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 1px;
+}
+
+.savedTick {
+  color: var(--color-primary, #16a34a);
+  animation: tickIn 150ms ease-out;
+}
+
+@keyframes tickIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savedTick {
+    animation: none;
+  }
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 6px 8px;
+  min-height: 36px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted, #666);
+  cursor: pointer;
+  border-radius: var(--radius-md, 6px);
+  white-space: nowrap;
+}
+
+.removeBtn:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+  color: var(--color-danger, #b91c1c);
+}
+
+.removeBtn:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.rowError {
+  padding: 4px 0 8px;
+  font-size: 13px;
+  color: var(--color-danger, #b91c1c);
+}
+
+/* ============================================================
+   Mobile — stacked labelled cards
+   ============================================================ */
+.itemCards {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.itemCardWrap {
+  margin: 0;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-card, #fff);
+}
+
+.cardTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTopRow .itemName {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.cardField {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cellLabel {
+  font-size: 14px;
+  color: var(--color-text-muted, #666);
+}
+
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1023px) {
+  .valueInput {
+    min-height: 44px;
+    width: 88px;
+    font-size: 16px;
+  }
+
+  .boxSelect {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .removeBtn {
+    min-height: 44px;
+    font-size: 15px;
   }
 }

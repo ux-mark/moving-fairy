@@ -15,7 +15,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }))
 
 // Import after mock is in place
-import { saveItemAssessment, computeBoxLabel, getCostSummary, addItemToBox } from './tools'
+import { saveItemAssessment, computeBoxLabel, getCostSummary, addItemToBox, setBoxBiosecurity } from './tools'
 
 // ─── Shared setup helper ─────────────────────────────────────────────────────
 
@@ -33,56 +33,36 @@ function setupInsertChain() {
   return { insert, single: insertSingle }
 }
 
-function setupSelectEqChain() {
-  // getCostSummary makes two DB calls:
-  // 1. user_profile: select('departure_country').eq('id', ...).single()
-  //    — returns { data: null, error: null } so departureCurrency defaults to 'USD'
-  // 2. item_assessment: select('verdict, estimated_ship_cost').eq('user_profile_id', ...).eq('processing_status', ...)
-  //    — caller sets up the resolved value via the returned `eq` mock
-
-  // Profile query: select().eq().single() — returns no profile (defaults to USD)
-  const profileSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-  const profileEq = vi.fn(() => ({ single: profileSingle }))
-  const profileSelect = vi.fn(() => ({ eq: profileEq }))
-
-  // Item assessment query: select().eq().eq() — caller sets mockResolvedValueOnce on eq2
-  const eq2 = vi.fn()
-  const eq1 = vi.fn(() => ({ eq: eq2 }))
-  const itemSelect = vi.fn(() => ({ eq: eq1 }))
-
-  let callCount = 0
-  mockFrom.mockImplementation(() => {
-    callCount++
-    if (callCount === 1) {
-      return { select: profileSelect }
-    }
-    return { select: itemSelect }
-  })
-
-  return { eq: eq2 }
-}
-
 // ─── computeBoxLabel ────────────────────────────────────────────────────────
 
 describe('computeBoxLabel()', () => {
-  it('generates "Kitchen 1" for a standard kitchen box number 1', () => {
-    expect(computeBoxLabel(BoxType.STANDARD, 'Kitchen', 1)).toBe('Kitchen 1')
+  it('generates "WH01-K" for a standard kitchen box number 1', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Kitchen', 1)).toBe('WH01-K')
   })
 
-  it('generates "Bedroom 2" for standard bedroom box number 2', () => {
-    expect(computeBoxLabel(BoxType.STANDARD, 'Bedroom', 2)).toBe('Bedroom 2')
+  it('generates "WH02-B" for standard bedroom box number 2', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Bedroom', 2)).toBe('WH02-B')
   })
 
-  it('generates "Checked Luggage 1" for checked_luggage box number 1', () => {
-    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 1)).toBe('Checked Luggage 1')
+  it('zero-pads the box number to two digits', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Kitchen', 3)).toBe('WH03-K')
+    expect(computeBoxLabel(BoxType.STANDARD, 'Kitchen', 12)).toBe('WH12-K')
   })
 
-  it('generates "Checked Luggage 3" for checked_luggage box number 3', () => {
-    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 3)).toBe('Checked Luggage 3')
+  it('falls back to the first letter for an unmapped room name', () => {
+    expect(computeBoxLabel(BoxType.STANDARD, 'Pantry', 1)).toBe('WH01-P')
   })
 
-  it('generates "Carry-on" for carryon box type (ignores room and number)', () => {
-    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 99)).toBe('Carry-on')
+  it('generates "WH01-L" for checked_luggage box number 1', () => {
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 1)).toBe('WH01-L')
+  })
+
+  it('generates "WH03-L" for checked_luggage box number 3', () => {
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 3)).toBe('WH03-L')
+  })
+
+  it('generates "WH99-C" for carryon box number 99', () => {
+    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 99)).toBe('WH99-C')
   })
 
   it('single_item uses itemLabel when provided', () => {
@@ -236,12 +216,14 @@ function setupCostSummaryChain(
   const profileEq = vi.fn(() => ({ single: profileSingle }))
   const profileSelect = vi.fn(() => ({ eq: profileEq }))
 
-  // Assessment query: select().eq() — resolves directly (no .single())
-  const assessmentEq = vi.fn().mockResolvedValue({
+  // Assessment query: select().eq('user_profile_id').eq('processing_status')
+  // — the second .eq() resolves directly (no .single())
+  const assessmentEq2 = vi.fn().mockResolvedValue({
     data: assessmentError ? null : assessmentRecords,
     error: assessmentError ?? null,
   })
-  const assessmentSelect = vi.fn(() => ({ eq: assessmentEq }))
+  const assessmentEq1 = vi.fn(() => ({ eq: assessmentEq2 }))
+  const assessmentSelect = vi.fn(() => ({ eq: assessmentEq1 }))
 
   mockFrom
     .mockReturnValueOnce({ select: profileSelect })
@@ -463,5 +445,57 @@ describe('addItemToBox()', () => {
     await expect(
       addItemToBox('box-1', { itemAssessmentId: 'nonexistent' })
     ).rejects.toThrow('Item assessment not found')
+  })
+})
+
+// ─── Box ownership guard ────────────────────────────────────────────────────
+
+describe('box ownership guard', () => {
+  // assertBoxOwner runs a single box.select('user_profile_id').eq('id').single()
+  function setupBoxOwner(boxOwner: string | null) {
+    const single = vi.fn().mockResolvedValue({
+      data: boxOwner === null ? null : { user_profile_id: boxOwner },
+      error: boxOwner === null ? { code: 'PGRST116' } : null,
+    })
+    mockFrom.mockImplementation(() => ({
+      select: () => ({ eq: () => ({ single }) }),
+    }))
+  }
+
+  it('throws "Box not found" when the box belongs to another user', async () => {
+    setupBoxOwner('other-user')
+    await expect(setBoxBiosecurity('box-1', true, 'user-1')).rejects.toThrow('Box not found')
+  })
+
+  it('throws "Box not found" when the box does not exist', async () => {
+    setupBoxOwner(null)
+    await expect(setBoxBiosecurity('box-1', true, 'user-1')).rejects.toThrow('Box not found')
+  })
+
+  it('proceeds to the update when the caller owns the box', async () => {
+    const updateSingle = vi.fn().mockResolvedValue({
+      data: { id: 'box-1', is_biosecurity: true },
+      error: null,
+    })
+    let call = 0
+    mockFrom.mockImplementation(() => {
+      call++
+      // First box call: ownership check. Second: the update.
+      if (call === 1) {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({ data: { user_profile_id: 'user-1' }, error: null }),
+            }),
+          }),
+        }
+      }
+      return {
+        update: () => ({ eq: () => ({ select: () => ({ single: updateSingle }) }) }),
+      }
+    })
+
+    const box = await setBoxBiosecurity('box-1', true, 'user-1')
+    expect(box).toEqual({ id: 'box-1', is_biosecurity: true })
   })
 })

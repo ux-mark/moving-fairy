@@ -1,0 +1,49 @@
+/* BoxPill — `[CODE] Name`. Mirrors the .codeChip look from BoxCard.module.css. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  /* User content (the name) must wrap, never truncate. */
+  flex-wrap: wrap;
+}
+
+/* Read-only warehouse code chip — mono, tinted, bordered. */
+.code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-bg-muted, #f3f4f6);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-sm, 4px);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.name {
+  min-width: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Sizes */
+.sm .code {
+  font-size: 11px;
+  padding: 1px 5px;
+}
+
+.sm .name {
+  font-size: 13px;
+}
+
+.md .code {
+  font-size: 12px;
+  padding: 1px 6px;
+}
+
+.md .name {
+  font-size: 14px;
+}

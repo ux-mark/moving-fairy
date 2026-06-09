@@ -1,0 +1,288 @@
+/* ItemDetailDrawer — verdict-first decision surface.
+   Tab strip below the drawer's title bar: Details / Chat with Aisling.
+   Both panels share the drawer body height; only one is visible at a time
+   but both stay mounted so chat SSE streams aren't killed on tab switch. */
+
+/* ── Header chat toggle ─────────────────────────────────
+   Lives in Drawer headerActions. Toggles the floating chat panel
+   on/off. aria-pressed reflects state. Uses the brand green so it
+   reads as an action, not chrome — chat is the primary secondary
+   path from the detail surface. */
+
+.chatToggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  min-height: 44px;
+  background: var(--color-primary, #16a34a);
+  border: 1px solid var(--color-primary, #16a34a);
+  border-radius: var(--radius-md, 8px);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, filter 120ms ease;
+  white-space: nowrap;
+}
+
+.chatToggle:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.chatToggle:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+/* When chat is open: invert to an outlined treatment so the toggle
+   visually says "currently on, click to close". */
+.chatToggle[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary, #16a34a) 40%, transparent);
+  color: var(--color-primary, #16a34a);
+}
+
+.chatToggle[aria-pressed="true"]:hover {
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 18%, transparent);
+  filter: none;
+}
+
+.chatToggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--color-bg-subtle, #f9fafb);
+  border-color: var(--color-border-default, #e5e7eb);
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* On very narrow drawers (mobile-sized), drop the label and show just
+   the icon to keep the header from getting cramped. */
+@media (max-width: 480px) {
+  .chatToggle {
+    padding: 10px 12px;
+  }
+  .chatToggle span {
+    display: none;
+  }
+}
+
+/* ── Body — single scroll region ────────────────────────
+   Details only. Chat is rendered in a floating panel as a sibling
+   of the drawer, so the user can see both at once. */
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1440px) {
+  .scroll {
+    padding: 20px 24px 28px;
+    gap: 18px;
+  }
+}
+
+/* ── Photo ──────────────────────────────────────────────
+   Detail surface — show the WHOLE photo, never crop. Phone uploads are
+   typically portrait (3:4 or 9:16). The image is an IDENTIFIER, not a
+   hero — capped tight (~320px tall) so it doesn't dominate the drawer.
+   max-width also tight so a wide landscape shot doesn't bleed across
+   the whole drawer. Centred via align-self. */
+
+.image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 360px);
+  max-height: min(38svh, 320px);
+  object-fit: contain;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-subtle, #f9fafb);
+  align-self: center;
+}
+
+@media (min-width: 1440px) {
+  .image {
+    max-width: min(100%, 400px);
+    max-height: min(42svh, 360px);
+  }
+}
+
+.noImage,
+.imageError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  height: 140px;
+  background: var(--color-bg-subtle, #f9fafb);
+  border-radius: var(--radius-lg, 12px);
+  color: var(--color-text-muted, #6b7280);
+  text-align: center;
+}
+
+.noImageText,
+.imageErrorText {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Verdict header strip — the headline ────────────────── */
+
+.verdictStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  flex-wrap: wrap;
+}
+
+.verdictLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.verdictPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.confidence {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+.noVerdictText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.verdictActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.confirmedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--color-success-light, #dcfce7);
+  color: var(--color-success-dark, #166534);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--color-success-dark, #166534) 25%, transparent);
+}
+
+/* ── State cards (clarification, processing, failed) ────── */
+
+.clarification {
+  padding: 12px 14px;
+  background: var(--color-bg-accent, #fffbeb);
+  border: 1px solid var(--color-border-accent, #fcd34d);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.clarificationText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.clarificationTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  margin: 0;
+}
+
+.clarificationBody {
+  font-size: 14px;
+  color: var(--color-text-secondary, #374151);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.processingState {
+  padding: 28px 20px;
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.processingTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  margin: 0;
+}
+
+.processingText {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Quiet footer escape ──────────────────────────────── */
+
+.openFullLink {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: none;
+  text-align: center;
+  padding: 8px 0;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.openFullLink:hover {
+  color: var(--color-text-primary, #111827);
+  text-decoration: underline;
+}
+
+.openFullLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}

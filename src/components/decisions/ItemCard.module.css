@@ -1,7 +1,74 @@
-/* ItemCard — wrapper that integrates verdict trigger into the card footer */
+/* ItemCard — wrapper around the DS RecommendationCard.
+   Two responsibilities here:
+   1. Overlay the inline "Change verdict" trigger + delete affordance
+   2. Make the card grid-friendly on desktop so multiple cards in a row stay
+      visually even (image cap + rationale clamp + verdict accent edge).
+*/
 
 .cardWrap {
   position: relative;
+  /* Verdict-coloured left edge — same idiom as ItemTile / BoxCard. The DS
+     RecommendationCard already has its own 4px accent border-left, but we
+     want this on the WRAPPER too so animations attach without fighting
+     the DS internals. Hidden by default; revealed via the var. */
+}
+
+/* Just-decided beat: 2.6s flash, only when the wrapper has the data attr. */
+.cardWrap[data-just-decided="true"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--card-accent, var(--color-primary, #16a34a));
+  border-radius: var(--radius-lg, 12px) 0 0 var(--radius-lg, 12px);
+  pointer-events: none;
+  z-index: 2;
+  animation: itemCardJustDecided 2.6s ease-out 1;
+}
+
+@keyframes itemCardJustDecided {
+  0%   { width: 4px; box-shadow: 0 0 0 0 transparent; }
+  10%  { width: 7px; box-shadow: 0 0 16px 2px var(--card-accent, transparent); }
+  60%  { width: 5px; box-shadow: 0 0 4px 0 var(--card-accent, transparent); }
+  100% { width: 4px; box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardWrap[data-just-decided="true"]::before {
+    animation: none;
+  }
+}
+
+/* ── Grid-friendly tweaks (desktop only) ──
+   In the 2-4 column grid, the DS RecommendationCard's fixed 200px image
+   height crops a portrait phone shot to a horizontal sliver. Replace
+   the fixed height with an aspect-ratio so the photo's height tracks
+   the tile width naturally. Use !important because the DS class
+   (.thumbnailImage) is on the img itself with equal specificity, and
+   we can't depend on cascade order across separate stylesheet bundles.
+
+   `:not(img)` on the wrapper rule keeps the aspect-ratio off the img
+   element — [class*="thumbnail"] otherwise matches both the wrapper
+   div and the .thumbnailImage img.
+
+   Truncation (line-clamp on rationale / title) intentionally absent —
+   UX_STANDARDS prohibits truncating copy. align-items: start on the
+   grid keeps the layout sensible when cards differ in height. */
+@media (min-width: 1024px) {
+  .cardWrap :global([class*="thumbnail"]):not(img) {
+    aspect-ratio: 4 / 5 !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+  .cardWrap :global([class*="thumbnail"]) img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    background: var(--color-bg-subtle, #f9fafb) !important;
+  }
 }
 
 /* Verdict trigger — styled to look like a link inside the card's action bar */

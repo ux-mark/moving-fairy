@@ -1,4 +1,4 @@
-import { setAllBoxesShipped } from '@/mcp'
+import { setAllBoxesPacked } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 
 export async function POST() {
@@ -6,7 +6,7 @@ export async function POST() {
   if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
 
   try {
-    const boxesUpdated = await setAllBoxesShipped(profile.id)
+    const boxesUpdated = await setAllBoxesPacked(profile.id)
     return Response.json({ ok: true, boxes_updated: boxesUpdated })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'

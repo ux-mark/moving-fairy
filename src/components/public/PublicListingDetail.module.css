@@ -123,7 +123,6 @@
 .specsHeading {
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted, #6b7280);
   margin: 0 0 10px;
