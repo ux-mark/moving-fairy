@@ -33,8 +33,9 @@ export async function GET(
 
     const headers = [
       'box_label',
+      'box_name',
       'item_name',
-      'declared_value',
+      'item_value',
       'currency',
       'biosecurity_flag',
       'biosecurity_category',
@@ -54,6 +55,7 @@ export async function GET(
         lines.push(
           [
             csvEscape(boxRow.box.label),
+            csvEscape(boxRow.box.room_name),
             csvEscape(name),
             csvEscape(declared),
             csvEscape(currency),

@@ -21,6 +21,19 @@ export function PublicMultiImageCarousel({ images, alt, sold }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const dragStartXRef = useRef<number | null>(null)
   const dragDeltaRef = useRef(0)
+  // Aspect of the *tallest* (smallest width/height ratio) slide in the
+  // album. The carousel frame uses this so portrait phone shots get a
+  // portrait frame (no 44% horizontal gutter) and a mixed album doesn't
+  // jump between slide heights. Default 4/5 ≈ phone portrait, so first
+  // paint is close to the right shape before any image loads.
+  const [minRatio, setMinRatio] = useState<number>(4 / 5)
+
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    if (!img.naturalWidth || !img.naturalHeight) return
+    const ratio = img.naturalWidth / img.naturalHeight
+    setMinRatio((prev) => (ratio < prev ? ratio : prev))
+  }, [])
 
   const go = useCallback(
     (next: number) => {
@@ -91,7 +104,11 @@ export function PublicMultiImageCarousel({ images, alt, sold }: Props) {
   }
 
   return (
-    <div ref={wrapRef} className={styles.wrap}>
+    <div
+      ref={wrapRef}
+      className={styles.wrap}
+      style={{ '--carousel-aspect': minRatio } as React.CSSProperties}
+    >
       <div
         ref={trackRef}
         className={styles.track}
@@ -107,6 +124,7 @@ export function PublicMultiImageCarousel({ images, alt, sold }: Props) {
               loading={i === 0 ? 'eager' : 'lazy'}
               draggable={false}
               className={styles.image}
+              onLoad={handleImageLoad}
             />
           </div>
         ))}

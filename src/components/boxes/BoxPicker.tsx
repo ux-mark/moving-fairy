@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Briefcase, Luggage, Package, X as XIcon } from "lucide-react";
 import type { Box } from "@/types";
 import { BoxType } from "@/lib/constants";
+import { BoxPill } from "./BoxPill";
 import styles from "./BoxPicker.module.css";
 
 interface BoxPickerProps {
@@ -96,7 +97,7 @@ export function BoxPicker({ boxes, itemCounts, onSelect, onDismiss }: BoxPickerP
                   onClick={() => onSelect(box)}
                 >
                   <SmallBoxIcon boxType={box.box_type} />
-                  <span className={styles.listItemLabel}>{box.label}</span>
+                  <BoxPill code={box.label} name={box.room_name} className={styles.listItemLabel} />
                   <span className={styles.listItemCount}>
                     {count} {count === 1 ? "item" : "items"}
                   </span>

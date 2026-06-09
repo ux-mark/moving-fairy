@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { Check } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Verdict } from '@/lib/constants'
 import styles from './VerdictPicker.module.css'
@@ -141,7 +141,7 @@ export function VerdictPicker({
             onClick={onClose}
             aria-label="Close verdict picker"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 

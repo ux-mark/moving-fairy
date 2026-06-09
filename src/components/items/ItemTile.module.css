@@ -1,0 +1,285 @@
+/* ItemTile — compact scannable card for grid views.
+   Hero photo on top, content tight beneath. Whole card is clickable. */
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  appearance: none;
+  font-family: inherit;
+  padding: 0;
+  transition: border-color 0.15s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.tile:hover {
+  border-color: var(--color-border-strong, #d1d5db);
+  box-shadow: 0 6px 18px -8px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.tile:active {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile { transition: none; }
+  .tile:hover { transform: none; }
+}
+
+/* Verdict-coloured accent edge on the left — same idiom as box cards. */
+.tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--tile-accent, transparent);
+  pointer-events: none;
+}
+
+/* User-confirmed tile gets a subtle green ring */
+.tileConfirmed {
+  border-color: color-mix(in srgb, var(--color-primary, #16a34a) 30%, transparent);
+}
+
+/* Just-decided beat — verdict-coloured accent stripe flashes brighter,
+   then settles back. Triggered by data-just-decided="true" on the tile root
+   for ~3 seconds after a confirm action elsewhere. */
+.tile[data-just-decided="true"]::before {
+  animation: justDecidedAccent 2.6s ease-out 1;
+}
+
+@keyframes justDecidedAccent {
+  0%   { width: 3px; opacity: 1; box-shadow: 0 0 0 0 transparent; }
+  10%  { width: 6px; opacity: 1; box-shadow: 0 0 14px 2px var(--tile-accent, transparent); }
+  60%  { width: 4px; opacity: 1; box-shadow: 0 0 4px 0 var(--tile-accent, transparent); }
+  100% { width: 3px; opacity: 1; box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile[data-just-decided="true"]::before {
+    animation: none;
+  }
+}
+
+/* Verdict badge pulse — used inside the drawer when confirming. */
+.verdictBadge[data-pulse="true"] {
+  animation: verdictPulse 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+
+@keyframes verdictPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verdictBadge[data-pulse="true"] {
+    animation: none;
+  }
+}
+
+/* ── Image ─────────────────────────────────────────────── */
+
+.imageWrap {
+  position: relative;
+  width: 100%;
+  /* 4:5 (slight portrait) matches phone-camera aspect. Tile width is
+     capped by the grid (auto-fill minmax) so the image height stays
+     reasonable without a max-height clamp here. Clamping max-height
+     with aspect-ratio produces landscape crops of portrait photos. */
+  aspect-ratio: 4 / 5;
+  background: var(--color-bg-subtle, #f9fafb);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Centred crop — no directional bias. Bias was a guess that helped
+     "item-at-top" shots and hurt "item-at-bottom" shots equally. Tile
+     is a recognition surface; the user clicks through for the full
+     photo when they need to inspect. */
+  object-position: center;
+  display: block;
+}
+
+.imagePlaceholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #9ca3af);
+}
+
+/* Shimmer overlay during processing */
+.shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tileShimmer 1.8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes tileShimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none; opacity: 0.4; }
+}
+
+/* Verdict badge sits on the image, top-right */
+.verdictBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  color: var(--color-text-primary, #111827);
+  backdrop-filter: blur(4px);
+}
+
+.verdictDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--verdict-dot, currentColor);
+  flex-shrink: 0;
+}
+
+/* Confirmed check overlay — small, top-left */
+.confirmedCheck {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+}
+
+/* ── Body ─────────────────────────────────────────────── */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 14px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary, #111827);
+  margin: 0;
+  word-break: break-word;
+  /* No line-clamp — UX_STANDARDS prohibits truncating copy. Grid uses
+     align-items: start so tile height differences don't break alignment. */
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+  min-height: 18px;
+}
+
+.metaDot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ── Processing / failed / pending overlay ────────────── */
+
+.statusBanner {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.statusBannerError {
+  background: var(--color-error, #dc2626);
+}
+
+/* ── Delete trigger (small overlay, top-right, only for non-completed states) ── */
+
+.deleteTrigger {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  min-height: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error, #dc2626);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.deleteTrigger:hover {
+  background: var(--color-error, #dc2626);
+  color: #fff;
+  border-color: var(--color-error, #dc2626);
+}
+
+.deleteTrigger:focus-visible {
+  outline: 2px solid var(--color-error, #dc2626);
+  outline-offset: 2px;
+}

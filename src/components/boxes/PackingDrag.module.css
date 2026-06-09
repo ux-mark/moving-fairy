@@ -1,0 +1,104 @@
+/* Floating carry chip — the ONE strong visual during a drag.
+   Fixed at the top-left origin; position is driven imperatively via
+   `transform: translate3d(...)` written on each rAF (see PackingDrag.tsx).
+   We must not put a transition on `transform` — that would lag the chip behind
+   the cursor. The lift "life" (scale + tilt) comes from a one-shot enter
+   animation that settles, leaving transform free for the follow. */
+.chip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-primary, #16a34a);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.2),
+    0 3px 8px rgba(0, 0, 0, 0.12);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  white-space: nowrap;
+  pointer-events: none;
+  /* The chip's own "lift" transform (tilt) is composed by the animation; the
+     follow translate3d lives on the inline `style` set imperatively. We isolate
+     the tilt onto a child so the two transforms don't fight. */
+  will-change: transform;
+}
+
+.chipLabel {
+  white-space: nowrap;
+  /* A gentle tilt + scale-in spring gives the chip life as it's picked up. */
+  display: inline-flex;
+  align-items: center;
+  transform-origin: left center;
+  animation: chip-lift 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.chipBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The whole chip tilts and springs in. Keeping the tilt on the chip (not the
+   imperatively-positioned transform) means the tilt is a one-shot that settles
+   and never interferes with the follow. */
+.chip {
+  animation: chip-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes chip-pop {
+  from {
+    opacity: 0;
+    rotate: 0deg;
+    scale: 0.85;
+  }
+  to {
+    opacity: 1;
+    rotate: -3deg;
+    scale: 1;
+  }
+}
+
+@keyframes chip-lift {
+  from {
+    scale: 0.9;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+/* Reduced motion: the chip still follows the cursor (direct manipulation, not
+   decoration) but we drop the tilt, scale-in and spring. */
+.chip[data-reduced-motion="true"] {
+  animation: none;
+  rotate: 0deg;
+}
+
+.chip[data-reduced-motion="true"] .chipLabel {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip,
+  .chipLabel {
+    animation: none;
+    rotate: 0deg;
+  }
+}

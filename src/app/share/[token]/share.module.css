@@ -1,36 +1,64 @@
 .main {
   max-width: 900px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  padding: 1.25rem 1rem 3rem;
   font-family: var(--font-source-sans-3, system-ui, sans-serif);
   color: #1a1a1a;
 }
 
+@media (min-width: 768px) {
+  .main {
+    padding: 2rem 1.5rem 4rem;
+  }
+}
+
 .header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+  }
 }
 
 .eyebrow {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: #6b6b6b;
-  margin: 0 0 0.5rem;
-  text-transform: uppercase;
+  margin: 0 0 0.4rem;
   letter-spacing: 0.05em;
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 1.25rem;
+  margin: 0 0 1rem;
+  line-height: 1.25;
+}
+
+@media (min-width: 480px) {
+  .title { font-size: 1.75rem; }
+}
+
+@media (min-width: 768px) {
+  .title { font-size: 2rem; margin-bottom: 1.25rem; }
 }
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
   margin: 0;
+}
+
+@media (min-width: 600px) {
+  .summary {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1.25rem;
+  }
 }
 
 .summary div {
@@ -41,15 +69,19 @@
 .summary dt {
   font-size: 0.8rem;
   color: #6b6b6b;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 0.25rem;
 }
 
 .summary dd {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 768px) {
+  .summary dd { font-size: 1.5rem; }
 }
 
 .section {
@@ -65,7 +97,8 @@
 .bioCounts {
   list-style: none;
   display: flex;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
   padding: 0;
   margin: 0;
   font-size: 0.95rem;
@@ -79,9 +112,14 @@
 .boxCard {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  padding: 1.25rem;
+  padding: 1rem;
   margin-bottom: 1rem;
   background: #fafafa;
+  overflow-x: auto;
+}
+
+@media (min-width: 768px) {
+  .boxCard { padding: 1.25rem; }
 }
 
 .boxHeader {
@@ -107,22 +145,30 @@
 .itemTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .itemTable th,
 .itemTable td {
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.5rem;
   border-top: 1px solid #e8e8e8;
+  vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .itemTable th {
   font-weight: 500;
   color: #6b6b6b;
-  font-size: 0.85rem;
-  text-transform: uppercase;
+  font-size: 0.75rem;
   letter-spacing: 0.03em;
+}
+
+@media (min-width: 600px) {
+  .itemTable { font-size: 0.95rem; }
+  .itemTable th,
+  .itemTable td { padding: 0.5rem 0.75rem; }
+  .itemTable th { font-size: 0.85rem; }
 }
 
 .bioChip {

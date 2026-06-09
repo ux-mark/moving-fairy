@@ -9,6 +9,85 @@
   box-sizing: border-box;
 }
 
+@media (min-width: 1024px) {
+  .root {
+    max-width: 1120px;
+    padding: 24px 24px 48px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .root {
+    max-width: 1240px;
+  }
+}
+
+/* Cockpit: form left, contextual help right (desktop only). */
+.cockpit {
+  display: contents;
+}
+
+@media (min-width: 1024px) {
+  .cockpit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 32px;
+    align-items: start;
+  }
+  .tabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    max-width: 720px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .cockpit {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+/* Help rail */
+.helpRail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .helpRail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 22px;
+    background: color-mix(in srgb, var(--color-primary, #16a34a) 4%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #16a34a) 12%, transparent);
+    border-radius: var(--radius-lg, 12px);
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.helpTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-muted, #555);
+}
+
+.helpBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-default, #222);
+}
+
+.helpBody p {
+  margin: 0;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -26,6 +105,14 @@
   gap: 4px;
   border-bottom: 1px solid var(--color-border-default, #e5e5e5);
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  /* Subtle fade hints scrollable tabs (only when content overflows) */
+  background:
+    linear-gradient(to right, var(--color-bg-page) 0, transparent 12px) left center / 24px 100% no-repeat local,
+    linear-gradient(to left,  var(--color-bg-page) 0, transparent 12px) right center / 24px 100% no-repeat local,
+    radial-gradient(ellipse at left,  rgba(0, 0, 0, 0.08), transparent 70%) left center / 16px 60% no-repeat scroll,
+    radial-gradient(ellipse at right, rgba(0, 0, 0, 0.08), transparent 70%) right center / 16px 60% no-repeat scroll;
 }
 
 .tab {
@@ -33,12 +120,13 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-muted, #555);
   cursor: pointer;
   white-space: nowrap;
+  min-height: 44px;
 }
 
 .tab:hover { color: var(--color-text-default, #222); }
@@ -96,7 +184,7 @@
 .select,
 .input {
   width: 100%;
-  height: 40px;
+  height: 44px;
   padding: 0 12px;
   border: 1px solid var(--color-border-default, #d4d4d4);
   border-radius: var(--radius-md, 8px);
@@ -150,8 +238,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
-  min-width: 80px;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 120px;
 }
 
 .tierLabel {
@@ -161,11 +249,11 @@
 
 .tierInput {
   width: 100%;
-  height: 36px;
+  height: 44px;
   padding: 0 10px;
   border: 1px solid var(--color-border-default, #d4d4d4);
   border-radius: var(--radius-md, 8px);
-  font-size: 15px;
+  font-size: 16px;
   background: var(--color-bg-default, #fff);
   box-sizing: border-box;
 }
@@ -194,8 +282,8 @@
 .shipmentRow {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px 12px;
   border: 1px solid var(--color-border-default, #f0f0f0);
   border-radius: var(--radius-md, 8px);
 }

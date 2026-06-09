@@ -42,7 +42,7 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
         type: 'string',
         enum: ['none', 'declare', 'high_risk', 'prohibited'],
         description:
-          'Biosecurity risk level at the destination. Omit entirely for biosec-neutral items (e.g. glass, metal, ceramic). Do NOT emit "none" for every item.',
+          'Biosecurity risk level at the destination. ALWAYS consider biosecurity risk for every item. Whenever ANY risk exists (e.g. wood, plant matter, soil, leather, food), set a non-"none" flag. Omit entirely only for genuinely biosec-neutral items (e.g. glass, metal, ceramic). Do NOT emit "none" for every item.',
       },
       biosecurity_category: {
         type: 'string',

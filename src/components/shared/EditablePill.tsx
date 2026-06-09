@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
+import { Spinner } from "@thefairies/design-system/components";
 import { cn } from "@/lib/utils";
 import styles from "./EditablePill.module.css";
 
@@ -25,6 +26,12 @@ export interface EditablePillProps {
   disabled?: boolean;
   size?: "sm" | "md";
   className?: string;
+  /** Accessible label for the trigger, naming the field (e.g. "Verdict for Vitamix A3500"). */
+  ariaLabel?: string;
+  /** Accessible label for the open listbox (defaults to the trigger label). */
+  listboxLabel?: string;
+  /** When true the control is busy saving: disabled, aria-busy, spinner in place of chevron. */
+  busy?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +45,11 @@ export function EditablePill({
   disabled = false,
   size = "sm",
   className,
+  ariaLabel,
+  listboxLabel,
+  busy = false,
 }: EditablePillProps) {
+  const isDisabled = disabled || busy;
   const [open, setOpen] = useState(false);
   // activeIndex tracks keyboard focus position within the open dropdown (-1 = none)
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -93,13 +104,13 @@ export function EditablePill({
   }, []);
 
   const handlePillClick = useCallback(() => {
-    if (disabled) return;
+    if (isDisabled) return;
     if (open) {
       closeDropdown();
     } else {
       openDropdown();
     }
-  }, [disabled, open, openDropdown, closeDropdown]);
+  }, [isDisabled, open, openDropdown, closeDropdown]);
 
   const handleSelect = useCallback(
     (optionValue: string) => {
@@ -114,7 +125,7 @@ export function EditablePill({
 
   const handlePillKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLButtonElement>) => {
-      if (disabled) return;
+      if (isDisabled) return;
 
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -131,7 +142,7 @@ export function EditablePill({
         closeDropdown();
       }
     },
-    [disabled, open, openDropdown, closeDropdown]
+    [isDisabled, open, openDropdown, closeDropdown]
   );
 
   const handleListKeyDown = useCallback(
@@ -187,21 +198,28 @@ export function EditablePill({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
-        aria-label={`Verdict: ${currentOption?.label ?? value}. Click to change.`}
+        aria-label={
+          ariaLabel ?? `Verdict: ${currentOption?.label ?? value}. Click to change.`
+        }
+        aria-busy={busy || undefined}
         className={cn(
           styles.pill,
-          disabled && styles.disabled
+          isDisabled && styles.disabled
         )}
         style={pillStyle}
         onClick={handlePillClick}
         onKeyDown={handlePillKeyDown}
-        disabled={disabled}
+        disabled={isDisabled}
       >
         <span className={styles.pillLabel}>{currentOption?.label ?? value}</span>
-        <ChevronDown
-          className={cn(styles.chevron, open && styles.chevronOpen)}
-          aria-hidden="true"
-        />
+        {busy ? (
+          <Spinner size="sm" color="var(--pill-fg, currentColor)" />
+        ) : (
+          <ChevronDown
+            className={cn(styles.chevron, open && styles.chevronOpen)}
+            aria-hidden="true"
+          />
+        )}
       </button>
 
       {/* Dropdown */}
@@ -210,7 +228,7 @@ export function EditablePill({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          aria-label="Select verdict"
+          aria-label={listboxLabel ?? ariaLabel ?? "Select verdict"}
           className={styles.dropdown}
           onKeyDown={handleListKeyDown}
         >

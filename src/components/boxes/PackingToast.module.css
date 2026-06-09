@@ -1,0 +1,98 @@
+/* PackingToast — bottom-pinned transient toast with optional Undo action */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: var(--z-toast, 1000);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+  font-size: 14px;
+  animation: toastIn 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.success {
+  background: var(--color-text-primary, #1f2937);
+  color: var(--color-bg-card, #fff);
+}
+
+.error {
+  background: var(--color-danger, #b91c1c);
+  color: #fff;
+}
+
+.message {
+  flex: 1;
+  overflow-wrap: break-word;
+}
+
+.undoButton {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.undoButton:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.undoButton:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .toast {
+    left: 16px;
+    right: 16px;
+    transform: none;
+    max-width: none;
+  }
+
+  @keyframes toastIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .undoButton {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}

@@ -1,15 +1,18 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tag, Plus } from 'lucide-react'
 import { Button, EmptyState } from '@thefairies/design-system/components'
 
 import { proxyImageUrl } from '@/lib/storage-url'
+import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
 import { ListingStatus } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
+import { Fab } from '@/components/layout/Fab'
+import { SellingDetailDrawer } from '@/components/selling/SellingDetailDrawer'
 import type { OwnerListing } from '@/mcp/listings'
 import { cn } from '@/lib/utils'
 
@@ -52,8 +55,27 @@ function formatPrice(amount: number | null, currency: string): string {
 
 export function SellingList({ listings, eligibleCount }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isDesktop = useIsDesktop()
+  const selectedListingId = searchParams.get('listing')
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [markingSold, setMarkingSold] = useState<string | null>(null)
+
+  const openListingDrawer = useCallback(
+    (id: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('listing', id)
+      router.replace(`/selling?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams],
+  )
+
+  const closeListingDrawer = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('listing')
+    const qs = params.toString()
+    router.replace(qs ? `/selling?${qs}` : '/selling', { scroll: false })
+  }, [router, searchParams])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return listings
@@ -138,6 +160,9 @@ export function SellingList({ listings, eligibleCount }: Props) {
         </div>
       </header>
 
+      <div className={styles.cockpit}>
+      <div className={styles.cockpitMain}>
+
       <div className={styles.filters} role="tablist" aria-label="Filter listings by status">
         {STATUS_FILTERS.map((opt) => (
           <button
@@ -169,7 +194,17 @@ export function SellingList({ listings, eligibleCount }: Props) {
 
             return (
               <li key={listing.id} className={styles.card}>
-                <Link href={`/selling/${listing.id}`} className={styles.cardLink}>
+                <Link
+                  href={`/selling/${listing.id}`}
+                  className={styles.cardLink}
+                  onClick={(e) => {
+                    // Preserve right-click and cmd/ctrl-click for "open in new tab".
+                    if (isDesktop && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                      e.preventDefault()
+                      openListingDrawer(listing.id)
+                    }
+                  }}
+                >
                   <div className={styles.thumbWrap}>
                     {firstImage ? (
                       <Image
@@ -219,6 +254,134 @@ export function SellingList({ listings, eligibleCount }: Props) {
           })}
         </ul>
       )}
+
+      </div>{/* /.cockpitMain */}
+
+      <aside className={styles.cockpitRail} aria-label="Selling summary">
+        <div className={styles.railCard}>
+          <p className={styles.railEyebrow}>Pipeline</p>
+          <dl className={styles.railStats}>
+            <div className={styles.railStat}>
+              <dt>Draft</dt>
+              <dd>{counts.draft}</dd>
+            </div>
+            <div className={styles.railStat}>
+              <dt>Live</dt>
+              <dd>{counts.published}</dd>
+            </div>
+            <div className={styles.railStat}>
+              <dt>Reserved</dt>
+              <dd>{counts.reserved}</dd>
+            </div>
+            <div className={styles.railStat}>
+              <dt>Sold</dt>
+              <dd>{counts.sold}</dd>
+            </div>
+          </dl>
+          {(() => {
+            // Sum potential revenue from live + reserved listings, grouped by currency.
+            const liveByCurrency = new Map<string, number>()
+            for (const l of listings) {
+              if (
+                (l.listing_status === ListingStatus.PUBLISHED ||
+                  l.listing_status === ListingStatus.RESERVED) &&
+                l.asking_price != null
+              ) {
+                liveByCurrency.set(
+                  l.currency,
+                  (liveByCurrency.get(l.currency) ?? 0) + l.asking_price,
+                )
+              }
+            }
+            const soldByCurrency = new Map<string, number>()
+            for (const l of listings) {
+              if (l.listing_status === ListingStatus.SOLD && l.asking_price != null) {
+                soldByCurrency.set(
+                  l.currency,
+                  (soldByCurrency.get(l.currency) ?? 0) + l.asking_price,
+                )
+              }
+            }
+            const hasLive = liveByCurrency.size > 0
+            const hasSold = soldByCurrency.size > 0
+            if (!hasLive && !hasSold) return null
+            return (
+              <div className={styles.railRevenue}>
+                {hasLive && (
+                  <div className={styles.railFooterStat}>
+                    <span>Listed</span>
+                    <strong>
+                      {Array.from(liveByCurrency.entries())
+                        .map(([cur, amt]) => formatPrice(amt, cur))
+                        .join(' · ')}
+                    </strong>
+                  </div>
+                )}
+                {hasSold && (
+                  <div className={styles.railFooterStat}>
+                    <span>Sold</span>
+                    <strong>
+                      {Array.from(soldByCurrency.entries())
+                        .map(([cur, amt]) => formatPrice(amt, cur))
+                        .join(' · ')}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+
+        {counts.draft > 0 && (
+          <div className={styles.railCard}>
+            <p className={styles.railEyebrow}>Drafts to publish</p>
+            <ul className={styles.railNextList}>
+              {listings
+                .filter((l) => l.listing_status === ListingStatus.DRAFT)
+                .slice(0, 3)
+                .map((l) => (
+                  <li key={l.id}>
+                    <button
+                      type="button"
+                      className={styles.railNextItem}
+                      onClick={() => {
+                        if (isDesktop) {
+                          openListingDrawer(l.id)
+                        } else {
+                          router.push(`/selling/${l.id}`)
+                        }
+                      }}
+                    >
+                      <span className={styles.railNextName}>
+                        {l.item_assessment?.item_name ?? 'Untitled'}
+                      </span>
+                      <span className={styles.railNextHint}>Edit →</span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+      </aside>
+
+      </div>{/* /.cockpit */}
+
+      {isDesktop && selectedListingId && (
+        <SellingDetailDrawer
+          listingId={selectedListingId}
+          onClose={closeListingDrawer}
+        />
+      )}
+
+      <Fab
+        label="New listing"
+        icon={<Plus size={20} aria-hidden="true" />}
+        onClick={handleNewListing}
+        disabled={eligibleCount === 0}
+        title={eligibleCount === 0
+          ? 'Mark an item SELL in Items first'
+          : 'Create a new listing'}
+      />
     </div>
   )
 }

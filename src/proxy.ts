@@ -82,9 +82,12 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Local JWT verification (cached JWKS) — updateSession() above already
+  // refreshed the token over the network this request, so re-validating with a
+  // second getUser() call here is a redundant round-trip.
+  const { data: claimsData } = await supabase.auth.getClaims()
 
-  if (!user) {
+  if (!claimsData?.claims?.sub) {
     const host = request.headers.get('host') || request.nextUrl.host
     const proto = request.headers.get('x-forwarded-proto') || 'http'
     return NextResponse.redirect(new URL('/', `${proto}://${host}`))

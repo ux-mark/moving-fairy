@@ -1,0 +1,229 @@
+/* FloatingChatPanel — desktop floating, draggable + resizable.
+   Mobile renders a full-screen slide-up sheet instead. */
+
+/* ── Desktop floating panel ───────────────────────────── */
+
+.panel {
+  position: fixed;
+  /* Above EVERYTHING — drawer (60), DS sticky nav (--z-sticky-nav = 100).
+     A floating tool needs to win z-order so it's never hidden by chrome
+     no matter where the user drags it. Clamping (in TSX) still prevents
+     the panel from being dragged INTO the nav area, but z-index is the
+     belt-and-braces so a stale localStorage position can't bury the
+     panel either. */
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow:
+    0 18px 48px -12px rgba(15, 23, 42, 0.24),
+    0 4px 12px -4px rgba(15, 23, 42, 0.10);
+  overflow: hidden;
+  /* Belt-and-braces caps so a stale localStorage value can't render the
+     panel off-screen or larger than the viewport. */
+  max-width: calc(100vw - 16px);
+  max-height: calc(100svh - 16px);
+  min-width: 320px;
+  min-height: 320px;
+}
+
+/* Minimised — only the header bar shows; ignore width/height styles. */
+.panelMinimised {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Header (drag handle) ─────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  background: var(--color-bg-subtle, #f9fafb);
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  /* Long item names should not push the close button off-screen — let
+     the title shrink. */
+  min-width: 0;
+}
+
+.header:active {
+  cursor: grabbing;
+}
+
+.panelMinimised .header {
+  border-bottom: none;
+}
+
+.gripIcon {
+  color: var(--color-text-muted, #9ca3af);
+  flex-shrink: 0;
+}
+
+.titleWrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.15;
+}
+
+.titleLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.titleItem {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  /* The panel can be very narrow (320px floor). Single-line ellipsis
+     here is a pragmatic exception to the no-truncation rule — the full
+     item name is always available in the underlying detail drawer. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerActions {
+  display: inline-flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.iconBtn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--color-text-primary, #111827);
+}
+
+.iconBtn:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+/* ── Body (the chat itself) ───────────────────────────── */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Resize handle (bottom-right corner) ──────────────── */
+
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 4px;
+  cursor: nwse-resize;
+  color: var(--color-text-muted, #9ca3af);
+  /* Subtle until hovered — don't compete with the chat content. */
+  opacity: 0.5;
+  transition: opacity 120ms ease;
+  /* The icon inside is rotated to read as a corner marker. */
+}
+
+.resizeHandle:hover {
+  opacity: 1;
+}
+
+.resizeHandle svg {
+  transform: rotate(45deg);
+  opacity: 0.8;
+}
+
+/* ── Mobile full-screen sheet ─────────────────────────── */
+
+.mobileSheet {
+  position: fixed;
+  inset: 0;
+  /* Above DS sticky nav (z 100) so the mobile sheet is a proper
+     full-screen takeover, not a sheet with chrome poking through. */
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card, #fff);
+  animation: chatSheetSlideUp 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  /* iOS Safari keyboard handling — small viewport units shrink with the
+     keyboard so the input stays in view. */
+  max-height: 100svh;
+}
+
+@keyframes chatSheetSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileSheet { animation: none; }
+}
+
+.mobileHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+  flex-shrink: 0;
+  background: var(--color-bg-card, #fff);
+}
+
+.mobileTitle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  line-height: 1.2;
+}
+
+.mobileSubtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  word-break: break-word;
+}
+
+.mobileBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

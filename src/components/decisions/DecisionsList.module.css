@@ -18,16 +18,19 @@
   gap: 8px;
 }
 
+.entryBar > * { min-width: 0; }
+
+/* Text input fills remaining space on every viewport */
+.entryBar > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (min-width: 768px) {
   .entryBar {
     flex-direction: row;
     align-items: flex-end;
     gap: 12px;
-  }
-
-  /* On desktop, text input fills remaining space */
-  .entryBar > :last-child {
-    flex: 1;
   }
 }
 
@@ -62,8 +65,21 @@
   gap: 16px;
 }
 
+/* Tile grid. Desktop uses auto-fill so tile width is capped (~240-280px)
+   no matter how wide the main column is — prevents 600px-wide hero
+   tiles on a 2-col layout. iPad-portrait (768) stays single-column. */
+@media (min-width: 1024px) {
+  .cardList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+}
+
 .cardItem {
   display: block;
+  min-width: 0;
 }
 
 /* Wrapper for card + verdict trigger */
@@ -71,6 +87,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 /* Verdict change trigger — small text link below the card */
@@ -82,8 +99,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 4px;
-  min-height: 36px;
+  padding: 8px 8px;
+  min-height: 44px;
   background: none;
   border: none;
   cursor: pointer;
@@ -245,6 +262,210 @@
   .root {
     padding: 24px 24px 48px;
   }
+}
+
+@media (min-width: 1024px) {
+  .root {
+    max-width: 1280px;
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .root {
+    max-width: 1440px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .root {
+    max-width: 1600px;
+  }
+}
+
+/* ── Cockpit grid (≥1280px): list left, progress rail right ──
+   Rail appears at 1280+ only — below that the 2-col tile grid plus a
+   300px rail leaves tiles ~290px wide on a 1024px laptop, borderline
+   for legibility. Tiles get the full main column until the viewport
+   can host both rail and a 3-col grid. */
+.cockpit {
+  display: contents;
+}
+
+.cockpitMain {
+  display: contents;
+}
+
+.cockpitRail {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .cockpit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    align-items: start;
+  }
+  .cockpitMain {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .cockpitRail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 16px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .cockpit {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 32px;
+  }
+}
+
+/* Rail cards — same visual rhythm as ItemsView */
+.railCard {
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-lg, 12px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.railEyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railProgressRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.railProgressNumber {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-primary, #16a34a);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.railProgressLabel {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railProgressTrack {
+  height: 6px;
+  width: 100%;
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 12%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.railProgressFill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary, #16a34a);
+  border-radius: 999px;
+  transition: width 240ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .railProgressFill { transition: none; }
+}
+
+.railStats {
+  margin: 4px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.railStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.railStat dt {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.railStat dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.railNextList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.railNextItem {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.railNextItem:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.railNextItem:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
+.railNextName {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  /* No truncation — UX_STANDARDS prohibits ellipsis. Long names wrap. */
+}
+
+.railNextHint {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary, #16a34a);
 }
 
 /* Welcome empty state */

@@ -7,6 +7,7 @@
   font-size: 14px;
   font-weight: 500;
   padding: 11px 18px;
+  min-height: 44px;
   border-radius: var(--radius-md, 6px);
   cursor: pointer;
   background: #fff;
@@ -19,7 +20,16 @@
   background: var(--color-bg-panel, #f9fafb);
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
 }

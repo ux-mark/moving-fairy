@@ -1,14 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ConfirmDialog } from '@thefairies/design-system/components'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
+import { ItemDetailDrawer } from '@/components/items/ItemDetailDrawer'
 import { useItems } from '@/lib/hooks/useItems'
+import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
 
 export default function DecisionsPage() {
+  // useSearchParams() requires a Suspense boundary to statically prerender.
+  return (
+    <Suspense fallback={<AppLayout>{null}</AppLayout>}>
+      <DecisionsPageContent />
+    </Suspense>
+  )
+}
+
+function DecisionsPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isDesktop = useIsDesktop()
+  const selectedItemId = searchParams.get('item')
   const [profileId, setProfileId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -92,6 +106,13 @@ export default function DecisionsPage() {
     setPendingDeleteId(id)
   }
 
+  const closeDrawer = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('item')
+    const qs = params.toString()
+    router.replace(qs ? `/decisions?${qs}` : '/decisions', { scroll: false })
+  }, [router, searchParams])
+
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
     setIsDeleting(true)
@@ -124,11 +145,37 @@ export default function DecisionsPage() {
         onConfirm={handleConfirm}
         onRetry={handleRetry}
         onRefresh={refresh}
-        onItemClick={(id) => router.push(`/decisions/${id}`)}
+        onItemClick={(id) => {
+          if (isDesktop) {
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('item', id)
+            router.replace(`/decisions?${params.toString()}`, { scroll: false })
+          } else {
+            router.push(`/decisions/${id}`)
+          }
+        }}
         onVerdictChange={handleVerdictChange}
         onDelete={handleRequestDelete}
         uploadingCount={uploadingCount}
       />
+      {isDesktop && selectedItemId && (() => {
+        const selected = items.find((i) => i.id === selectedItemId)
+        if (!selected) return null
+        return (
+          <ItemDetailDrawer
+            item={selected}
+            onRetry={async (id) => { await retryAssessment(id) }}
+            onItemUpdate={() => {
+              refresh()
+              // The just-decided beat lives inside DecisionsList — refresh
+              // alone will cause the matching tile to re-render and the
+              // verdict colour change is enough of a signal here.
+            }}
+            onClose={closeDrawer}
+          />
+        )
+      })()}
+
       <ConfirmDialog
         isOpen={pendingDeleteId !== null}
         onClose={() => {

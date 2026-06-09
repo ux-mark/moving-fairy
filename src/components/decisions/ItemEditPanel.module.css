@@ -10,16 +10,6 @@
   gap: 16px;
 }
 
-/* ---- Section title ---- */
-
-.sectionTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
-  margin: 0;
-  line-height: 1.3;
-}
-
 /* ---- Form fields ---- */
 
 .field {
@@ -95,7 +85,9 @@
   gap: 16px;
 }
 
-@media (min-width: 480px) {
+/* 560px breakpoint avoids cramped 2-up cost fields when this panel is rendered
+   inside a narrow side sheet on tablet portrait. */
+@media (min-width: 560px) {
   .costsRow {
     flex-direction: row;
     gap: 12px;
@@ -213,12 +205,84 @@
 
 /* ---- Danger zone — separated destructive action ---- */
 
-.dangerZone {
+/* Form actions row: destructive far-left, primary far-right.
+   Replaces the old centered .dangerZone block which violated UX_STANDARDS § 211
+   (centered destructive reads as primary). */
+.formActions {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   padding-top: 12px;
   margin-top: 4px;
   border-top: 1px solid var(--color-border-subtle, #f3f4f6);
+}
+
+/* The leftmost ghost button is the destructive action; tint it red. */
+.formActions > :first-child {
+  color: var(--color-error, #dc2626);
+}
+
+.formActions > :first-child:hover:not(:disabled) {
+  background: var(--color-error-bg, #fef2f2);
+  color: var(--color-error-dark, #991b1b);
+}
+
+/* Collapsed "Edit Aisling's advice" disclosure */
+.adviceField {
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 0;
+}
+
+.adviceFieldSummary {
+  cursor: pointer;
+  padding: 12px 14px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+
+.adviceFieldSummary::-webkit-details-marker {
+  display: none;
+}
+
+.adviceFieldSummary::after {
+  content: '';
+  margin-left: auto;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.6;
+  transition: transform 150ms ease;
+}
+
+.adviceField[open] .adviceFieldSummary::after {
+  transform: rotate(-180deg);
+}
+
+.adviceField[open] .adviceFieldSummary {
+  border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.adviceField .field {
+  padding: 12px 14px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .saveButton {

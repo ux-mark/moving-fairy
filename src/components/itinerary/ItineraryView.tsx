@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plane,
@@ -10,14 +10,20 @@ import {
   ShieldAlert,
   Check,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react'
-import { Button, EmptyState } from '@thefairies/design-system/components'
+import { Button, ConfirmDialog, EmptyState } from '@thefairies/design-system/components'
 
 import { cn } from '@/lib/utils'
-import { ownerCopy } from '@/lib/copy/owner'
-import { BiosecurityFlag } from '@/lib/constants'
-import type { Manifest } from '@/mcp/shipments'
-import type { Shipment } from '@/types/database'
+import { ownerCopy, BIOSEC_FLAG_LABELS } from '@/lib/copy/owner'
+import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { EditablePill, type EditablePillOption } from '@/components/shared/EditablePill'
+import { CurrencySelect } from '@/components/shared/CurrencySelect'
+import { BoxSelect, type BoxSelectOption } from '@/components/boxes/BoxSelect'
+import { BoxPill } from '@/components/boxes/BoxPill'
+import { BiosecurityFlag, Verdict } from '@/lib/constants'
+import type { Manifest, ManifestBox } from '@/mcp/shipments'
+import type { ItemAssessment, Shipment } from '@/types/database'
 
 import styles from './ItineraryView.module.css'
 
@@ -27,11 +33,30 @@ interface Props {
   manifest: Manifest | null
 }
 
-const BIOSEC_LABELS: Record<string, string> = {
-  declare: 'Declare',
-  high_risk: 'High risk',
-  prohibited: 'Prohibited',
-}
+const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'] as const
+
+// Verdict pill options seeded with the --verdict-* colour pairs (matching
+// VerdictPicker). The itinerary normally shows SHIP/CARRY, but the full set is
+// offered because changing away is a legitimate (manifest-removing) edit.
+const VERDICT_PILL_OPTIONS: EditablePillOption[] = [
+  { value: 'SHIP', label: 'Ship', color: 'var(--verdict-ship-bg)', textColor: 'var(--verdict-ship-fg)' },
+  { value: 'CARRY', label: 'Carry', color: 'var(--verdict-carry-bg)', textColor: 'var(--verdict-carry-fg)' },
+  { value: 'SELL', label: 'Sell', color: 'var(--verdict-sell-bg)', textColor: 'var(--verdict-sell-fg)' },
+  { value: 'DONATE', label: 'Donate', color: 'var(--verdict-donate-bg)', textColor: 'var(--verdict-donate-fg)' },
+  { value: 'DISCARD', label: 'Discard', color: 'var(--verdict-discard-bg)', textColor: 'var(--verdict-discard-fg)' },
+  { value: 'REVISIT', label: 'Decide later', color: 'var(--verdict-decide-later-bg)', textColor: 'var(--verdict-decide-later-fg)' },
+]
+
+// Biosecurity flag pill options. `none` is neutral; the rest escalate through
+// the warning palette. Text always carries the meaning (never colour-only).
+const BIOSEC_PILL_OPTIONS: EditablePillOption[] = [
+  { value: 'none', label: BIOSEC_FLAG_LABELS.none ?? 'None', color: 'var(--color-bg-subtle, #f3f4f6)', textColor: 'var(--color-text-primary, #111827)' },
+  { value: 'declare', label: BIOSEC_FLAG_LABELS.declare ?? 'Declare', color: 'var(--color-warning-light, #fef3c7)', textColor: 'var(--color-warning-dark, #92400e)' },
+  { value: 'high_risk', label: BIOSEC_FLAG_LABELS.high_risk ?? 'High risk', color: 'var(--color-warning, #f59e0b)', textColor: '#3d2c00' },
+  { value: 'prohibited', label: BIOSEC_FLAG_LABELS.prohibited ?? 'Prohibited', color: 'var(--color-danger, #b91c1c)', textColor: '#fff' },
+]
+
+const SHIPPABLE_VERDICTS = new Set<string>([Verdict.SHIP, Verdict.CARRY])
 
 function formatCurrency(amount: number, currency: string): string {
   try {
@@ -45,23 +70,70 @@ function formatCurrency(amount: number, currency: string): string {
   }
 }
 
+/** A pending confirm for a verdict downgrade (SHIP/CARRY → other). */
+interface DowngradeConfirm {
+  itemId: string
+  boxId: string
+  boxLabel: string
+  itemName: string
+  nextVerdict: string
+  nextVerdictLabel: string
+}
+
 export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) {
   const router = useRouter()
+  const isDesktop = useIsDesktop()
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
   const [openBoxIds, setOpenBoxIds] = useState<Set<string>>(new Set())
 
-  const totalItemCount = useMemo(() => {
-    if (!manifest) return 0
-    return manifest.boxes.reduce((sum, b) => sum + b.items.length, 0)
+  // Lift the manifest into local state so inline edits recompute totals + the
+  // biosec rail without a router.refresh() flicker. Re-seed when the prop
+  // identity changes (leg switch, server refresh on navigation).
+  const [manifestState, setManifestState] = useState<Manifest | null>(manifest)
+  useEffect(() => {
+    setManifestState(manifest)
   }, [manifest])
 
+  // Per-control busy + error state, keyed `${boxItemId}:${field}`.
+  const [busyFields, setBusyFields] = useState<Set<string>>(new Set())
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  // Items whose value field just saved (show a brief check tick).
+  const [savedTicks, setSavedTicks] = useState<Set<string>>(new Set())
+  // Pending verdict-downgrade confirm.
+  const [downgrade, setDowngrade] = useState<DowngradeConfirm | null>(null)
+  const downgradeTriggerRef = useRef<HTMLElement | null>(null)
+
+  const setBusy = useCallback((key: string, on: boolean) => {
+    setBusyFields((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }, [])
+
+  const setError = useCallback((key: string, msg: string | null) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      if (msg) next[key] = msg
+      else delete next[key]
+      return next
+    })
+  }, [])
+
+  const totalItemCount = useMemo(() => {
+    if (!manifestState) return 0
+    return manifestState.boxes.reduce((sum, b) => sum + b.items.length, 0)
+  }, [manifestState])
+
   const biosecItems = useMemo(() => {
-    if (!manifest) return []
+    if (!manifestState) return []
     const all: Array<{
       boxLabel: string
+      boxName: string
       itemName: string
       itemId: string
       flag: string
@@ -69,13 +141,14 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
       note: string | null
       confirmed: boolean
     }> = []
-    for (const b of manifest.boxes) {
+    for (const b of manifestState.boxes) {
       for (const { item_assessment } of b.items) {
         if (!item_assessment) continue
         const flag = item_assessment.biosecurity_flag
         if (!flag || flag === BiosecurityFlag.NONE) continue
         all.push({
           boxLabel: b.box.label,
+          boxName: b.box.room_name,
           itemName: item_assessment.item_name,
           itemId: item_assessment.id,
           flag,
@@ -86,7 +159,7 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
       }
     }
     return all
-  }, [manifest])
+  }, [manifestState])
 
   const biosecByCategory = useMemo(() => {
     const map = new Map<string, typeof biosecItems>()
@@ -97,6 +170,32 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
     }
     return map
   }, [biosecItems])
+
+  // Live totals recomputed from local manifest state so inline value/biosec
+  // edits flow into the header tiles + per-box subtotals without a refresh.
+  const liveTotals = useMemo(() => {
+    const base = manifestState?.totals
+    const currency = base?.currency ?? 'EUR'
+    let declared_value = 0
+    let cbm = 0
+    const biosec = { declare: 0, high_risk: 0, prohibited: 0 }
+    const perBoxDeclared: Record<string, number> = {}
+    for (const b of manifestState?.boxes ?? []) {
+      let boxDeclared = 0
+      for (const { item_assessment } of b.items) {
+        const cost = item_assessment?.estimated_replace_cost
+        if (typeof cost === 'number') boxDeclared += cost
+        const flag = item_assessment?.biosecurity_flag
+        if (flag === BiosecurityFlag.DECLARE) biosec.declare += 1
+        else if (flag === BiosecurityFlag.HIGH_RISK) biosec.high_risk += 1
+        else if (flag === BiosecurityFlag.PROHIBITED) biosec.prohibited += 1
+      }
+      perBoxDeclared[b.box.id] = boxDeclared
+      declared_value += boxDeclared
+      if (b.cbm) cbm += b.cbm
+    }
+    return { declared_value, cbm, currency, biosec, perBoxDeclared }
+  }, [manifestState])
 
   const handleLegChange = (legId: string) => {
     const params = new URLSearchParams()
@@ -134,13 +233,18 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
 
   const handleConfirmBiosec = async (itemId: string) => {
     setConfirming(itemId)
+    // Optimistic: mark confirmed in local state so the rail flips to its
+    // confirmed badge without discarding any in-flight inline edits.
+    patchAssessment(itemId, { user_confirmed_biosecurity: true })
     try {
       const res = await fetch(`/api/items/${itemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_confirmed_biosecurity: true }),
       })
-      if (res.ok) router.refresh()
+      if (!res.ok) throw new Error('confirm failed')
+    } catch {
+      patchAssessment(itemId, { user_confirmed_biosecurity: false })
     } finally {
       setConfirming(null)
     }
@@ -155,13 +259,282 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
     })
   }
 
+  // -- Inline manifest editing -------------------------------------------------
+
+  /** Apply a partial update to a single item's assessment in local state. */
+  const patchAssessment = useCallback(
+    (assessmentId: string, patch: Partial<ItemAssessment>) => {
+      setManifestState((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          boxes: prev.boxes.map((b) => ({
+            ...b,
+            items: b.items.map((entry) =>
+              entry.item_assessment?.id === assessmentId
+                ? {
+                    ...entry,
+                    item_assessment: { ...entry.item_assessment, ...patch } as ItemAssessment,
+                  }
+                : entry,
+            ),
+          })),
+        }
+      })
+    },
+    [],
+  )
+
+  /** Remove an item entry from a box in local state (verdict downgrade / move out). */
+  const removeEntry = useCallback((boxId: string, boxItemId: string) => {
+    setManifestState((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        boxes: prev.boxes.map((b) =>
+          b.box.id === boxId
+            ? { ...b, items: b.items.filter((e) => e.box_item.id !== boxItemId) }
+            : b,
+        ),
+      }
+    })
+  }, [])
+
+  /** Optimistic PATCH /api/items/:id with per-control busy + rollback. */
+  const saveItemField = useCallback(
+    async (
+      assessmentId: string,
+      fieldKey: string,
+      patch: Partial<ItemAssessment>,
+      prevPatch: Partial<ItemAssessment>,
+    ) => {
+      setError(fieldKey, null)
+      setBusy(fieldKey, true)
+      patchAssessment(assessmentId, patch)
+      try {
+        const res = await fetch(`/api/items/${assessmentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+        if (!res.ok) throw new Error('save failed')
+        return true
+      } catch {
+        patchAssessment(assessmentId, prevPatch)
+        setError(fieldKey, ownerCopy.itinerary.saveError)
+        return false
+      } finally {
+        setBusy(fieldKey, false)
+      }
+    },
+    [patchAssessment, setBusy, setError],
+  )
+
+  const commitVerdictChange = useCallback(
+    async (
+      box: ManifestBox,
+      assessment: ItemAssessment,
+      nextVerdict: string,
+    ) => {
+      const fieldKey = `${assessment.id}:verdict`
+      const prevVerdict = assessment.verdict
+      const leavesManifest = !SHIPPABLE_VERDICTS.has(nextVerdict)
+
+      setError(fieldKey, null)
+      setBusy(fieldKey, true)
+      // Optimistic verdict update.
+      patchAssessment(assessment.id, { verdict: nextVerdict as Verdict })
+      try {
+        const res = await fetch(`/api/items/${assessment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verdict: nextVerdict }),
+        })
+        if (!res.ok) throw new Error('save failed')
+        // Leaving SHIP/CARRY removes the item from this leg's manifest.
+        if (leavesManifest) {
+          const entry = box.items.find((e) => e.item_assessment?.id === assessment.id)
+          if (entry) removeEntry(box.box.id, entry.box_item.id)
+        }
+      } catch {
+        patchAssessment(assessment.id, { verdict: prevVerdict })
+        setError(fieldKey, ownerCopy.itinerary.saveError)
+      } finally {
+        setBusy(fieldKey, false)
+      }
+    },
+    [patchAssessment, removeEntry, setBusy, setError],
+  )
+
+  const handleVerdictChange = useCallback(
+    (box: ManifestBox, assessment: ItemAssessment, nextVerdict: string, triggerEl: HTMLElement | null) => {
+      if (nextVerdict === assessment.verdict) return
+      // SHIP↔CARRY commits silently; downgrading away gets a lightweight confirm.
+      if (!SHIPPABLE_VERDICTS.has(nextVerdict)) {
+        downgradeTriggerRef.current = triggerEl
+        const opt = VERDICT_PILL_OPTIONS.find((o) => o.value === nextVerdict)
+        setDowngrade({
+          itemId: assessment.id,
+          boxId: box.box.id,
+          boxLabel: box.box.label,
+          itemName: assessment.item_name,
+          nextVerdict,
+          nextVerdictLabel: opt?.label ?? nextVerdict,
+        })
+        return
+      }
+      void commitVerdictChange(box, assessment, nextVerdict)
+    },
+    [commitVerdictChange],
+  )
+
+  const confirmDowngrade = useCallback(() => {
+    if (!downgrade || !manifestState) return
+    const box = manifestState.boxes.find((b) => b.box.id === downgrade.boxId)
+    const assessment = box?.items.find(
+      (e) => e.item_assessment?.id === downgrade.itemId,
+    )?.item_assessment
+    if (box && assessment) {
+      void commitVerdictChange(box, assessment, downgrade.nextVerdict)
+    }
+    setDowngrade(null)
+  }, [downgrade, manifestState, commitVerdictChange])
+
+  const handleBiosecChange = useCallback(
+    (assessment: ItemAssessment, nextFlag: string) => {
+      if (nextFlag === (assessment.biosecurity_flag ?? 'none')) return
+      void saveItemField(
+        assessment.id,
+        `${assessment.id}:biosec`,
+        { biosecurity_flag: nextFlag as BiosecurityFlag },
+        { biosecurity_flag: assessment.biosecurity_flag },
+      )
+    },
+    [saveItemField],
+  )
+
+  const handleValueSave = useCallback(
+    async (assessment: ItemAssessment, rawValue: string, currency: string) => {
+      const fieldKey = `${assessment.id}:value`
+      const trimmed = rawValue.trim()
+      const parsed = trimmed === '' ? null : Number(trimmed)
+      // Validate on blur: reject negative / non-numeric, no request.
+      if (parsed !== null && (Number.isNaN(parsed) || parsed < 0)) {
+        setError(fieldKey, ownerCopy.itinerary.valueFormatHint)
+        return
+      }
+      const currencyChanged = currency !== (assessment.replace_currency ?? liveTotals.currency)
+      const valueChanged = parsed !== (assessment.estimated_replace_cost ?? null)
+      if (!valueChanged && !currencyChanged) {
+        setError(fieldKey, null)
+        return
+      }
+      const ok = await saveItemField(
+        assessment.id,
+        fieldKey,
+        { estimated_replace_cost: parsed, replace_currency: currency },
+        {
+          estimated_replace_cost: assessment.estimated_replace_cost,
+          replace_currency: assessment.replace_currency,
+        },
+      )
+      if (ok) {
+        setSavedTicks((prev) => new Set(prev).add(assessment.id))
+        window.setTimeout(() => {
+          setSavedTicks((prev) => {
+            const next = new Set(prev)
+            next.delete(assessment.id)
+            return next
+          })
+        }, 1500)
+      }
+    },
+    [saveItemField, setError, liveTotals.currency],
+  )
+
+  const handleBoxMove = useCallback(
+    async (fromBox: ManifestBox, boxItemId: string, assessment: ItemAssessment, toBoxId: string) => {
+      if (toBoxId === fromBox.box.id) return
+      const fieldKey = `${assessment.id}:box`
+      setError(fieldKey, null)
+      setBusy(fieldKey, true)
+      // Snapshot for rollback.
+      const snapshot = manifestState
+      // Optimistic: move the entry from source to destination box.
+      setManifestState((prev) => {
+        if (!prev) return prev
+        const entry = prev.boxes
+          .find((b) => b.box.id === fromBox.box.id)
+          ?.items.find((e) => e.box_item.id === boxItemId)
+        if (!entry) return prev
+        return {
+          ...prev,
+          boxes: prev.boxes.map((b) => {
+            if (b.box.id === fromBox.box.id) {
+              return { ...b, items: b.items.filter((e) => e.box_item.id !== boxItemId) }
+            }
+            if (b.box.id === toBoxId) {
+              return {
+                ...b,
+                items: [...b.items, { ...entry, box_item: { ...entry.box_item, box_id: toBoxId } }],
+              }
+            }
+            return b
+          }),
+        }
+      })
+      try {
+        const res = await fetch(`/api/boxes/${fromBox.box.id}/items/${boxItemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to_box_id: toBoxId }),
+        })
+        if (!res.ok) throw new Error('move failed')
+      } catch {
+        setManifestState(snapshot)
+        setError(fieldKey, ownerCopy.itinerary.saveError)
+      } finally {
+        setBusy(fieldKey, false)
+      }
+    },
+    [manifestState, setBusy, setError],
+  )
+
+  const handleRemoveFromBox = useCallback(
+    async (boxId: string, boxItemId: string) => {
+      const snapshot = manifestState
+      removeEntry(boxId, boxItemId)
+      try {
+        const res = await fetch(`/api/boxes/${boxId}/items/${boxItemId}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) throw new Error('remove failed')
+      } catch {
+        setManifestState(snapshot)
+      }
+    },
+    [manifestState, removeEntry],
+  )
+
+  const [printDate, setPrintDate] = useState('')
+
   const handlePrint = () => {
-    if (!manifest) return
+    if (!manifestState) return
+    // Stamp the manifest with the date it was produced. Set here (on a user
+    // click, client-only) rather than at render time to avoid an SSR/client
+    // hydration mismatch on the date.
+    setPrintDate(
+      new Date().toLocaleDateString('en-IE', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+    )
     // Snapshot the current open state, expand every box for the print, then
     // restore once the browser print dialog has closed. The browser handles
     // PDF rendering via "Save as PDF" — we just make sure nothing is hidden.
     const previousOpen = openBoxIds
-    setOpenBoxIds(new Set(manifest.boxes.map((b) => b.box.id)))
+    setOpenBoxIds(new Set(manifestState.boxes.map((b) => b.box.id)))
 
     // Wait a tick so React commits the expanded state before printing.
     requestAnimationFrame(() => {
@@ -212,7 +585,7 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
         )}
       </header>
 
-      {!manifest || manifest.boxes.length === 0 ? (
+      {!manifestState || manifestState.boxes.length === 0 ? (
         <div className={styles.emptyWrap}>
           <EmptyState
             variant="branded"
@@ -223,26 +596,50 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
         </div>
       ) : (
         <>
+          {/* Print-only manifest header — gives the packing company and
+              biosecurity a titled, dated document rather than a bare app view. */}
+          <div className={styles.printHeader} aria-hidden="true">
+            <p className={styles.printTitle}>
+              {ownerCopy.itinerary.printManifestTitle}
+              {(() => {
+                const legLabel = shipments.find((s) => s.id === activeShipmentId)?.label
+                return legLabel ? ` — ${legLabel}` : ''
+              })()}
+            </p>
+            <p className={styles.printMeta}>
+              {printDate ? `${ownerCopy.itinerary.printPreparedOn(printDate)} · ` : ''}
+              {totalItemCount} items · {ownerCopy.itinerary.declaredValue}{' '}
+              {formatCurrency(liveTotals.declared_value, liveTotals.currency)} ·{' '}
+              {(() => {
+                const biosecTotal =
+                  liveTotals.biosec.declare +
+                  liveTotals.biosec.high_risk +
+                  liveTotals.biosec.prohibited
+                return `${biosecTotal} biosecurity ${biosecTotal === 1 ? 'item' : 'items'}`
+              })()}
+            </p>
+          </div>
+
           {/* Totals */}
           <section className={styles.totals} aria-label={ownerCopy.itinerary.totalsLabel}>
             <div className={styles.totalsTile}>
               <span className={styles.totalsLabel}>{ownerCopy.itinerary.declaredValue}</span>
               <span className={styles.totalsValue}>
-                {formatCurrency(manifest.totals.declared_value, manifest.totals.currency)}
+                {formatCurrency(liveTotals.declared_value, liveTotals.currency)}
               </span>
             </div>
             <div className={styles.totalsTile}>
               <span className={styles.totalsLabel}>{ownerCopy.itinerary.cbm}</span>
               <span className={styles.totalsValue}>
-                {manifest.totals.cbm.toFixed(2)} m³
+                {liveTotals.cbm.toFixed(2)} m³
               </span>
             </div>
             <div className={styles.totalsTile}>
               <span className={styles.totalsLabel}>{ownerCopy.itinerary.biosecFlags}</span>
               <span className={styles.totalsValue}>
-                {manifest.totals.biosecurity_counts.declare +
-                  manifest.totals.biosecurity_counts.high_risk +
-                  manifest.totals.biosecurity_counts.prohibited}
+                {liveTotals.biosec.declare +
+                  liveTotals.biosec.high_risk +
+                  liveTotals.biosec.prohibited}
               </span>
             </div>
             <div className={styles.totalsTile}>
@@ -273,7 +670,7 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
               type="button"
               className={styles.exportLink}
               onClick={handlePrint}
-              disabled={!manifest || manifest.boxes.length === 0}
+              disabled={!manifestState || manifestState.boxes.length === 0}
             >
               <FileText size={16} aria-hidden="true" />
               {ownerCopy.itinerary.exportPdf}
@@ -302,60 +699,129 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
             </div>
           )}
 
+          {/* Boxes table full-width, biosec declarations stacked below. */}
+          <div className={styles.cockpit}>
           {/* Boxes accordion */}
           <section className={styles.boxes} aria-label="Boxes">
-            {manifest.boxes.map((b) => {
-              const open = openBoxIds.has(b.box.id)
+            {manifestState.boxes.map((b) => {
+              // On desktop the manifest reads as a table — always expanded so
+              // the inline grid is visible; the external-link affordance opens
+              // the box in packing. On mobile, keep the lightweight accordion.
+              const open = isDesktop || openBoxIds.has(b.box.id)
               const itemCountLabel =
                 b.items.length === 1 ? ownerCopy.itinerary.item : ownerCopy.itinerary.items
+              const boxOptions: BoxSelectOption[] = manifestState.boxes.map((mb) => ({
+                id: mb.box.id,
+                code: mb.box.label,
+                name: mb.box.room_name,
+              }))
               return (
                 <div key={b.box.id} className={styles.boxRow}>
-                  <button
-                    type="button"
-                    className={styles.boxHeader}
-                    onClick={() => toggleBox(b.box.id)}
-                    aria-expanded={open}
-                  >
-                    <span className={styles.boxLabel}>{b.box.label}</span>
-                    <span className={styles.boxMeta}>
-                      <span>{b.items.length} {itemCountLabel}</span>
-                      <span>•</span>
-                      <span>
-                        {formatCurrency(b.declared_value, manifest.totals.currency)}
+                  {isDesktop ? (
+                    <div className={styles.boxHeaderRow}>
+                      <BoxPill code={b.box.label} name={b.box.room_name} className={styles.boxLabel} />
+                      <span className={styles.boxMeta}>
+                        <span>{b.items.length} {itemCountLabel}</span>
+                        <span>•</span>
+                        <span>
+                          {formatCurrency(
+                            liveTotals.perBoxDeclared[b.box.id] ?? 0,
+                            liveTotals.currency,
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.openBoxLink}
+                          onClick={() => router.push(`/boxes?box=${b.box.id}`)}
+                          aria-label={ownerCopy.itinerary.openBoxInPacking(b.box.label)}
+                        >
+                          <ExternalLink size={14} aria-hidden="true" />
+                        </button>
                       </span>
-                      <ChevronDown
-                        size={16}
-                        aria-hidden="true"
-                        className={cn(styles.chevron, open && styles.chevronOpen)}
-                      />
-                    </span>
-                  </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.boxHeader}
+                      onClick={() => toggleBox(b.box.id)}
+                      aria-expanded={open}
+                      aria-label={`Toggle ${b.box.label} ${b.box.room_name} item list`}
+                    >
+                      <BoxPill code={b.box.label} name={b.box.room_name} className={styles.boxLabel} />
+                      <span className={styles.boxMeta}>
+                        <span>{b.items.length} {itemCountLabel}</span>
+                        <span>•</span>
+                        <span>
+                          {formatCurrency(
+                            liveTotals.perBoxDeclared[b.box.id] ?? 0,
+                            liveTotals.currency,
+                          )}
+                        </span>
+                        <ChevronDown
+                          size={16}
+                          aria-hidden="true"
+                          className={cn(styles.chevron, open && styles.chevronOpen)}
+                        />
+                      </span>
+                    </button>
+                  )}
                   {open && (
-                    <ul className={styles.itemsList}>
-                      {b.items.map(({ box_item, item_assessment }) => {
-                        const name =
-                          item_assessment?.item_name ?? box_item.item_name ?? 'Unnamed item'
-                        const cost = item_assessment?.estimated_replace_cost
-                        const currency = item_assessment?.replace_currency ?? manifest.totals.currency
-                        const flag = item_assessment?.biosecurity_flag
-                        return (
-                          <li key={box_item.id} className={styles.itemRow}>
-                            <span className={styles.itemName}>{name}</span>
-                            {flag && flag !== BiosecurityFlag.NONE && (
-                              <span className={styles.biosecChip}>
-                                <ShieldAlert size={12} aria-hidden="true" />
-                                {BIOSEC_LABELS[flag] ?? flag}
-                              </span>
-                            )}
-                            {typeof cost === 'number' && (
-                              <span className={styles.itemValue}>
-                                {formatCurrency(cost, currency)}
-                              </span>
-                            )}
+                    isDesktop ? (
+                      <div role="table" aria-label={`${b.box.label} manifest`} className={styles.itemGrid}>
+                        <div role="row" className={styles.colHeader}>
+                          <span role="columnheader" className={styles.colHeaderCell}>{ownerCopy.itinerary.colItem}</span>
+                          <span role="columnheader" className={styles.colHeaderCell}>{ownerCopy.itinerary.colVerdict}</span>
+                          <span role="columnheader" className={cn(styles.colHeaderCell, styles.numCol)}>{ownerCopy.itinerary.colValue}</span>
+                          <span role="columnheader" className={styles.colHeaderCell}>{ownerCopy.itinerary.colBox}</span>
+                          <span role="columnheader" className={styles.colHeaderCell}>{ownerCopy.itinerary.colBiosec}</span>
+                          <span role="columnheader" className={styles.colHeaderCell}>{ownerCopy.itinerary.colActions}</span>
+                        </div>
+                        {b.items.map(({ box_item, item_assessment }) => (
+                          <ItineraryItemRow
+                            key={box_item.id}
+                            box={b}
+                            boxItemId={box_item.id}
+                            fallbackName={box_item.item_name}
+                            assessment={item_assessment}
+                            boxOptions={boxOptions}
+                            currency={liveTotals.currency}
+                            isDesktop
+                            busyFields={busyFields}
+                            fieldErrors={fieldErrors}
+                            savedTick={item_assessment ? savedTicks.has(item_assessment.id) : false}
+                            onVerdictChange={handleVerdictChange}
+                            onBiosecChange={handleBiosecChange}
+                            onValueSave={handleValueSave}
+                            onBoxMove={handleBoxMove}
+                            onRemoveFromBox={handleRemoveFromBox}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <ul className={styles.itemCards}>
+                        {b.items.map(({ box_item, item_assessment }) => (
+                          <li key={box_item.id} className={styles.itemCardWrap}>
+                            <ItineraryItemRow
+                              box={b}
+                              boxItemId={box_item.id}
+                              fallbackName={box_item.item_name}
+                              assessment={item_assessment}
+                              boxOptions={boxOptions}
+                              currency={liveTotals.currency}
+                              isDesktop={false}
+                              busyFields={busyFields}
+                              fieldErrors={fieldErrors}
+                              savedTick={item_assessment ? savedTicks.has(item_assessment.id) : false}
+                              onVerdictChange={handleVerdictChange}
+                              onBiosecChange={handleBiosecChange}
+                              onValueSave={handleValueSave}
+                              onBoxMove={handleBoxMove}
+                              onRemoveFromBox={handleRemoveFromBox}
+                            />
                           </li>
-                        )
-                      })}
-                    </ul>
+                        ))}
+                      </ul>
+                    )
                   )}
                 </div>
               )
@@ -377,8 +843,26 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                       <li key={row.itemId} className={styles.biosecItem}>
                         <div>
                           <div className={styles.biosecItemName}>
-                            {row.itemName}
-                            <span className={styles.biosecBoxRef}>{row.boxLabel}</span>
+                            <button
+                              type="button"
+                              className={styles.biosecItemLink}
+                              onClick={() => {
+                                if (isDesktop) {
+                                  router.push(`/items?item=${row.itemId}`)
+                                } else {
+                                  router.push(`/decisions/${row.itemId}`)
+                                }
+                              }}
+                              aria-label={`Open ${row.itemName}`}
+                            >
+                              {row.itemName}
+                            </button>
+                            <BoxPill
+                              code={row.boxLabel}
+                              name={row.boxName}
+                              size="sm"
+                              className={styles.biosecBoxRef}
+                            />
                           </div>
                           {row.note && (
                             <p className={styles.biosecNote}>{row.note}</p>
@@ -408,7 +892,251 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
               ))}
             </section>
           )}
+          </div>
         </>
+      )}
+
+      {/* Verdict-downgrade confirm — leaving SHIP/CARRY removes the item. */}
+      <ConfirmDialog
+        isOpen={downgrade !== null}
+        onClose={() => setDowngrade(null)}
+        title={
+          downgrade
+            ? ownerCopy.itinerary.verdictDowngradeTitle(downgrade.itemName, downgrade.nextVerdictLabel)
+            : ''
+        }
+        description={downgrade ? ownerCopy.itinerary.verdictDowngradeBody(downgrade.boxLabel) : ''}
+        confirmLabel={ownerCopy.itinerary.changeVerdict}
+        cancelLabel={ownerCopy.itinerary.cancel}
+        onConfirm={confirmDowngrade}
+        triggerRef={downgradeTriggerRef}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inline-editable manifest row (desktop grid cell / mobile labelled card)
+// ---------------------------------------------------------------------------
+
+interface ItineraryItemRowProps {
+  box: ManifestBox
+  boxItemId: string
+  fallbackName: string | null
+  assessment: ItemAssessment | null
+  boxOptions: BoxSelectOption[]
+  currency: string
+  isDesktop: boolean
+  busyFields: Set<string>
+  fieldErrors: Record<string, string>
+  savedTick: boolean
+  onVerdictChange: (box: ManifestBox, a: ItemAssessment, next: string, trigger: HTMLElement | null) => void
+  onBiosecChange: (a: ItemAssessment, next: string) => void
+  onValueSave: (a: ItemAssessment, raw: string, currency: string) => void
+  onBoxMove: (fromBox: ManifestBox, boxItemId: string, a: ItemAssessment, toBoxId: string) => void
+  onRemoveFromBox: (boxId: string, boxItemId: string) => void
+}
+
+function ItineraryItemRow({
+  box,
+  boxItemId,
+  fallbackName,
+  assessment,
+  boxOptions,
+  currency,
+  isDesktop,
+  busyFields,
+  fieldErrors,
+  savedTick,
+  onVerdictChange,
+  onBiosecChange,
+  onValueSave,
+  onBoxMove,
+  onRemoveFromBox,
+}: ItineraryItemRowProps) {
+  const name = assessment?.item_name ?? fallbackName ?? 'Unnamed item'
+  const itemCurrency = assessment?.replace_currency ?? currency
+  const serverValue =
+    assessment?.estimated_replace_cost != null ? String(assessment.estimated_replace_cost) : ''
+
+  // Local drafts re-seeded during render (React's recommended alternative to a
+  // setState-in-effect) whenever the server-confirmed value changes — covers
+  // optimistic commits and rollback-after-error without flickering focus mid-edit.
+  const [valueDraft, setValueDraft] = useState(serverValue)
+  const [lastServerValue, setLastServerValue] = useState(serverValue)
+  if (serverValue !== lastServerValue) {
+    setLastServerValue(serverValue)
+    setValueDraft(serverValue)
+  }
+
+  const [currencyDraft, setCurrencyDraft] = useState(itemCurrency)
+  const [lastServerCurrency, setLastServerCurrency] = useState(itemCurrency)
+  if (itemCurrency !== lastServerCurrency) {
+    setLastServerCurrency(itemCurrency)
+    setCurrencyDraft(itemCurrency)
+  }
+
+  // If the row has no assessment (a bare box_item), there's nothing to edit —
+  // render the name and a remove action only.
+  if (!assessment) {
+    return (
+      <div role={isDesktop ? 'row' : undefined} className={isDesktop ? styles.itemGridRow : styles.itemCard}>
+        <span role={isDesktop ? 'cell' : undefined} className={styles.itemName}>{name}</span>
+        {isDesktop && <span role="cell" /> }
+        {isDesktop && <span role="cell" />}
+        {isDesktop && <span role="cell" />}
+        {isDesktop && <span role="cell" />}
+        <span role={isDesktop ? 'cell' : undefined} className={styles.actionsCell}>
+          <button
+            type="button"
+            className={styles.removeBtn}
+            onClick={() => onRemoveFromBox(box.box.id, boxItemId)}
+            aria-label={ownerCopy.itinerary.removeFromBoxLabel(name, box.box.label)}
+          >
+            {ownerCopy.itinerary.removeFromBox}
+          </button>
+        </span>
+      </div>
+    )
+  }
+
+  const a = assessment
+  const verdictKey = `${a.id}:verdict`
+  const valueKey = `${a.id}:value`
+  const boxKey = `${a.id}:box`
+  const biosecKey = `${a.id}:biosec`
+  const verdictValue = a.verdict ?? 'SHIP'
+  const biosecValue = a.biosecurity_flag ?? 'none'
+
+  const valueField = (
+    <div className={styles.valueField}>
+      <span className={styles.currencyPrefix} aria-hidden="true">
+        {itemCurrency}
+      </span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        className={cn(styles.valueInput, fieldErrors[valueKey] && styles.fieldErrorInput)}
+        value={valueDraft}
+        placeholder={ownerCopy.itinerary.valuePlaceholder}
+        aria-label={ownerCopy.itinerary.fieldValue(name)}
+        aria-invalid={fieldErrors[valueKey] ? true : undefined}
+        disabled={busyFields.has(valueKey)}
+        onChange={(e) => setValueDraft(e.target.value)}
+        onBlur={() => onValueSave(a, valueDraft, currencyDraft)}
+      />
+      <CurrencySelect
+        value={currencyDraft}
+        options={CURRENCY_OPTIONS}
+        ariaLabel={`Currency for ${name}`}
+        disabled={busyFields.has(valueKey)}
+        onChange={(next) => {
+          setCurrencyDraft(next)
+          onValueSave(a, valueDraft, next)
+        }}
+      />
+      {savedTick && (
+        <Check size={14} className={styles.savedTick} aria-hidden="true" />
+      )}
+    </div>
+  )
+
+  const boxField = (
+    <BoxSelect
+      value={box.box.id}
+      options={boxOptions}
+      ariaLabel={ownerCopy.itinerary.fieldBox(name)}
+      disabled={busyFields.has(boxKey)}
+      onChange={(toBoxId) => onBoxMove(box, boxItemId, a, toBoxId)}
+    />
+  )
+
+  const verdictField = (
+    <EditablePill
+      value={verdictValue}
+      size="md"
+      options={VERDICT_PILL_OPTIONS}
+      ariaLabel={ownerCopy.itinerary.fieldVerdict(name)}
+      listboxLabel={ownerCopy.itinerary.fieldVerdict(name)}
+      busy={busyFields.has(verdictKey)}
+      onChange={(next) => {
+        const trigger = document.activeElement as HTMLElement | null
+        onVerdictChange(box, a, next, trigger)
+      }}
+    />
+  )
+
+  const biosecField = (
+    <EditablePill
+      value={biosecValue}
+      size="md"
+      options={BIOSEC_PILL_OPTIONS}
+      ariaLabel={ownerCopy.itinerary.fieldBiosec(name)}
+      listboxLabel={ownerCopy.itinerary.fieldBiosec(name)}
+      busy={busyFields.has(biosecKey)}
+      onChange={(next) => onBiosecChange(a, next)}
+    />
+  )
+
+  const removeBtn = (
+    <button
+      type="button"
+      className={styles.removeBtn}
+      onClick={() => onRemoveFromBox(box.box.id, boxItemId)}
+      aria-label={ownerCopy.itinerary.removeFromBoxLabel(name, box.box.label)}
+    >
+      {ownerCopy.itinerary.removeFromBox}
+    </button>
+  )
+
+  const anyError =
+    fieldErrors[verdictKey] || fieldErrors[valueKey] || fieldErrors[boxKey] || fieldErrors[biosecKey]
+
+  if (isDesktop) {
+    return (
+      <>
+        <div role="row" className={styles.itemGridRow}>
+          <span role="cell" className={styles.itemName}>{name}</span>
+          <span role="cell" className={styles.cell}>{verdictField}</span>
+          <span role="cell" className={cn(styles.cell, styles.numCol)}>{valueField}</span>
+          <span role="cell" className={styles.cell}>{boxField}</span>
+          <span role="cell" className={styles.cell}>{biosecField}</span>
+          <span role="cell" className={styles.actionsCell}>{removeBtn}</span>
+        </div>
+        {anyError && (
+          <div role="alert" className={styles.rowError}>
+            {anyError}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  // Mobile — stacked labelled card.
+  return (
+    <div className={styles.itemCard}>
+      <div className={styles.cardTopRow}>
+        <span className={styles.itemName}>{name}</span>
+        {verdictField}
+      </div>
+      <div className={styles.cardField}>
+        <span className={styles.cellLabel}>{ownerCopy.itinerary.colValue}</span>
+        {valueField}
+      </div>
+      <div className={styles.cardField}>
+        <span className={styles.cellLabel}>{ownerCopy.itinerary.colBox}</span>
+        {boxField}
+      </div>
+      <div className={styles.cardField}>
+        <span className={styles.cellLabel}>{ownerCopy.itinerary.colBiosec}</span>
+        {biosecField}
+      </div>
+      <div className={styles.cardActions}>{removeBtn}</div>
+      {anyError && (
+        <div role="alert" className={styles.rowError}>
+          {anyError}
+        </div>
       )}
     </div>
   )

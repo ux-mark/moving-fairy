@@ -11,6 +11,8 @@ import type { Verdict } from '@/lib/constants'
 import { CostSummary } from '@/components/inventory/CostSummary'
 import type { CostSummaryData } from '@/components/inventory/CostSummary'
 import { ItemCard } from './ItemCard'
+import { ItemTile } from '@/components/items/ItemTile'
+import { Fab } from '@/components/layout/Fab'
 import { BatchUploadButton } from './BatchUploadButton'
 import { TextAddInput } from './TextAddInput'
 import { VerdictPicker } from './VerdictPicker'
@@ -95,6 +97,23 @@ export function DecisionsList({
   const costSummary = deriveCostSummary(items)
   const hasCostData = Object.values(costSummary.counts_by_verdict).some((n) => n > 0)
   const [showWelcomeTextInput, setShowWelcomeTextInput] = useState(false)
+  const [justDecidedIds, setJustDecidedIds] = useState<Set<string>>(new Set())
+
+  const markJustDecided = useCallback((id: string) => {
+    setJustDecidedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setTimeout(() => {
+      setJustDecidedIds((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, 3000)
+  }, [])
 
   // VerdictPicker state: which item's picker is open
   const [verdictPickerItemId, setVerdictPickerItemId] = useState<string | null>(null)
@@ -143,8 +162,9 @@ export function DecisionsList({
   const handleVerdictChange = useCallback(async (itemId: string, verdict: Verdict) => {
     if (onVerdictChange) {
       await onVerdictChange(itemId, verdict)
+      markJustDecided(itemId)
     }
-  }, [onVerdictChange])
+  }, [onVerdictChange, markJustDecided])
 
   // Count only completed items for the filter tabs
   const completedCounts = items
@@ -194,6 +214,10 @@ export function DecisionsList({
           <CostSummary data={costSummary} variant="compact" />
         </div>
       )}
+
+      {/* Cockpit grid: list left, progress rail right on desktop. */}
+      <div className={styles.cockpit}>
+      <div className={styles.cockpitMain}>
 
       {/* Verdict filter tabs — only when there are completed items */}
       {hasItems && hasFilterableItems && (
@@ -310,9 +334,16 @@ export function DecisionsList({
               {undecidedItems.map((item) => (
                 <li key={item.id} className={styles.cardItem}>
                   <div className={styles.cardWrapper}>
+                    {/* Undecided items always get the rich card with
+                        Accept / Change-verdict inline — decision is the
+                        user's primary task here. */}
                     <ItemCard
                       item={item}
-                      onConfirm={onConfirm}
+                      justDecided={justDecidedIds.has(item.id)}
+                      onConfirm={(id) => {
+                        onConfirm(id)
+                        markJustDecided(id)
+                      }}
                       onRetry={onRetry}
                       onClick={onItemClick}
                       onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
@@ -354,13 +385,13 @@ export function DecisionsList({
                   {decidedItems.map((item) => (
                     <li key={item.id} className={styles.cardItem}>
                       <div className={styles.cardWrapper}>
-                        <ItemCard
-                          item={item}
-                          onConfirm={onConfirm}
-                          onRetry={onRetry}
-                          onClick={onItemClick}
-                          onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
-                        />
+                    {/* Decided items are terminal — scannable tile is enough. */}
+                    <ItemTile
+                      item={item}
+                      justDecided={justDecidedIds.has(item.id)}
+                      onClick={onItemClick}
+                      onRetry={onRetry}
+                    />
                         {verdictPickerItemId === item.id && item.verdict && (
                           <div className={styles.verdictTriggerWrap}>
                             <VerdictPicker
@@ -381,6 +412,81 @@ export function DecisionsList({
           </>
         )}
       </div>
+
+      </div>{/* /.cockpitMain */}
+
+      {hasItems && (
+        <aside className={styles.cockpitRail} aria-label="Progress at a glance">
+          <div className={styles.railCard}>
+            <p className={styles.railEyebrow}>Progress</p>
+            <div className={styles.railProgressRow}>
+              <span className={styles.railProgressNumber}>
+                {items.length > 0 ? Math.round((decidedItems.length / items.length) * 100) : 0}%
+              </span>
+              <span className={styles.railProgressLabel}>decided</span>
+            </div>
+            <div className={styles.railProgressTrack}>
+              <span
+                className={styles.railProgressFill}
+                style={{
+                  width: `${items.length > 0 ? Math.round((decidedItems.length / items.length) * 100) : 0}%`,
+                }}
+              />
+            </div>
+            <dl className={styles.railStats}>
+              <div className={styles.railStat}>
+                <dt>To decide</dt>
+                <dd>{undecidedItems.length}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Decided</dt>
+                <dd>{decidedItems.length}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Total</dt>
+                <dd>{items.length}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Processing</dt>
+                <dd>{items.filter(i => i.processing_status === 'pending' || i.processing_status === 'processing').length}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {undecidedItems.length > 0 && (
+            <div className={styles.railCard}>
+              <p className={styles.railEyebrow}>What&rsquo;s next</p>
+              <ul className={styles.railNextList}>
+                {undecidedItems.slice(0, 3).map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className={styles.railNextItem}
+                      onClick={() => onItemClick(item.id)}
+                    >
+                      <span className={styles.railNextName}>
+                        {item.item_name || 'Unnamed item'}
+                      </span>
+                      <span className={styles.railNextHint}>Decide →</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
+      )}
+
+      </div>{/* /.cockpit */}
+
+      {hasItems && (
+        <Fab
+          label="Add"
+          icon={<Camera size={20} aria-hidden="true" />}
+          onClick={() => document.getElementById('batch-upload-trigger')?.click()}
+          title="Add an item via photo"
+        />
+      )}
     </div>
   )
 }

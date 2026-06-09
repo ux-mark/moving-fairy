@@ -1,24 +1,22 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { Truck } from "lucide-react";
+import { PackageCheck } from "lucide-react";
 import { Button, ConfirmDialog } from "@thefairies/design-system/components";
 
-import styles from "./ShipAllButton.module.css";
+import styles from "./PackAllButton.module.css";
 
-interface ShipAllButtonProps {
+interface PackAllButtonProps {
   boxCount: number;
-  singleItemCount: number;
   onConfirm: () => void;
   isSubmitting?: boolean;
 }
 
-export function ShipAllButton({
+export function PackAllButton({
   boxCount,
-  singleItemCount,
   onConfirm,
   isSubmitting,
-}: ShipAllButtonProps) {
+}: PackAllButtonProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -27,14 +25,9 @@ export function ShipAllButton({
     setOpen(false);
   }, [onConfirm]);
 
-  if (boxCount === 0 && singleItemCount === 0) return null;
+  if (boxCount === 0) return null;
 
-  const parts: string[] = [];
-  if (boxCount > 0) parts.push(`${boxCount} ${boxCount === 1 ? "box" : "boxes"}`);
-  if (singleItemCount > 0)
-    parts.push(
-      `${singleItemCount} single ${singleItemCount === 1 ? "item" : "items"}`
-    );
+  const boxLabel = boxCount === 1 ? "box" : "boxes";
 
   return (
     <>
@@ -45,16 +38,16 @@ export function ShipAllButton({
         className={styles.trigger ?? ""}
         onClick={() => setOpen(true)}
       >
-        <Truck style={{ width: 16, height: 16 }} />
-        Mark all as shipped
+        <PackageCheck style={{ width: 16, height: 16 }} />
+        Mark all as packed
       </Button>
 
       <ConfirmDialog
         isOpen={open}
         onClose={() => setOpen(false)}
-        title="Mark all as shipped?"
-        description={`This includes ${parts.join(" and ")}. Shipped items become read-only.`}
-        confirmLabel={isSubmitting ? "Updating..." : "Mark as shipped"}
+        title="Mark all as packed?"
+        description={`This marks ${boxCount} ${boxLabel} you're still packing as packed. Packed boxes appear on your itinerary.`}
+        confirmLabel={isSubmitting ? "Updating..." : "Mark as packed"}
         cancelLabel="Cancel"
         onConfirm={handleConfirm}
         triggerRef={triggerRef}

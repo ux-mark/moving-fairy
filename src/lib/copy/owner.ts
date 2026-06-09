@@ -83,6 +83,36 @@ export const ownerCopy = {
     categoryAddCancel: 'Cancel',
     categoryAddFailed: 'Couldn\'t add the category. Try again.',
   },
+  packing: {
+    activeBoxHeading: 'Packing into',
+    noActiveBox: 'No active box yet',
+    newBox: 'New box',
+    addToBox: (label: string) => `Add to ${label}`,
+    addToAnother: 'Add to another box…',
+    pickABox: 'Pick a box to pack into',
+    activeChip: 'Active',
+    selectAll: 'Select all',
+    selectedCount: (n: number) => `${n} selected`,
+    clearSelection: 'Clear',
+    addNToBox: (n: number, label: string) => `Add ${n} to ${label}`,
+    addedToast: (name: string, label: string) => `Added ${name} to ${label}.`,
+    addedManyToast: (n: number, label: string) => `Added ${n} items to ${label}.`,
+    addedPartialToast: (added: number, total: number, failed: number) =>
+      `Added ${added} of ${total} — ${failed} couldn't be added. Try again.`,
+    undo: 'Undo',
+    adding: 'Adding…',
+    addErrorToast: (name: string) =>
+      `Couldn't add ${name} — check your connection and try again.`,
+    dropInto: (label: string) => `Drop into ${label}`,
+    biosecNudgeOne: 'Contains 1 biosecurity item. Mark this box as biosecurity?',
+    biosecNudgeMany: (n: number) =>
+      `Contains ${n} biosecurity items. Mark this box as biosecurity?`,
+    biosecDismiss: 'Dismiss',
+    biosecMark: 'Mark as biosecurity',
+    biosecMarkedToast: (label: string) => `${label} marked as biosecurity.`,
+    biosecBadge: 'Biosecurity',
+    biosecUnmark: 'Not biosecurity',
+  },
   itinerary: {
     heading: 'Itinerary',
     totalsLabel: 'Totals',
@@ -94,6 +124,8 @@ export const ownerCopy = {
     shareCopyButton: 'Copy link',
     exportCsv: 'Export CSV',
     exportPdf: 'Save as PDF',
+    printManifestTitle: 'Packing manifest',
+    printPreparedOn: (date: string) => `Prepared ${date}`,
     emptyHeading: 'No items packed for this leg yet',
     emptyDescription:
       'Items with a SHIP or CARRY verdict show up here once they\'re assigned to a box.',
@@ -104,6 +136,30 @@ export const ownerCopy = {
     items: 'items',
     item: 'item',
     perItemValue: 'value',
+    // Inline-edit column headers + field labels
+    colItem: 'Item',
+    colVerdict: 'Verdict',
+    colValue: 'Value',
+    colBox: 'Box',
+    colBiosec: 'Biosecurity',
+    colActions: 'Actions',
+    fieldVerdict: (item: string) => `Verdict for ${item}`,
+    fieldValue: (item: string) => `Replacement value for ${item}`,
+    fieldBox: (item: string) => `Box for ${item}`,
+    fieldBiosec: (item: string) => `Biosecurity flag for ${item}`,
+    removeFromBox: 'Remove',
+    removeFromBoxLabel: (item: string, box: string) => `Remove ${item} from ${box}`,
+    valuePlaceholder: 'e.g. 120',
+    valueFormatHint: 'Enter a number like 120',
+    saveError: 'Couldn\'t save — try again.',
+    saving: 'Saving',
+    openBoxInPacking: (box: string) => `Open ${box} in packing`,
+    verdictDowngradeTitle: (item: string, verdict: string) =>
+      `Change ${item} to ${verdict}?`,
+    verdictDowngradeBody: (box: string) =>
+      `This takes it out of ${box} and off this manifest.`,
+    changeVerdict: 'Change verdict',
+    cancel: 'Cancel',
   },
   settings: {
     heading: 'Settings',
@@ -160,3 +216,14 @@ export const ownerCopy = {
 } as const
 
 export type OwnerCopy = typeof ownerCopy
+
+/**
+ * Human labels for the four biosecurity flag levels, including `none`.
+ * Used by the itinerary inline biosecurity pill and anywhere a flag is shown.
+ */
+export const BIOSEC_FLAG_LABELS: Record<string, string> = {
+  none: 'None',
+  declare: 'Declare',
+  high_risk: 'High risk',
+  prohibited: 'Prohibited',
+}

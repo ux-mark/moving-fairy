@@ -1,20 +1,30 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import {
+  ConfirmDialog,
   EmptyState,
 } from "@thefairies/design-system/components";
+import { computeBoxLabel } from "@/lib/constants";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
+import { PackingDragProvider } from "@/components/boxes/PackingDrag";
+import { BoxDetailDrawer } from "@/components/boxes/BoxDetailDrawer";
 import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
-import { ShipAllButton } from "@/components/boxes/ShipAllButton";
+import { PackAllButton } from "@/components/boxes/PackAllButton";
+import { Fab } from "@/components/layout/Fab";
+import { useIsDesktop } from "@/lib/hooks/useIsDesktop";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import { BoxType, BoxSize, BoxStatus, Verdict } from "@/lib/constants";
+import { BoxType, BoxSize, BoxStatus, Verdict, BiosecurityFlag } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 import styles from "./BoxList.module.css";
+
+type BoxSortKey = "number" | "name";
 
 interface BoxListProps {
   boxes: Box[];
@@ -29,9 +39,18 @@ interface BoxListProps {
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
   onAddToBox?: ((itemAssessmentId: string, boxId: string) => void) | undefined;
-  onUpdateBox?: ((boxId: string, updates: { label?: string; size?: string }) => void) | undefined;
-  onShipAll?: (() => void) | undefined;
+  /** Batch add — used by desktop multi-select and multi-item drag. */
+  onAddManyToBox?: ((itemAssessmentIds: string[], boxId: string) => void) | undefined;
+  onUpdateBox?: ((boxId: string, updates: { label?: string; room_name?: string; room_code?: string; size?: string; is_biosecurity?: boolean }) => void) | undefined;
+  onPackAll?: (() => void) | undefined;
   isCreating?: boolean | undefined;
+  /** The box new items flow into by default. */
+  activeBoxId?: string | null | undefined;
+  onSetActiveBox?: ((boxId: string | null) => void) | undefined;
+  /** Manually mark a box as biosecurity (override; flagged boxes are auto). */
+  onMarkBiosecurity?: ((boxId: string) => void) | undefined;
+  /** Apply a renumber after any swap has been confirmed. */
+  onRenumberBox?: ((boxId: string, newNumber: number) => void) | undefined;
   /** Scan results keyed by box ID */
   scanResults?: Record<string, ScanResult> | undefined;
   /** Flagged items keyed by box ID */
@@ -48,13 +67,6 @@ interface BoxListProps {
   resolvingItemIds?: Set<string> | undefined;
 }
 
-const STATUS_ORDER: Record<string, number> = {
-  packing: 0,
-  packed: 1,
-  shipped: 2,
-  arrived: 3,
-};
-
 export function BoxList({
   boxes,
   boxItems,
@@ -64,8 +76,9 @@ export function BoxList({
   onRemoveItem,
   onMarkPacked,
   onAddToBox,
+  onAddManyToBox,
   onUpdateBox,
-  onShipAll,
+  onPackAll,
   isCreating,
   scanResults,
   flaggedItemsByBox,
@@ -74,8 +87,35 @@ export function BoxList({
   onRemoveFlaggedItem,
   scanningBoxes,
   resolvingItemIds,
+  activeBoxId,
+  onSetActiveBox,
+  onMarkBiosecurity,
+  onRenumberBox,
 }: BoxListProps) {
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<BoxSortKey>("number");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDesktop = useIsDesktop();
+  const selectedBoxId = searchParams.get("box");
+
+  // When a card is "opened" on desktop, route to ?box=ID instead. Mobile
+  // falls back to the BoxCard's internal inline-expand state.
+  const openBoxDrawer = useCallback(
+    (boxId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("box", boxId);
+      router.replace(`/boxes?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const closeBoxDrawer = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("box");
+    const qs = params.toString();
+    router.replace(qs ? `/boxes?${qs}` : "/boxes", { scroll: false });
+  }, [router, searchParams]);
 
   // Build assessment lookup map
   const assessmentMap = useMemo(() => {
@@ -102,25 +142,22 @@ export function BoxList({
       }
     }
 
-    // Sort: carry-on first, then checked luggage by number
-    travelling.sort((a, b) => {
-      if (a.box_type === BoxType.CARRYON) return -1;
-      if (b.box_type === BoxType.CARRYON) return 1;
-      return a.box_number - b.box_number;
-    });
+    // Sort both sections by the chosen key: box number ascending (WH01, WH02, …)
+    // or room name alphabetically (number as the tiebreak).
+    const sortFn =
+      sortBy === "name"
+        ? (a: Box, b: Box) =>
+            a.room_name.localeCompare(b.room_name, undefined, {
+              sensitivity: "base",
+              numeric: true,
+            }) || a.box_number - b.box_number
+        : (a: Box, b: Box) => a.box_number - b.box_number;
 
-    // Sort freight: by status priority, then most recently updated first
-    freight.sort((a, b) => {
-      const statusDiff =
-        (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
-      if (statusDiff !== 0) return statusDiff;
-      return (
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
-    });
+    travelling.sort(sortFn);
+    freight.sort(sortFn);
 
     return { travellingBoxes: travelling, freightBoxes: freight };
-  }, [boxes]);
+  }, [boxes, sortBy]);
 
   // Unboxed items: SHIP or CARRY items not assigned to any box
   const unboxedItems = useMemo(() => {
@@ -145,15 +182,120 @@ export function BoxList({
     [boxes]
   );
 
+  // Count of biosecurity-flagged items currently in each box — drives the
+  // nudge. Deterministic: pure function of box contents + assessment flags.
+  const biosecItemCountByBox = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const [boxId, items] of Object.entries(boxItems)) {
+      let n = 0;
+      for (const item of items) {
+        const flag = item.item_assessment_id
+          ? assessmentMap[item.item_assessment_id]?.biosecurity_flag
+          : undefined;
+        if (flag && flag !== BiosecurityFlag.NONE) n += 1;
+      }
+      counts[boxId] = n;
+    }
+    return counts;
+  }, [boxItems, assessmentMap]);
+
+  const activeBox = activeBoxId
+    ? boxes.find((b) => b.id === activeBoxId) ?? null
+    : null;
+  const activeBoxLabel = activeBox?.label ?? null;
+
+  // Pointer-drag drop: route dragged item(s) into the target box. Signature
+  // matches UnboxedItems' onItemsDrop(ids, boxId).
+  const handleItemsDrop = useCallback(
+    (assessmentIds: string[], boxId: string) => {
+      if (assessmentIds.length === 0) return;
+      onSetActiveBox?.(boxId);
+      if (assessmentIds.length === 1 && assessmentIds[0]) {
+        onAddToBox?.(assessmentIds[0], boxId);
+      } else {
+        onAddManyToBox?.(assessmentIds, boxId);
+      }
+    },
+    [onAddToBox, onAddManyToBox, onSetActiveBox]
+  );
+
+  // Manual renumber. If the target number is already taken, hold a confirm that
+  // spells out the swap before applying it (the server swaps atomically).
+  const [pendingRenumber, setPendingRenumber] = useState<
+    { box: Box; newNumber: number; swapWith: Box } | null
+  >(null);
+
+  const handleRenumberRequest = useCallback(
+    (boxId: string, newNumber: number) => {
+      if (!onRenumberBox) return;
+      const box = boxes.find((b) => b.id === boxId);
+      if (!box || box.box_number === newNumber) return;
+      const swapWith = boxes.find(
+        (b) => b.id !== boxId && b.box_number === newNumber,
+      );
+      if (swapWith) {
+        setPendingRenumber({ box, newNumber, swapWith });
+      } else {
+        onRenumberBox(boxId, newNumber);
+      }
+    },
+    [boxes, onRenumberBox],
+  );
+
+  // Per-box props for the active marker, biosec badge, renumber, and (desktop)
+  // drop-target wiring. Drop is gated to packing boxes + desktop.
+  const buildBoxExtras = useCallback(
+    (box: Box) => {
+      const isPacking = box.status === BoxStatus.PACKING;
+      const extras: Partial<React.ComponentProps<typeof BoxCard>> = {
+        isActive: box.id === activeBoxId,
+        biosecItemCount: biosecItemCountByBox[box.id] ?? 0,
+      };
+      if (onSetActiveBox && isPacking) {
+        extras.onSetActive = (active: boolean) =>
+          onSetActiveBox(active ? box.id : null);
+      }
+      if (onMarkBiosecurity) extras.onMarkBiosecurity = onMarkBiosecurity;
+      if (onRenumberBox) extras.onRenumber = handleRenumberRequest;
+
+      // Desktop packing boxes are live pointer-drag drop targets. The id flows
+      // into data-droppable-box-id; the hovered-highlight is read inside the card.
+      if (isDesktop && isPacking && (onAddToBox || onAddManyToBox)) {
+        extras.droppableBoxId = box.id;
+      }
+      return extras;
+    },
+    [
+      activeBoxId,
+      biosecItemCountByBox,
+      onSetActiveBox,
+      onMarkBiosecurity,
+      onRenumberBox,
+      handleRenumberRequest,
+      isDesktop,
+      onAddToBox,
+      onAddManyToBox,
+    ]
+  );
+
   // Count boxes eligible for "ship all"
-  const shippableBoxCount = useMemo(
-    () =>
-      boxes.filter(
-        (b) =>
-          b.status === BoxStatus.PACKING || b.status === BoxStatus.PACKED
-      ).length,
+  const packableBoxCount = useMemo(
+    () => boxes.filter((b) => b.status === BoxStatus.PACKING).length,
     [boxes]
   );
+
+  // Box stats for the cockpit rail. Declared here (above the early return)
+  // so hook order stays stable across renders.
+  const boxStats = useMemo(() => {
+    const counts: Record<string, number> = { packing: 0, packed: 0, shipped: 0, arrived: 0 };
+    let totalCbm = 0;
+    for (const b of boxes) {
+      const cur = counts[b.status];
+      if (cur !== undefined) counts[b.status] = cur + 1;
+      if (b.cbm) totalCbm += b.cbm;
+    }
+    return { counts, totalCbm };
+  }, [boxes]);
 
   // Adapt onAddToBox(assessmentId, boxId) to BoxCard's onAddExistingItem(boxId, assessmentId)
   const handleAddExistingItem = useCallback(
@@ -197,16 +339,39 @@ export function BoxList({
   }
 
   return (
-    <>
+    <PackingDragProvider>
       <div className={styles.list}>
+        <div className={styles.cockpit}>
+        <div className={styles.cockpitMain}>
+        {/* Sort control */}
+        {travellingBoxes.length + freightBoxes.length > 1 && (
+          <div className={styles.sortRow}>
+            <span className={styles.sortLabel}>Sort</span>
+            <div className={styles.sortToggle} role="group" aria-label="Sort boxes by">
+              <button
+                type="button"
+                className={cn(styles.sortBtn, sortBy === "number" && styles.sortBtnActive)}
+                aria-pressed={sortBy === "number"}
+                onClick={() => setSortBy("number")}
+              >
+                Number
+              </button>
+              <button
+                type="button"
+                className={cn(styles.sortBtn, sortBy === "name" && styles.sortBtnActive)}
+                aria-pressed={sortBy === "name"}
+                onClick={() => setSortBy("name")}
+              >
+                Name
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Ship all button */}
-        {shippableBoxCount > 0 && onShipAll && (
+        {packableBoxCount > 0 && onPackAll && (
           <div className={styles.shipAllRow}>
-            <ShipAllButton
-              boxCount={shippableBoxCount}
-              singleItemCount={0}
-              onConfirm={onShipAll}
-            />
+            <PackAllButton boxCount={packableBoxCount} onConfirm={onPackAll} />
           </div>
         )}
 
@@ -234,6 +399,15 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
+                  {...buildBoxExtras(box)}
+                  {...(isDesktop
+                    ? {
+                        open: false,
+                        onOpenChange: (next: boolean) => {
+                          if (next) openBoxDrawer(box.id);
+                        },
+                      }
+                    : {})}
                 />
               ))}
             </div>
@@ -265,17 +439,30 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
+                  {...buildBoxExtras(box)}
+                  {...(isDesktop
+                    ? {
+                        open: false,
+                        onOpenChange: (next: boolean) => {
+                          if (next) openBoxDrawer(box.id);
+                        },
+                      }
+                    : {})}
                 />
               ))}
             </div>
           </section>
         )}
 
-        {/* Unboxed items */}
-        {assessments.length > 0 && (
+        {/* On mobile, unboxed items sit below the boxes list. On desktop the
+           same component is rendered inside the cockpit rail below. */}
+        {!isDesktop && assessments.length > 0 && (
           <UnboxedItems
             items={unboxedItems}
             availableBoxes={availableBoxes}
+            activeBoxId={activeBoxId ?? null}
+            activeBoxLabel={activeBoxLabel}
+            mode="mobile"
             {...(onAddToBox ? { onAddToBox } : {})}
           />
         )}
@@ -291,6 +478,66 @@ export function BoxList({
             New box
           </button>
         )}
+        </div>{/* /.cockpitMain */}
+
+        {/* Cockpit rail — desktop only via CSS. Boxes live in the main column
+            (select via the checkbox on each card); the rail holds the summary
+            and the not-yet-boxed items. */}
+        <aside className={styles.cockpitRail} aria-label="Packing summary">
+          <div className={styles.railCard}>
+            <p className={styles.railEyebrow}>Packing</p>
+            <dl className={styles.railStats}>
+              <div className={styles.railStat}>
+                <dt>Packing</dt>
+                <dd>{boxStats.counts.packing}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Packed</dt>
+                <dd>{boxStats.counts.packed}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Shipped</dt>
+                <dd>{boxStats.counts.shipped}</dd>
+              </div>
+              <div className={styles.railStat}>
+                <dt>Arrived</dt>
+                <dd>{boxStats.counts.arrived}</dd>
+              </div>
+            </dl>
+            {boxStats.totalCbm > 0 && (
+              <div className={styles.railFooterStat}>
+                <span>Total volume</span>
+                <strong>{boxStats.totalCbm.toFixed(2)} m³</strong>
+              </div>
+            )}
+          </div>
+
+          {assessments.length > 0 && (
+            <div className={styles.railUnboxedCard}>
+              <UnboxedItems
+                items={unboxedItems}
+                availableBoxes={availableBoxes}
+                activeBoxId={activeBoxId ?? null}
+                activeBoxLabel={activeBoxLabel}
+                mode="desktop"
+                {...(onAddToBox ? { onAddToBox } : {})}
+                {...(onAddManyToBox ? { onAddManyToBox } : {})}
+                {...(onSetActiveBox
+                  ? {
+                      onRequestPickBox: () => {
+                        // No active box yet — nudge the user to the box checkboxes.
+                        document
+                          .querySelector<HTMLElement>("[data-box-select]")
+                          ?.focus();
+                      },
+                    }
+                  : {})}
+                onItemsDrop={handleItemsDrop}
+              />
+            </div>
+          )}
+        </aside>
+        </div>{/* /.cockpit */}
       </div>
 
       <CreateBoxPanel
@@ -299,6 +546,69 @@ export function BoxList({
         onSubmit={handleCreateBox}
         {...(isCreating !== undefined ? { isSubmitting: isCreating } : {})}
       />
-    </>
+
+      {isDesktop && selectedBoxId && (() => {
+        const box = boxes.find((b) => b.id === selectedBoxId);
+        if (!box) return null;
+        return (
+          <BoxDetailDrawer
+            box={box}
+            items={boxItems[box.id] ?? []}
+            assessments={assessmentMap}
+            unboxedItems={unboxedItems}
+            onClose={closeBoxDrawer}
+            {...(onAddItem ? { onAddItem } : {})}
+            {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
+            {...(onRemoveItem ? { onRemoveItem } : {})}
+            {...(onMarkPacked ? { onMarkPacked } : {})}
+            {...(onUpdateBox ? { onUpdateBox } : {})}
+            biosecItemCount={biosecItemCountByBox[box.id] ?? 0}
+            {...(onMarkBiosecurity ? { onMarkBiosecurity } : {})}
+            {...(onRenumberBox ? { onRenumber: handleRenumberRequest } : {})}
+            {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
+            flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
+            {...(onScanSticker ? { onScanSticker } : {})}
+            {...(onShipAnyway ? { onShipAnyway } : {})}
+            {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+            isScanning={scanningBoxes?.has(box.id) ?? false}
+            {...(resolvingItemIds ? { resolvingItemIds } : {})}
+          />
+        );
+      })()}
+
+      {onCreateBox && (
+        <Fab
+          label="New box"
+          icon={<Plus size={20} aria-hidden="true" />}
+          onClick={() => setCreatePanelOpen(true)}
+          title="Create a new box"
+        />
+      )}
+
+      {pendingRenumber && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setPendingRenumber(null)}
+          title="Swap box numbers?"
+          description={`${pendingRenumber.box.label} becomes ${computeBoxLabel(
+            pendingRenumber.box.box_type,
+            pendingRenumber.box.room_name,
+            pendingRenumber.newNumber,
+            pendingRenumber.box.room_name,
+          )}, and ${pendingRenumber.swapWith.label} becomes ${computeBoxLabel(
+            pendingRenumber.swapWith.box_type,
+            pendingRenumber.swapWith.room_name,
+            pendingRenumber.box.box_number,
+            pendingRenumber.swapWith.room_name,
+          )}.`}
+          confirmLabel="Swap"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            onRenumberBox?.(pendingRenumber.box.id, pendingRenumber.newNumber);
+            setPendingRenumber(null);
+          }}
+        />
+      )}
+    </PackingDragProvider>
   );
 }

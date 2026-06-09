@@ -13,15 +13,6 @@ import styles from './ItemEditPanel.module.css'
 // Constants
 // ---------------------------------------------------------------------------
 
-const VERDICT_OPTIONS: { value: Verdict; label: string }[] = [
-  { value: 'SHIP', label: 'Ship' },
-  { value: 'CARRY', label: 'Carry' },
-  { value: 'SELL', label: 'Sell' },
-  { value: 'DONATE', label: 'Donate' },
-  { value: 'DISCARD', label: 'Discard' },
-  { value: 'REVISIT', label: 'Decide later' },
-]
-
 const CURRENCY_CONTEXT: Record<string, string> = {
   USD: 'from the US',
   EUR: 'in Ireland',
@@ -72,7 +63,12 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   const [name, setName] = useState(item.item_name || '')
-  const [verdict, setVerdict] = useState<string>(item.verdict || '')
+  // Verdict is now controlled by the drawer's verdict header strip — no
+  // local setter needed. We still read it so conditional fields (box,
+  // shipment leg) render correctly and the save payload preserves it.
+  // `key={item.updated_at}` on the panel guarantees a fresh read when the
+  // drawer changes the verdict from outside.
+  const [verdict] = useState<string>(item.verdict || '')
   const [shipCost, setShipCost] = useState(item.estimated_ship_cost?.toString() ?? '')
   const [replaceCost, setReplaceCost] = useState(item.estimated_replace_cost?.toString() ?? '')
   const [description, setDescription] = useState(item.advice_text || '')
@@ -208,8 +204,6 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
 
   return (
     <section className={styles.root} aria-label="Edit item details">
-      <h2 className={styles.sectionTitle}>Item details</h2>
-
       {/* Item name */}
       <div className={styles.field}>
         <label htmlFor={`${id}-name`} className={styles.label}>
@@ -227,106 +221,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         />
       </div>
 
-      {/* Verdict */}
-      <div className={styles.field}>
-        <label htmlFor={`${id}-verdict`} className={styles.label}>
-          Aisling&apos;s recommendation
-        </label>
-        <select
-          id={`${id}-verdict`}
-          className={styles.select}
-          value={verdict}
-          onChange={(e) => setVerdict(e.target.value)}
-          disabled={isSaving}
-        >
-          <option value="">No recommendation yet</option>
-          {VERDICT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Category — owner-defined master list lives in seller_settings.
-          Always shown (independent of verdict): an item can have a category
-          regardless of whether it's a SHIP/CARRY/SELL outcome. */}
-      <div className={styles.field}>
-        <label htmlFor={`${id}-category`} className={styles.label}>
-          Category
-        </label>
-        <CategoryPicker
-          selectId={`${id}-category`}
-          value={category}
-          categories={categories}
-          onChange={setCategory}
-          onCategoriesUpdated={setCategories}
-          selectClassName={styles.select}
-          inputClassName={styles.input}
-          disabled={isSaving}
-        />
-      </div>
-
-      {/* Plant care — visible only when this item is a plant, either by
-          live category selection or by Aisling's biosec classification.
-          Reacts to the local category state so flipping to "Plants" reveals
-          the editor without waiting on a save round-trip. */}
-      {(category === 'Plants' ||
-        item.biosecurity_category === 'plant_matter') && (
-        <PlantCareEditor
-          value={care}
-          onChange={setCare}
-          disabled={isSaving}
-          inputClassName={styles.input}
-          selectClassName={styles.select}
-          textareaClassName={styles.textarea}
-        />
-      )}
-
-      {/* Box assignment — only for SHIP or CARRY verdicts */}
-      {(verdict === 'SHIP' || verdict === 'CARRY') && availableBoxes && availableBoxes.length > 0 && (
-        <div className={styles.field}>
-          <label htmlFor={`${id}-box`} className={styles.label}>
-            Assign to a box
-          </label>
-          <select
-            id={`${id}-box`}
-            className={styles.select}
-            value={boxId}
-            onChange={(e) => setBoxId(e.target.value)}
-            disabled={isSaving}
-          >
-            <option value="">Not assigned to a box</option>
-            {availableBoxes.map((box) => (
-              <option key={box.id} value={box.id}>{box.label}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Shipment leg — only render when the move has more than one leg.
-          Null target = "use the default leg" (matches DB semantics). */}
-      {(verdict === 'SHIP' || verdict === 'CARRY') && availableShipments && availableShipments.length > 1 && (
-        <div className={styles.field}>
-          <label htmlFor={`${id}-shipment`} className={styles.label}>
-            Shipment leg
-          </label>
-          <select
-            id={`${id}-shipment`}
-            className={styles.select}
-            value={targetShipmentId}
-            onChange={(e) => setTargetShipmentId(e.target.value)}
-            disabled={isSaving}
-          >
-            <option value="">Default leg</option>
-            {availableShipments.map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Costs */}
+      {/* Costs — edited most often after the verdict, so they come first. */}
       <div className={styles.costsRow}>
         <div className={styles.field}>
           <label htmlFor={`${id}-ship-cost`} className={styles.label}>
@@ -373,21 +268,104 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         </div>
       </div>
 
-      {/* Advice / rationale */}
+      {/* Box assignment — only for SHIP or CARRY verdicts */}
+      {(verdict === 'SHIP' || verdict === 'CARRY') && availableBoxes && availableBoxes.length > 0 && (
+        <div className={styles.field}>
+          <label htmlFor={`${id}-box`} className={styles.label}>
+            Assign to a box
+          </label>
+          <select
+            id={`${id}-box`}
+            className={styles.select}
+            value={boxId}
+            onChange={(e) => setBoxId(e.target.value)}
+            disabled={isSaving}
+          >
+            <option value="">Not assigned to a box</option>
+            {availableBoxes.map((box) => (
+              <option key={box.id} value={box.id}>{box.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Shipment leg — only render when the move has more than one leg. */}
+      {(verdict === 'SHIP' || verdict === 'CARRY') && availableShipments && availableShipments.length > 1 && (
+        <div className={styles.field}>
+          <label htmlFor={`${id}-shipment`} className={styles.label}>
+            Shipment leg
+          </label>
+          <select
+            id={`${id}-shipment`}
+            className={styles.select}
+            value={targetShipmentId}
+            onChange={(e) => setTargetShipmentId(e.target.value)}
+            disabled={isSaving}
+          >
+            <option value="">Default leg</option>
+            {availableShipments.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Category — owner-defined master list. */}
       <div className={styles.field}>
-        <label htmlFor={`${id}-description`} className={styles.label}>
-          Aisling&apos;s advice
+        <label htmlFor={`${id}-category`} className={styles.label}>
+          Category
         </label>
-        <textarea
-          id={`${id}-description`}
-          className={styles.textarea}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Aisling's advice will appear here once the assessment is complete."
-          rows={4}
+        <CategoryPicker
+          selectId={`${id}-category`}
+          value={category}
+          categories={categories}
+          onChange={setCategory}
+          onCategoriesUpdated={setCategories}
+          selectClassName={styles.select}
+          inputClassName={styles.input}
           disabled={isSaving}
         />
       </div>
+
+      {/* Plant care — visible only when this item is a plant. */}
+      {(category === 'Plants' ||
+        item.biosecurity_category === 'plant_matter') && (
+        <PlantCareEditor
+          value={care}
+          onChange={setCare}
+          disabled={isSaving}
+          inputClassName={styles.input}
+          selectClassName={styles.select}
+          textareaClassName={styles.textarea}
+        />
+      )}
+
+      {/* Aisling's reasoning — single source of truth. Open by default
+          when the item is unconfirmed (the user is still deciding and
+          benefits from reading the rationale); collapsed once confirmed
+          to keep the panel compact for cost / box edits. */}
+      <details
+        className={styles.adviceField}
+        {...(!item.user_confirmed ? { open: true } : {})}
+      >
+        <summary className={styles.adviceFieldSummary}>
+          Aisling&rsquo;s reasoning
+        </summary>
+        <div className={styles.field}>
+          <label htmlFor={`${id}-description`} className={styles.srOnly}>
+            Aisling&apos;s reasoning
+          </label>
+          <textarea
+            id={`${id}-description`}
+            className={styles.textarea}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Aisling's reasoning will appear here once the assessment is complete."
+            rows={4}
+            disabled={isSaving}
+          />
+        </div>
+      </details>
 
       {/* Feedback */}
       {saveError && (
@@ -435,30 +413,21 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
         )}
       </AnimatePresence>
 
-      {/* Save button */}
-      <div className={styles.actions}>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleSave}
-          disabled={!hasChanges || isSaving || isDeleting}
-        >
-          {isSaving ? 'Saving...' : 'Save changes'}
-        </Button>
-      </div>
-
-      {/* Delete error */}
+      {/* Delete error — surfaced above the actions row so the user sees it
+          alongside both the destructive and primary controls. */}
       {deleteError && (
         <div className={styles.errorFeedback} role="alert">
           <p className={styles.feedbackText}>{deleteError}</p>
         </div>
       )}
 
-      {/* Delete item — destructive, visually separated below Save */}
-      <div className={styles.dangerZone}>
+      {/* Form actions row: destructive far-left, primary far-right.
+          Per UX_PATTERNS.md § 12, destructive lives left, separated by
+          space-between so it's never mistaken for the next-step CTA. */}
+      <div className={styles.formActions}>
         <Button
           ref={deleteButtonRef}
-          variant="dangerGhost"
+          variant="ghost"
           size="md"
           onClick={() => {
             setDeleteError(null)
@@ -466,7 +435,15 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
           }}
           disabled={isSaving || isDeleting}
         >
-          {isDeleting ? 'Deleting...' : 'Delete this item'}
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </Button>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={handleSave}
+          disabled={!hasChanges || isSaving || isDeleting}
+        >
+          {isSaving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
 

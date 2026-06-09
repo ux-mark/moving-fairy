@@ -6,11 +6,146 @@
   gap: 4px;
 }
 
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
 .heading {
   padding: 0 4px;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.headingRow .heading {
+  padding: 0;
+}
+
+.selectAllCheckbox,
+.rowCheckbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary, #16a34a);
+  cursor: pointer;
+}
+
+/* Selection action bar — right-aligned commit surface */
+.selectionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-primary-light, rgba(22, 163, 74, 0.1));
+  border: 1px solid var(--color-primary, #16a34a);
+  /* Stay visible while scrolling the not-yet-boxed list, so "Add N to {box}"
+     is always reachable. */
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+.selectionCount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary-hover, #15803d);
+}
+
+.selectionActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile per-row actions */
+.rowActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.addAnotherLink {
+  border: none;
+  background: none;
+  padding: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.addAnotherLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Draggable affordance — the row reads as "you can pick me up". */
+.rowDraggable {
+  cursor: grab;
+  /* No text selection or browser scroll-pan hijacking the pick-up gesture; the
+     row's interactive controls (checkbox, link) still work because the pointer
+     handler bails out when the press starts inside them. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: opacity var(--transition-fast, 0.15s ease),
+    background var(--transition-fast, 0.15s ease);
+}
+
+/* The item name link must stay selectable-free during drag but remain a real
+   link target. Keep its own pointer semantics. */
+.rowDraggable .itemLink {
+  -webkit-user-drag: none;
+}
+
+@media (hover: hover) {
+  .rowDraggable:hover {
+    background: var(--color-bg-subtle, #f9fafb);
+  }
+}
+
+.rowDraggable:active {
+  cursor: grabbing;
+}
+
+/* Source row(s) while dragging — dim so the floating carry chip reads as
+   "lifted out". No transform on the source; the chip carries the motion. The
+   whole selected set dims together when a multi-selection is dragged. */
+.rowDragging {
+  opacity: 0.5;
+  transition: opacity var(--transition-fast, 0.15s ease);
+}
+
+/* Grip handle — decorative "grab me" cue. The checkbox + add button remain the
+   accessible controls; this is aria-hidden. Faint at rest, stronger on hover. */
+.gripHandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  margin: 0 -2px 0 -4px;
+  color: var(--color-text-muted, #6b7280);
+  opacity: 0.4;
+  cursor: grab;
+  transition: opacity var(--transition-fast, 0.15s ease),
+    color var(--transition-fast, 0.15s ease);
+}
+
+.row:hover .gripHandle {
+  opacity: 1;
+  color: var(--color-primary, #16a34a);
 }
 
 .headingCount {
@@ -32,8 +167,9 @@
   min-height: 44px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md, 8px);
 }
 
 .rowBordered {
@@ -98,7 +234,8 @@
   top: 100%;
   z-index: 50;
   margin-top: 4px;
-  width: 192px;
+  min-width: 192px;
+  max-width: min(280px, calc(100vw - 32px));
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-card);
@@ -223,5 +360,10 @@
 
   .allBoxedText {
     font-size: 16px;
+  }
+
+  .addAnotherLink {
+    font-size: 14px;
+    min-height: 44px;
   }
 }

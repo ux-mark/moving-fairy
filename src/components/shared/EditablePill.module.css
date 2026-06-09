@@ -184,17 +184,40 @@
 @media (max-width: 767px) {
   .sm .pill {
     font-size: 13px;
-    padding: 4px 10px;
+    padding: 6px 12px;
+    min-height: 36px;
   }
 
   .md .pill {
     font-size: 15px;
-    padding: 6px 14px;
+    padding: 8px 16px;
+    min-height: 44px;
   }
 
   .dropdownItem {
     font-size: 15px;
     min-height: 44px;
     padding: 10px 12px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Print — flatten the pill to plain, ink-friendly text.
+   Colour fills are dropped by most print engines, so the label text
+   (e.g. "Declare", "High risk") must carry the meaning on its own.
+   ------------------------------------------------------------------ */
+@media print {
+  .pill {
+    background: none !important;
+    color: #000 !important;
+    border: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    font-weight: 700;
+  }
+
+  .chevron,
+  .dropdown {
+    display: none !important;
   }
 }

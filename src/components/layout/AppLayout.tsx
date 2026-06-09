@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { ClipboardList, Package, Settings, Sparkles, Tag, Plane } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -34,6 +34,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [profileOpen, setProfileOpen] = useState(false)
+
+  // Warm the other nav destinations so a click resolves from cache (paired with
+  // each route's loading.tsx boundary) instead of a cold server round-trip.
+  useEffect(() => {
+    for (const path of ['/items', '/boxes', '/selling', '/itinerary', '/settings']) {
+      router.prefetch(path)
+    }
+  }, [router])
 
   // Derive active section from the current path
   const activeSection =
