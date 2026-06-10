@@ -6,6 +6,19 @@ import { ConfirmDialog, Button } from '@thefairies/design-system/components'
 import { Camera, ChevronRight, Sparkles } from 'lucide-react'
 
 import { useItems } from '@/lib/hooks/useItems'
+import { useBoxes, type BoxWithItems } from '@/lib/hooks/useBoxes'
+import {
+  UNPACKED,
+  buildItemBoxIndex,
+  formatPackageParam,
+  matchesItemFilters,
+  parsePackageParam,
+} from '@/lib/items/package-filter'
+import {
+  PackageFilterPill,
+  SelectedPackagePills,
+  type PackageOption,
+} from '@/components/items/PackageFilter'
 import { ItemCard } from '@/components/decisions/ItemCard'
 import { ItemTile } from '@/components/items/ItemTile'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
@@ -112,9 +125,10 @@ function formatValue(amount: number, currency: string): string {
 interface Props {
   profileId: string
   initialItems: ItemWithContext[]
+  initialBoxes: BoxWithItems[]
 }
 
-export function ItemsView({ profileId, initialItems }: Props) {
+export function ItemsView({ profileId, initialItems, initialBoxes }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeFilters = parseFilters(searchParams.get('status'))
@@ -163,17 +177,78 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const [search, setSearch] = useState('')
   const searchLower = search.trim().toLowerCase()
 
+  // ── Package filter (`pkg` param: comma-separated box ids, 'none' = unpacked) ──
+  // Live boxes seeded from SSR so the pkg filter applies on first paint.
+  const { rows: boxes } = useBoxes({ profileId, initial: initialBoxes })
+  const itemBoxIndex = useMemo(() => buildItemBoxIndex(boxes), [boxes])
+  const boxIds = useMemo(() => new Set(boxes.map((b) => b.id)), [boxes])
+
+  // Prune stale ids (deleted boxes) from the effective selection; the raw
+  // param is rewritten on the next toggle.
+  const rawPkgParam = searchParams.get('pkg')
+  const selectedPackages = useMemo(
+    () => parsePackageParam(rawPkgParam).filter((id) => id === UNPACKED || boxIds.has(id)),
+    [rawPkgParam, boxIds],
+  )
+
+  const setPackageSelection = useCallback(
+    (next: string[]) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next.length === 0) params.delete('pkg')
+      else params.set('pkg', formatPackageParam(next))
+      router.replace(`/items?${params.toString()}`)
+    },
+    [router, searchParams],
+  )
+
+  const togglePackage = useCallback(
+    (id: string) => {
+      setPackageSelection(
+        selectedPackages.includes(id)
+          ? selectedPackages.filter((p) => p !== id)
+          : [...selectedPackages, id],
+      )
+    },
+    [selectedPackages, setPackageSelection],
+  )
+
+  const clearPackages = useCallback(() => setPackageSelection([]), [setPackageSelection])
+
+  const packageOptions = useMemo<PackageOption[]>(() => {
+    const unpackedCount = itemsWithCtx.filter((ctx) => !itemBoxIndex.has(ctx.item.id)).length
+    return [
+      ...boxes.map((b) => ({
+        id: b.id,
+        label: b.label,
+        count: b.items.filter((bi) => bi.item_assessment_id).length,
+      })),
+      { id: UNPACKED, label: 'Unpacked', count: unpackedCount },
+    ]
+  }, [boxes, itemsWithCtx, itemBoxIndex])
+
+  // Pills keep the order the user selected in.
+  const selectedPackagePills = useMemo(
+    () =>
+      selectedPackages
+        .map((id) => packageOptions.find((o) => o.id === id))
+        .filter((o): o is PackageOption => o !== undefined),
+    [selectedPackages, packageOptions],
+  )
+
   const filtered = useMemo(() => {
-    const filteredByStatus = itemsWithCtx.filter((ctx) => {
-      const bucket = bucketFor(ctx)
-      if (!bucket) return false
-      return activeFilters.has(bucket)
-    })
-    if (!searchLower) return filteredByStatus
-    return filteredByStatus.filter((ctx) =>
+    const byFilters = itemsWithCtx.filter((ctx) =>
+      matchesItemFilters(
+        bucketFor(ctx),
+        activeFilters,
+        selectedPackages,
+        itemBoxIndex.get(ctx.item.id),
+      ),
+    )
+    if (!searchLower) return byFilters
+    return byFilters.filter((ctx) =>
       ctx.item.item_name.toLowerCase().includes(searchLower),
     )
-  }, [itemsWithCtx, activeFilters, searchLower])
+  }, [itemsWithCtx, activeFilters, selectedPackages, itemBoxIndex, searchLower])
 
   const counts = useMemo(() => {
     const c: Record<ItemFilter, number> = {
@@ -401,8 +476,22 @@ export function ItemsView({ profileId, initialItems }: Props) {
               </button>
             )
           })}
+          {boxes.length > 0 && (
+            <PackageFilterPill
+              options={packageOptions}
+              selectedIds={selectedPackages}
+              onToggle={togglePackage}
+            />
+          )}
         </div>
       )}
+
+      {/* Active package filters — removable pills at the top of the list */}
+      <SelectedPackagePills
+        selected={selectedPackagePills}
+        onRemove={togglePackage}
+        onClearAll={clearPackages}
+      />
 
       {/* Search */}
       {hasAnyItems && (
@@ -467,6 +556,7 @@ export function ItemsView({ profileId, initialItems }: Props) {
             onClick={() => {
               const params = new URLSearchParams(searchParams.toString())
               params.set('status', FILTERS.map((f) => f.value).join(','))
+              params.delete('pkg')
               router.replace(`/items?${params.toString()}`)
             }}
           >

@@ -48,7 +48,11 @@ export default async function ItemsPage() {
 
   return (
     <AppLayout>
-      <ItemsView profileId={profile.id} initialItems={itemsWithContext} />
+      <ItemsView
+        profileId={profile.id}
+        initialItems={itemsWithContext}
+        initialBoxes={boxes}
+      />
     </AppLayout>
   )
 }
