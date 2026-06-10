@@ -65,9 +65,11 @@ describe('computeBoxLabel() with explicit code', () => {
     expect(computeBoxLabel(BoxType.STANDARD, 'Books', 4)).toBe('WH04-B')
   })
 
-  it('ignores the code for fixed-suffix box types', () => {
-    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 1, undefined, 'X')).toBe('WH01-L')
-    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 2, undefined, 'X')).toBe('WH02-C')
+  it('ignores the code for codeless box types', () => {
+    // Luggage/carry-on have no warehouse code; single-item uses a bare WH number.
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Checked Luggage', 1, undefined, 'X')).toBe('Checked Luggage')
+    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 2, undefined, 'X')).toBe('Carry-on')
+    expect(computeBoxLabel(BoxType.SINGLE_ITEM, 'Monitor', 7, undefined, 'X')).toBe('WH07')
   })
 })
 

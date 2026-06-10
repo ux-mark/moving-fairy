@@ -99,6 +99,32 @@
   gap: 8px;
 }
 
+.railValueNumber {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.railValueHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.railValueButton {
+  align-self: flex-start;
+}
+
+.railAllValued {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+}
+
 .railProgressNumber {
   font-size: 32px;
   font-weight: 700;

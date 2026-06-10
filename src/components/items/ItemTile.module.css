@@ -215,6 +215,15 @@
      align-items: start so tile height differences don't break alignment. */
 }
 
+.description {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  word-break: break-word;
+  /* No line-clamp — UX_STANDARDS prohibits truncating copy. */
+}
+
 .meta {
   display: flex;
   align-items: center;

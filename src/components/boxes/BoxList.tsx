@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
 import {
   ConfirmDialog,
   EmptyState,
@@ -11,15 +10,14 @@ import { computeBoxLabel } from "@/lib/constants";
 
 import { BoxCard } from "@/components/boxes/BoxCard";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
+import type { DraftKind } from "@/components/boxes/ScanDraftReview";
 import { PackingDragProvider } from "@/components/boxes/PackingDrag";
 import { BoxDetailDrawer } from "@/components/boxes/BoxDetailDrawer";
-import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { PackAllButton } from "@/components/boxes/PackAllButton";
-import { Fab } from "@/components/layout/Fab";
 import { useIsDesktop } from "@/lib/hooks/useIsDesktop";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import { BoxType, BoxSize, BoxStatus, Verdict, BiosecurityFlag } from "@/lib/constants";
+import { BoxType, BoxStatus, Verdict, BiosecurityFlag } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 import styles from "./BoxList.module.css";
@@ -30,11 +28,8 @@ interface BoxListProps {
   boxes: Box[];
   boxItems: Record<string, BoxItem[]>;
   assessments?: ItemAssessment[] | undefined;
-  onCreateBox?: ((data: {
-    roomName: string;
-    size: BoxSize;
-    boxType: (typeof BoxType)[keyof typeof BoxType];
-  }) => void) | undefined;
+  /** Open the create-box panel (owned by the parent, alongside the page title). */
+  onRequestCreate?: (() => void) | undefined;
   onAddItem?: ((boxId: string, itemName: string) => void) | undefined;
   onRemoveItem?: ((boxId: string, boxItemId: string) => void) | undefined;
   onMarkPacked?: ((boxId: string) => void) | undefined;
@@ -43,7 +38,6 @@ interface BoxListProps {
   onAddManyToBox?: ((itemAssessmentIds: string[], boxId: string) => void) | undefined;
   onUpdateBox?: ((boxId: string, updates: { label?: string; room_name?: string; room_code?: string; size?: string; is_biosecurity?: boolean }) => void) | undefined;
   onPackAll?: (() => void) | undefined;
-  isCreating?: boolean | undefined;
   /** The box new items flow into by default. */
   activeBoxId?: string | null | undefined;
   onSetActiveBox?: ((boxId: string | null) => void) | undefined;
@@ -61,6 +55,12 @@ interface BoxListProps {
   onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
   /** Called when user removes a flagged item from the box */
   onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Confirm all scan draft items in a box */
+  onConfirmDrafts?: ((boxId: string) => void) | undefined;
+  /** Remove a single scan draft item */
+  onRemoveDraft?: ((boxId: string, item: BoxItem, kind: DraftKind) => void) | undefined;
+  /** Box IDs with a confirm-drafts request in flight */
+  confirmingDraftBoxes?: Set<string> | undefined;
   /** Box IDs that are currently scanning */
   scanningBoxes?: Set<string> | undefined;
   /** Item IDs currently being resolved */
@@ -71,7 +71,7 @@ export function BoxList({
   boxes,
   boxItems,
   assessments = [],
-  onCreateBox,
+  onRequestCreate,
   onAddItem,
   onRemoveItem,
   onMarkPacked,
@@ -79,12 +79,14 @@ export function BoxList({
   onAddManyToBox,
   onUpdateBox,
   onPackAll,
-  isCreating,
   scanResults,
   flaggedItemsByBox,
   onScanSticker,
   onShipAnyway,
   onRemoveFlaggedItem,
+  onConfirmDrafts,
+  onRemoveDraft,
+  confirmingDraftBoxes,
   scanningBoxes,
   resolvingItemIds,
   activeBoxId,
@@ -92,7 +94,6 @@ export function BoxList({
   onMarkBiosecurity,
   onRenumberBox,
 }: BoxListProps) {
-  const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [sortBy, setSortBy] = useState<BoxSortKey>("number");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -175,6 +176,36 @@ export function BoxList({
         !boxedAssessmentIds.has(a.id)
     );
   }, [assessments, boxItems]);
+
+  // Which box (if any) each assessment currently sits in.
+  const itemBoxIdMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [bid, items] of Object.entries(boxItems)) {
+      for (const it of items) {
+        if (it.item_assessment_id) m.set(it.item_assessment_id, bid);
+      }
+    }
+    return m;
+  }, [boxItems]);
+
+  // Suggestions for a luggage/carry-on box: every CARRY item not already in it,
+  // INCLUDING ones currently in a freight box (picking one moves it into
+  // luggage). Luggage is where carry items belong, so we surface them all here
+  // rather than only the unboxed ones.
+  const carryCandidatesFor = useCallback(
+    (boxId: string) =>
+      assessments.filter(
+        (a) => a.verdict === Verdict.CARRY && itemBoxIdMap.get(a.id) !== boxId,
+      ),
+    [assessments, itemBoxIdMap],
+  );
+
+  const isTravelling = useCallback(
+    (box: Box) =>
+      box.box_type === BoxType.CARRYON ||
+      box.box_type === BoxType.CHECKED_LUGGAGE,
+    [],
+  );
 
   // Boxes available for adding items to (packing status only)
   const availableBoxes = useMemo(
@@ -305,36 +336,15 @@ export function BoxList({
     [onAddToBox]
   );
 
-  const handleCreateBox = useCallback(
-    (data: {
-      roomName: string;
-      size: BoxSize;
-      boxType: (typeof BoxType)[keyof typeof BoxType];
-    }) => {
-      onCreateBox?.(data);
-      setCreatePanelOpen(false);
-    },
-    [onCreateBox]
-  );
-
   // Empty state
   if (boxes.length === 0 && unboxedItems.length === 0) {
     return (
-      <>
-        <EmptyState
-          heading="No boxes yet"
-          description="Start packing by telling Aisling which room you're tackling, or create a new box below."
-          ctaLabel="New box"
-          onCtaClick={onCreateBox ? () => setCreatePanelOpen(true) : () => undefined}
-        />
-
-        <CreateBoxPanel
-          open={createPanelOpen}
-          onClose={() => setCreatePanelOpen(false)}
-          onSubmit={handleCreateBox}
-          {...(isCreating !== undefined ? { isSubmitting: isCreating } : {})}
-        />
-      </>
+      <EmptyState
+        heading="No boxes yet"
+        description="Start packing by telling Aisling which room you're tackling, or use New box above."
+        ctaLabel="New box"
+        onCtaClick={onRequestCreate ?? (() => undefined)}
+      />
     );
   }
 
@@ -343,35 +353,41 @@ export function BoxList({
       <div className={styles.list}>
         <div className={styles.cockpit}>
         <div className={styles.cockpitMain}>
-        {/* Sort control */}
-        {travellingBoxes.length + freightBoxes.length > 1 && (
-          <div className={styles.sortRow}>
-            <span className={styles.sortLabel}>Sort</span>
-            <div className={styles.sortToggle} role="group" aria-label="Sort boxes by">
-              <button
-                type="button"
-                className={cn(styles.sortBtn, sortBy === "number" && styles.sortBtnActive)}
-                aria-pressed={sortBy === "number"}
-                onClick={() => setSortBy("number")}
-              >
-                Number
-              </button>
-              <button
-                type="button"
-                className={cn(styles.sortBtn, sortBy === "name" && styles.sortBtnActive)}
-                aria-pressed={sortBy === "name"}
-                onClick={() => setSortBy("name")}
-              >
-                Name
-              </button>
+        {/* List controls: Sort on the left, Mark-all-as-packed on the right.
+            (New box lives next to the page title, above.) */}
+        {(travellingBoxes.length + freightBoxes.length > 1 ||
+          (packableBoxCount > 0 && onPackAll)) && (
+          <div className={styles.toolbar}>
+            <div className={styles.toolbarStart}>
+              {travellingBoxes.length + freightBoxes.length > 1 && (
+                <div className={styles.sortRow}>
+                  <span className={styles.sortLabel}>Sort</span>
+                  <div className={styles.sortToggle} role="group" aria-label="Sort boxes by">
+                    <button
+                      type="button"
+                      className={cn(styles.sortBtn, sortBy === "number" && styles.sortBtnActive)}
+                      aria-pressed={sortBy === "number"}
+                      onClick={() => setSortBy("number")}
+                    >
+                      Number
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(styles.sortBtn, sortBy === "name" && styles.sortBtnActive)}
+                      aria-pressed={sortBy === "name"}
+                      onClick={() => setSortBy("name")}
+                    >
+                      Name
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-
-        {/* Ship all button */}
-        {packableBoxCount > 0 && onPackAll && (
-          <div className={styles.shipAllRow}>
-            <PackAllButton boxCount={packableBoxCount} onConfirm={onPackAll} />
+            {packableBoxCount > 0 && onPackAll && (
+              <div className={styles.toolbarEnd}>
+                <PackAllButton boxCount={packableBoxCount} onConfirm={onPackAll} />
+              </div>
+            )}
           </div>
         )}
 
@@ -386,7 +402,7 @@ export function BoxList({
                   box={box}
                   items={boxItems[box.id] ?? []}
                   assessments={assessmentMap}
-                  unboxedItems={unboxedItems}
+                  unboxedItems={carryCandidatesFor(box.id)}
                   {...(onAddItem ? { onAddItem } : {})}
                   {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
                   {...(onRemoveItem ? { onRemoveItem } : {})}
@@ -397,6 +413,9 @@ export function BoxList({
                   {...(onScanSticker ? { onScanSticker } : {})}
                   {...(onShipAnyway ? { onShipAnyway } : {})}
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
+                  {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
                   {...buildBoxExtras(box)}
@@ -437,6 +456,9 @@ export function BoxList({
                   {...(onScanSticker ? { onScanSticker } : {})}
                   {...(onShipAnyway ? { onShipAnyway } : {})}
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+                  {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
+                  {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
                   {...buildBoxExtras(box)}
@@ -467,17 +489,6 @@ export function BoxList({
           />
         )}
 
-        {/* New box link — bottom of list */}
-        {onCreateBox && (
-          <button
-            type="button"
-            className={styles.newBoxLink}
-            onClick={() => setCreatePanelOpen(true)}
-          >
-            <Plus style={{ width: 14, height: 14 }} aria-hidden />
-            New box
-          </button>
-        )}
         </div>{/* /.cockpitMain */}
 
         {/* Cockpit rail — desktop only via CSS. Boxes live in the main column
@@ -540,13 +551,6 @@ export function BoxList({
         </div>{/* /.cockpit */}
       </div>
 
-      <CreateBoxPanel
-        open={createPanelOpen}
-        onClose={() => setCreatePanelOpen(false)}
-        onSubmit={handleCreateBox}
-        {...(isCreating !== undefined ? { isSubmitting: isCreating } : {})}
-      />
-
       {isDesktop && selectedBoxId && (() => {
         const box = boxes.find((b) => b.id === selectedBoxId);
         if (!box) return null;
@@ -555,7 +559,7 @@ export function BoxList({
             box={box}
             items={boxItems[box.id] ?? []}
             assessments={assessmentMap}
-            unboxedItems={unboxedItems}
+            unboxedItems={isTravelling(box) ? carryCandidatesFor(box.id) : unboxedItems}
             onClose={closeBoxDrawer}
             {...(onAddItem ? { onAddItem } : {})}
             {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
@@ -570,20 +574,15 @@ export function BoxList({
             {...(onScanSticker ? { onScanSticker } : {})}
             {...(onShipAnyway ? { onShipAnyway } : {})}
             {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
+            {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
+            {...(onRemoveDraft ? { onRemoveDraft } : {})}
+            isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
             isScanning={scanningBoxes?.has(box.id) ?? false}
             {...(resolvingItemIds ? { resolvingItemIds } : {})}
           />
         );
       })()}
 
-      {onCreateBox && (
-        <Fab
-          label="New box"
-          icon={<Plus size={20} aria-hidden="true" />}
-          onClick={() => setCreatePanelOpen(true)}
-          title="Create a new box"
-        />
-      )}
 
       {pendingRenumber && (
         <ConfirmDialog

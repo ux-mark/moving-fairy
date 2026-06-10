@@ -1,10 +1,31 @@
 import { NextRequest } from 'next/server'
-import { addItemToBox } from '@/mcp'
+import { addItemToBox, getBoxItemsDetailed } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 
 interface AddItemBody {
   item_assessment_id?: string
   item_name?: string
+}
+
+// GET /api/boxes/:boxId/items
+// Returns { box_items, assessments } for the box, drafts included. Used to
+// refresh a box's contents on the client after a sticker scan adds drafts.
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ boxId: string }> }
+) {
+  const { user, profile } = await getAuthenticatedProfile()
+  if (!user || !profile) return Response.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
+
+  const { boxId } = await params
+  try {
+    const { items, assessments } = await getBoxItemsDetailed(boxId, profile.id)
+    return Response.json({ ok: true, box_items: items, assessments })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    const status = message === 'Box not found' ? 404 : 500
+    return Response.json({ ok: false, error: message }, { status })
+  }
 }
 
 export async function POST(

@@ -26,6 +26,7 @@ import { StickerThumbnail } from "@/components/boxes/StickerThumbnail";
 import { StickerLightbox } from "@/components/boxes/StickerLightbox";
 import { StickerScanButton } from "@/components/boxes/StickerScanButton";
 import { StickerScanSummary } from "@/components/boxes/StickerScanSummary";
+import { ScanDraftReview, type DraftKind } from "@/components/boxes/ScanDraftReview";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS, BOX_LABEL_PREFIX, roomCode } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,12 @@ interface BoxCardProps {
   onShipAnyway?: ((itemId: string, boxId: string) => void) | undefined;
   /** Called when user resolves a flagged item by removing it from the box */
   onRemoveFlaggedItem?: ((itemId: string, boxId: string) => void) | undefined;
+  /** Confirm all draft items from a scan — they become part of the box. */
+  onConfirmDrafts?: ((boxId: string) => void) | undefined;
+  /** Remove a single draft item (kind decides delete-vs-unlink). */
+  onRemoveDraft?: ((boxId: string, item: BoxItem, kind: DraftKind) => void) | undefined;
+  /** Whether a confirm-drafts request is in flight for this box. */
+  isConfirmingDrafts?: boolean | undefined;
   /** Whether a sticker scan upload/process is in progress for this box */
   isScanning?: boolean | undefined;
   /** Item IDs currently being resolved (ship anyway / remove) */
@@ -1047,6 +1054,9 @@ export function BoxCard({
   onScanSticker,
   onShipAnyway,
   onRemoveFlaggedItem,
+  onConfirmDrafts,
+  onRemoveDraft,
+  isConfirmingDrafts = false,
   isScanning = false,
   resolvingItemIds,
   open: openProp,
@@ -1081,16 +1091,6 @@ export function BoxCard({
   const [localStickerUrl, setLocalStickerUrl] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [itemCountKey, setItemCountKey] = useState(0);
-  const prevItemCount = useRef(items.length);
-
-  useEffect(() => {
-    if (items.length !== prevItemCount.current) {
-      setItemCountKey((k) => k + 1);
-      prevItemCount.current = items.length;
-    }
-  }, [items.length]);
-
   // On mobile, use simple CSS transitions instead of spring physics
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -1226,6 +1226,11 @@ export function BoxCard({
     [flaggedItems]
   );
 
+  // Split scan drafts (awaiting review) from confirmed items. Drafts get their
+  // own review section; only confirmed items show in the main list.
+  const draftItems = useMemo(() => items.filter((i) => i.is_draft), [items]);
+  const confirmedItems = useMemo(() => items.filter((i) => !i.is_draft), [items]);
+
   const unresolvedFlagCount = flaggedItems.length;
 
   // Determine confirm dialog copy — changes when there are unresolved flags
@@ -1286,7 +1291,7 @@ export function BoxCard({
               })}
           className={styles.header}
           aria-expanded={hideExpandAffordance ? undefined : isOpen}
-          aria-label={`${box.label}, ${items.length} ${items.length === 1 ? "item" : "items"}, status: ${box.status}${isActive ? ", packing into this box" : ""}`}
+          aria-label={`${box.label}, ${confirmedItems.length} ${confirmedItems.length === 1 ? "item" : "items"}, status: ${box.status}${isActive ? ", packing into this box" : ""}`}
         >
           {onSetActive && isPacking && (
             <input
@@ -1316,6 +1321,10 @@ export function BoxCard({
                     onSave={handleRoomCodeSave}
                     disabled={isShipped}
                   />
+                ) : box.box_type === BoxType.CHECKED_LUGGAGE ||
+                  box.box_type === BoxType.CARRYON ? (
+                  // Luggage travels with you — no warehouse code, just the name.
+                  null
                 ) : (
                   <span className={styles.codeChip} title="Warehouse code">
                     {box.label}
@@ -1355,8 +1364,8 @@ export function BoxCard({
                 <span className={styles.activeChip}>{ownerCopy.packing.activeChip}</span>
               )}
               <motion.span
-                key={itemCountKey}
-                initial={itemCountKey > 0 ? { scale: 1.15 } : false}
+                key={confirmedItems.length}
+                initial={{ scale: 1.15 }}
                 animate={{ scale: 1 }}
                 transition={
                   prefersReducedMotion
@@ -1364,7 +1373,7 @@ export function BoxCard({
                     : { duration: 0.3, ease: "easeOut" }
                 }
               >
-                {items.length} {items.length === 1 ? "item" : "items"}
+                {confirmedItems.length} {confirmedItems.length === 1 ? "item" : "items"}
               </motion.span>
               <FlagIndicator count={unresolvedFlagCount} />
               {showCbm && <span>{box.cbm} CBM</span>}
@@ -1445,16 +1454,32 @@ export function BoxCard({
                   />
                 )}
 
+                {/* Post-scan review — drafts the owner can add or remove */}
+                {draftItems.length > 0 && (
+                  <ScanDraftReview
+                    box={box}
+                    drafts={draftItems}
+                    assessments={assessments}
+                    onConfirmAll={() => onConfirmDrafts?.(box.id)}
+                    onRemoveDraft={(item, kind) => onRemoveDraft?.(box.id, item, kind)}
+                    isConfirming={isConfirmingDrafts}
+                    resolvingItemIds={resolvingItemIds}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
+                )}
+
                 {/* Items list — empty state accounts for scan-in-progress context */}
-                {items.length === 0 && flaggedItems.length === 0 ? (
-                  <p className={styles.emptyMessage}>
-                    {scanResult && scanResult.status !== "complete" && scanResult.status !== "error"
-                      ? "Aisling is reading your sticker. Items will appear here as they are identified."
-                      : "No items in this box yet. Scan your box sticker or add items manually."}
-                  </p>
+                {confirmedItems.length === 0 && flaggedItems.length === 0 ? (
+                  draftItems.length === 0 && (
+                    <p className={styles.emptyMessage}>
+                      {scanResult && scanResult.status !== "complete" && scanResult.status !== "error"
+                        ? "Aisling is reading your sticker. Items will appear here as they are identified."
+                        : "No items in this box yet. Scan your box sticker or add items manually."}
+                    </p>
+                  )
                 ) : (
                   <MergedItemList
-                    items={items}
+                    items={confirmedItems}
                     flaggedItems={flaggedItems}
                     flaggedItemIds={flaggedItemIds}
                     assessments={assessments}

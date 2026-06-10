@@ -6,6 +6,27 @@
   gap: 4px;
 }
 
+/* Heading + search + selection bar cluster. On desktop it pins to the top of
+   the rail's scroll pane so search and "Add N" stay reachable; the negative
+   margins span the card's 18px padding so list rows scroll cleanly beneath an
+   opaque background. On mobile it's a normal (non-sticky) block. */
+.stickyHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (min-width: 1280px) {
+  .stickyHead {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--color-bg-card, #fff);
+    margin: -18px -18px 0;
+    padding: 18px 18px 8px;
+  }
+}
+
 .headingRow {
   display: flex;
   align-items: center;
@@ -34,6 +55,34 @@
 }
 
 /* Selection action bar — right-aligned commit surface */
+/* Search field above the not-yet-boxed list. */
+.search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+}
+
+.search:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 1px;
+}
+
+.search::placeholder {
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.noMatch {
+  margin: 4px 0;
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+}
+
 .selectionBar {
   display: flex;
   align-items: center;
@@ -41,14 +90,11 @@
   gap: 12px;
   padding: 8px 12px;
   border-radius: var(--radius-md, 8px);
-  background: var(--color-primary-light, rgba(22, 163, 74, 0.1));
+  /* Opaque light-green — a sticky bar must not let scrolling rows show through.
+     (color-primary-light is a translucent tint, so mix it over the card bg.) */
+  background: color-mix(in srgb, var(--color-primary, #16a34a) 12%, var(--color-bg-card, #fff));
   border: 1px solid var(--color-primary, #16a34a);
-  /* Stay visible while scrolling the not-yet-boxed list, so "Add N to {box}"
-     is always reachable. */
-  position: sticky;
-  top: 8px;
-  z-index: 5;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  /* Part of the sticky head cluster (.stickyHead) — no own sticky needed. */
 }
 
 .selectionCount {

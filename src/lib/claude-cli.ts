@@ -10,7 +10,11 @@
  * Ported from Job Fairy's claude_cli.py to TypeScript for Next.js.
  */
 
-import { spawn as nodeSpawn } from 'child_process'
+import { spawn as nodeSpawn } from 'node:child_process'
+
+// Per-invocation CLI timeout. A safety net against a hung subprocess — override
+// via CLAUDE_CLI_TIMEOUT_MS when long agent turns legitimately need more time.
+const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 300_000
 
 // ─── Mode detection ──────────────────────────────────────────────────────────
 
@@ -24,7 +28,7 @@ import { spawn as nodeSpawn } from 'child_process'
  *   in and no ANTHROPIC_API_KEY is configured. A real cloud deploy leaves
  *   FORCE_CLI unset and uses the SDK + API key.
  */
-export function useCliMode(): boolean {
+export function isCliMode(): boolean {
   if (process.env.FORCE_SDK === 'true') return false
   return (
     process.env.NODE_ENV === 'development' ||
@@ -210,7 +214,7 @@ function buildCliArgs(systemPrompt: string | null, model: string, allowedTools?:
   // model stays in "tool mode" and follows <tool_call> XML instructions.
   // IMPORTANT: blocking too many tools causes the model to ignore our custom
   // tool instructions and output plain text instead of <tool_call> XML.
-  cmd.push('--disallowed-tools', 'Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit')
+  cmd.push('--disallowed-tools', 'Bash', 'Edit', 'Write', 'NotebookEdit')
 
   if (allowedTools && allowedTools.length > 0) {
     // Auto-allow specified tools (e.g., Read for image viewing)
@@ -278,6 +282,11 @@ function spawnCliStreaming(
       env: env as NodeJS.ProcessEnv,
       cwd: '/tmp',
     })
+
+    const timer = setTimeout(() => {
+      proc.kill()
+      reject(new Error(`Claude CLI timed out after ${CLI_TIMEOUT_MS / 1000}s`))
+    }, CLI_TIMEOUT_MS)
 
     let fullText = ''
     let lineBuffer = ''
@@ -483,6 +492,7 @@ function spawnCliStreaming(
     }
 
     proc.on('close', (code: number | null) => {
+      clearTimeout(timer)
       // Process any remaining buffered line
       if (lineBuffer.trim()) processLine(lineBuffer)
       // Flush any buffered text that was held back for partial tag detection
@@ -499,6 +509,7 @@ function spawnCliStreaming(
     })
 
     proc.on('error', (err: Error) => {
+      clearTimeout(timer)
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
@@ -507,10 +518,6 @@ function spawnCliStreaming(
       proc.stdin.end()
     }
 
-    setTimeout(() => {
-      proc.kill()
-      reject(new Error('Claude CLI timed out after 5 minutes'))
-    }, 300_000)
   })
 }
 
@@ -534,6 +541,11 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
       cwd: '/tmp',
     })
 
+    const timer = setTimeout(() => {
+      proc.kill()
+      reject(new Error(`Claude CLI timed out after ${CLI_TIMEOUT_MS / 1000}s`))
+    }, CLI_TIMEOUT_MS)
+
     let stdout = ''
     let stderr = ''
 
@@ -549,6 +561,7 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     }
 
     proc.on('close', (code: number | null) => {
+      clearTimeout(timer)
       if (code !== 0) {
         reject(new Error(stderr.trim() || `CLI exited with code ${code}`))
         return
@@ -557,6 +570,7 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
     })
 
     proc.on('error', (err: Error) => {
+      clearTimeout(timer)
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`))
     })
 
@@ -565,10 +579,6 @@ function spawnCli(args: string[], prompt: string): Promise<string> {
       proc.stdin.end()
     }
 
-    setTimeout(() => {
-      proc.kill()
-      reject(new Error('Claude CLI timed out after 5 minutes'))
-    }, 300_000)
   })
 }
 
@@ -753,15 +763,6 @@ function extractBracketToolCalls(responseText: string): ToolCall[] {
   return results
 }
 
-/**
- * Extract text content from response, excluding tool call blocks.
- */
-function extractTextContent(responseText: string, toolCalls: ToolCall[]): string {
-  if (toolCalls.length === 0) return responseText.trim()
-  return responseText
-    .replace(/<tool_call>\s*[\s\S]*?\s*<\/tool_call>/g, '')
-    .trim()
-}
 
 /**
  * Build a prompt containing tool execution results for the next CLI call.

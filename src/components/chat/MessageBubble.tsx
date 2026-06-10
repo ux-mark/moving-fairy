@@ -92,7 +92,6 @@ function renderInlineFormatting(text: string) {
         });
       });
     }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return <VerdictBadge key={i} verdict={part.value} className={styles.verdictBadgeSpacing!} />;
   });
 }

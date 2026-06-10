@@ -7,8 +7,8 @@
  * selecting the relevant country modules for the user's route.
  */
 
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { UserProfile } from '@/types/database'
 
 // ─── Static file cache (loaded once at module init) ──────────────────────────

@@ -324,6 +324,7 @@
 
 .itemName {
   flex: 1;
+  min-width: 0;
 }
 
 .itemValue {
@@ -491,6 +492,7 @@
   .removeBtn,
   .actionsCell,
   .savedTick,
+  .addDescBtn,
   .chevron {
     display: none !important;
   }
@@ -562,7 +564,9 @@
      no native dropdown chevrons, no input chrome. Their current value is
      what prints. */
   .valueInput,
-  .boxSelect {
+  .boxSelect,
+  .nameInput,
+  .descInput {
     -webkit-appearance: none;
     appearance: none;
     border: none !important;
@@ -576,6 +580,24 @@
     min-height: 0 !important;
     color: #000 !important;
     font-size: 13px !important;
+  }
+
+  /* The description is part of the manifest record (esp. biosecurity detail):
+     print it in full as wrapped text beneath the item, not as an input box. */
+  .nameInput {
+    font-weight: 600;
+  }
+
+  .descRow {
+    padding: 0 0 4px !important;
+  }
+
+  .descInput {
+    width: 100% !important;
+    height: auto !important;
+    white-space: pre-wrap;
+    resize: none;
+    color: #333 !important;
   }
 }
 
@@ -722,7 +744,110 @@
 }
 
 .fieldErrorInput {
-  border-color: var(--color-danger, #b91c1c);
+  border-color: var(--color-danger, #b91c1c) !important;
+}
+
+/* Inline-editable item name. A textarea (not an input) so long names WRAP
+   instead of truncating. Auto-grows to its content; reads as plain text until
+   hovered/focused, then reveals an edit affordance. */
+.nameInput {
+  width: 100%;
+  min-width: 0;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text-default, #222);
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+}
+
+.nameInput:hover {
+  border-color: var(--color-border-default, #d4d4d4);
+}
+
+.nameInput:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+/* Full-width description line under each item (desktop) / a labelled field
+   (mobile). Grows with content where supported. */
+.descRow {
+  padding: 0 0 8px;
+}
+
+.descInput {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #555);
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+}
+
+.descInput:hover {
+  border-color: var(--color-border-default, #d4d4d4);
+}
+
+.descInput:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 1px;
+  border-color: transparent;
+  color: var(--color-text-default, #222);
+}
+
+.descInput::placeholder {
+  color: var(--color-text-muted, #999);
+}
+
+/* Quiet text button shown in place of an empty description textarea. */
+.addDescBtn {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted, #777);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  padding: 3px 6px;
+  margin: 0;
+  cursor: pointer;
+  transition: color var(--transition-fast, 120ms ease),
+    background var(--transition-fast, 120ms ease);
+}
+
+.addDescBtn:hover {
+  color: var(--color-primary, #2d7a4f);
+  background: var(--color-bg-subtle, #f3f4f6);
+}
+
+.addDescBtn:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 1px;
+}
+
+.addDescBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .boxSelect {
@@ -819,7 +944,7 @@
 
 .cardTopRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
@@ -829,11 +954,20 @@
   font-size: 16px;
 }
 
+/* Keep the editable name at heading size/weight on mobile. */
+.cardTopRow .nameInput {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Every field stacks: a small label on top, the control left-aligned beneath.
+   Controls have different intrinsic widths (value vs box vs biosec), so a
+   shared left edge reads far cleaner than ragged right-alignment. */
 .cardField {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .cellLabel {

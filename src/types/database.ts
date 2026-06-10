@@ -147,7 +147,27 @@ export interface BoxItem {
   quantity: number
   from_handwritten_list: boolean
   needs_assessment: boolean
+  /**
+   * A draft item proposed by a sticker scan, awaiting the owner's review.
+   * Drafts are excluded from the official manifest (totals, biosecurity counts,
+   * print/export/share) until confirmed. See box_scan.proposed_items.
+   */
+  is_draft: boolean
   created_at: string
+}
+
+/**
+ * One draft item a sticker scan proposed for review. `kind` distinguishes an
+ * existing inventory item the scan matched (`matched` — removing it just unlinks
+ * it from the box) from one the scan created fresh off the label (`new` —
+ * removing it deletes the underlying item_assessment too).
+ */
+export interface BoxScanProposedItem {
+  box_item_id: string
+  item_assessment_id: string
+  item_name: string
+  kind: 'matched' | 'new'
+  verdict: string | null
 }
 
 export interface BoxScan {
@@ -161,6 +181,7 @@ export interface BoxScan {
   illegible_count: number
   illegible_entries: string[]
   flagged_items: Array<{ item_assessment_id: string; verdict: string; item_name: string }>
+  proposed_items: BoxScanProposedItem[]
   created_at: string
   updated_at: string
 }

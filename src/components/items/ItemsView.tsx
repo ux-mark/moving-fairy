@@ -97,6 +97,18 @@ function parseFilters(value: string | null): Set<ItemFilter> {
   return new Set(out)
 }
 
+function formatValue(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-IE', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${currency} ${Math.round(amount)}`
+  }
+}
+
 interface Props {
   profileId: string
   initialItems: ItemWithContext[]
@@ -262,6 +274,7 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isValuing, setIsValuing] = useState(false)
   const deleteDialogTriggerRef = useRef<HTMLButtonElement>(null)
 
   const itemBeingDeleted = pendingDeleteId
@@ -304,6 +317,42 @@ export function ItemsView({ profileId, initialItems }: Props) {
         .slice(0, 3),
     [itemsWithCtx],
   )
+
+  // ── Inventory value (replacement) — the insurance / customs declared value ──
+  const replaceCurrency = useMemo(() => {
+    for (const it of items) if (it.replace_currency) return it.replace_currency
+    return 'EUR'
+  }, [items])
+  const inventoryValue = useMemo(
+    () =>
+      items.reduce(
+        (sum, it) => sum + (typeof it.estimated_replace_cost === 'number' ? it.estimated_replace_cost : 0),
+        0,
+      ),
+    [items],
+  )
+  // Items that have never been assessed — the ones a value sweep can fill in.
+  const unvaluedCount = useMemo(
+    () => items.filter((it) => it.processing_status === 'pending' || it.processing_status === 'failed').length,
+    [items],
+  )
+  const valuingInProgress = useMemo(
+    () => items.some((it) => it.processing_status === 'processing'),
+    [items],
+  )
+
+  const handleValueInventory = useCallback(async () => {
+    setIsValuing(true)
+    try {
+      const res = await fetch('/api/assess/values', { method: 'POST' })
+      if (!res.ok) throw new Error('Value scan failed to start')
+      await refresh() // pick up the 'processing' states; realtime streams the rest
+    } catch (err) {
+      console.error('[value inventory] failed:', err)
+    } finally {
+      setIsValuing(false)
+    }
+  }, [refresh])
 
   return (
     <div className={styles.root}>
@@ -518,6 +567,33 @@ export function ItemsView({ profileId, initialItems }: Props) {
                 <dd>{doneCount}</dd>
               </div>
             </dl>
+          </div>
+
+          {/* Inventory value — declared/replacement value + a one-tap sweep to
+              value items that have never been assessed. */}
+          <div className={styles.railCard}>
+            <p className={styles.railEyebrow}>{ownerCopy.items.inventoryValueLabel}</p>
+            <p className={styles.railValueNumber}>
+              {formatValue(inventoryValue, replaceCurrency)}
+            </p>
+            <p className={styles.railValueHint}>
+              {ownerCopy.items.inventoryValueHint(replaceCurrency)}
+            </p>
+            {unvaluedCount > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleValueInventory}
+                disabled={isValuing || valuingInProgress}
+                className={styles.railValueButton ?? ''}
+              >
+                {isValuing || valuingInProgress
+                  ? ownerCopy.items.valuing
+                  : ownerCopy.items.valueN(unvaluedCount)}
+              </Button>
+            ) : (
+              <p className={styles.railAllValued}>{ownerCopy.items.allValued}</p>
+            )}
           </div>
 
           {nextUp.length > 0 && (

@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { randomBytes } from 'crypto'
+import { randomBytes } from 'node:crypto'
 import { BoxStatus, ShipmentStatus } from '@/lib/constants'
 import { getCountryName } from '@/lib/countries'
 import type { BiosecurityCategory, Country } from '@/lib/constants'
@@ -9,13 +9,6 @@ function getAdminClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
-
-function getAnonClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 }
 
@@ -341,6 +334,9 @@ export async function getManifest(shipmentId: string): Promise<Manifest> {
   //   - its assessment.target_shipment_id IS NULL, AND its box is on this
   //     shipment (legacy default).
   const belongsHere = (bi: BoxItem, box: Box): boolean => {
+    // Draft items (proposed by an unconfirmed sticker scan) are not yet part of
+    // the manifest — they must not affect totals, biosecurity counts, or print.
+    if (bi.is_draft) return false
     const a = bi.item_assessment_id ? assessments[bi.item_assessment_id] : null
     const target = a?.target_shipment_id ?? null
     if (target) return target === shipmentId

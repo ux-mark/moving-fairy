@@ -32,6 +32,7 @@ export async function GET(
 
 interface PatchItemBody {
   item_name?: string
+  item_description?: string | null
   verdict?: string
   advice_text?: string
   user_confirmed?: boolean
@@ -54,6 +55,10 @@ interface PatchItemBody {
 
 // Biosecurity note guard — free text, trimmed, capped to keep the column sane.
 const BIOSECURITY_NOTE_MAX_LENGTH = 500
+
+// Item description — free text (quantity, contents, biosecurity detail). Capped
+// to keep the column and manifest sane.
+const DESCRIPTION_MAX_LENGTH = 1000
 
 // Category labels are free text — we don't gate against
 // seller_settings.categories because users can freely set obsolete labels
@@ -149,6 +154,23 @@ export async function PATCH(
     const changes: Parameters<typeof updateItemAssessment>[1] = {}
 
     if (body.item_name !== undefined) changes.item_name = body.item_name
+    if (body.item_description !== undefined) {
+      if (body.item_description === null) {
+        changes.item_description = null
+      } else {
+        if (typeof body.item_description !== 'string') {
+          return Response.json({ ok: false, error: 'item_description must be a string or null' }, { status: 400 })
+        }
+        const trimmed = body.item_description.trim()
+        if (trimmed.length > DESCRIPTION_MAX_LENGTH) {
+          return Response.json(
+            { ok: false, error: `item_description must be ${DESCRIPTION_MAX_LENGTH} characters or fewer` },
+            { status: 400 },
+          )
+        }
+        changes.item_description = trimmed.length === 0 ? null : trimmed
+      }
+    }
     if (body.verdict !== undefined) changes.verdict = body.verdict as Verdict
     if (body.advice_text !== undefined) changes.advice_text = body.advice_text
     if (body.user_confirmed !== undefined) changes.user_confirmed = body.user_confirmed

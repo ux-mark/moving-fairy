@@ -15,16 +15,17 @@ import {
   addItemToBox,
   getBox,
   getItemAssessments,
+  getPackedAssessmentIds,
   getUserProfile,
   saveItemAssessment,
   updateBoxScan,
 } from '@/mcp'
 import { BoxScanStatus, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
-import { callCli, useCliMode } from '@/lib/claude-cli'
+import { callCli, isCliMode } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { buildStorageUrl } from '@/lib/storage-url'
 import { assessItem } from '@/lib/assess-item'
-import type { ItemAssessment, UserProfile } from '@/types/database'
+import type { BoxScanProposedItem, ItemAssessment, UserProfile } from '@/types/database'
 
 // ─── Levenshtein distance ────────────────────────────────────────────────────
 
@@ -210,13 +211,15 @@ async function extractItemNamesViaSdk(
 async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | null>> {
   const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
 
-  // Download the sticker image to a temp file so the CLI's Read tool can view it
+  // Download the sticker image to a temp file so the CLI's Read tool can view it.
+  // imageUrl may be a relative storage path — resolve it to a full URL first
+  // (mirrors the SDK path's fetchImageAsBase64).
   const tmpPath = `/tmp/sticker-scan-${Date.now()}.webp`
   try {
-    const imgResponse = await fetch(imageUrl)
+    const imgResponse = await fetch(buildStorageUrl(imageUrl))
     if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`)
     const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
-    const { writeFile } = await import('fs/promises')
+    const { writeFile } = await import('node:fs/promises')
     await writeFile(tmpPath, imgBuffer)
     console.log(`[scan-sticker] Saved sticker image to ${tmpPath} (${imgBuffer.length} bytes)`)
   } catch (imgErr) {
@@ -238,7 +241,7 @@ async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | 
     })
     return parseItemNamesJson(responseText)
   } finally {
-    const { unlink } = await import('fs/promises')
+    const { unlink } = await import('node:fs/promises')
     unlink(tmpPath).catch(() => {})
   }
 }
@@ -312,7 +315,7 @@ export async function runStickerScan(
     console.log(`[scan-sticker] Running scan ${scanId} for box ${boxId}`)
 
     // 4. Call the LLM to extract item names from the sticker image
-    const useSdk = !useCliMode()
+    const useSdk = !isCliMode()
     console.log(`[scan-sticker] Extracting items from sticker | mode: ${useSdk ? 'sdk' : 'cli'}`)
 
     let extractedNames: Array<string | null>
@@ -336,29 +339,59 @@ export async function runStickerScan(
       return
     }
 
-    // 5. Fetch all existing item assessments for this user for fuzzy matching
+    // 5. Fetch existing items (for fuzzy matching) plus the set already packed
+    //    into some box. The brief is "scanned but NOT packed", so we only
+    //    propose matches the owner hasn't already placed.
     const existingItems = await getItemAssessments(profileId)
+    const packedIds = await getPackedAssessmentIds(profileId)
 
-    // 6. Resolve each extracted entry
+    // 6. Resolve each extracted entry into matched / new / flagged. Nothing is
+    //    silently committed: matched-unpacked and new items go into the box as
+    //    DRAFTS for the owner to confirm; non-ship matches are flagged.
     let matchedCount = 0
     let newCount = 0
     let flaggedCount = 0
-    let illegibleCount = 0
     const illegibleEntries: string[] = []
     const flaggedItems: Array<{ item_assessment_id: string; verdict: string; item_name: string }> = []
+    const proposedItems: BoxScanProposedItem[] = []
 
     const nonNullEntries = extractedNames.filter((n): n is string => n !== null)
-    const nullEntries = extractedNames.filter((n) => n === null)
+    const illegibleCount = extractedNames.filter((n) => n === null).length
 
-    // Tally illegible entries
-    illegibleCount = nullEntries.length
-
-    // Get existing box item assessment IDs to avoid duplicates
-    const existingBoxAssessmentIds = new Set(
+    // Items already placed during THIS scan or already in this box — guards a
+    // label that lists the same item twice.
+    const handledIds = new Set<string>(
       box.items
         .map((i) => i.item_assessment_id)
         .filter((id): id is string => id !== null)
     )
+
+    // Add an item to the box as a draft and record the proposal for review.
+    const proposeDraft = async (
+      assessmentId: string,
+      itemName: string,
+      kind: 'matched' | 'new',
+      verdict: string | null
+    ): Promise<boolean> => {
+      try {
+        const boxItem = await addItemToBox(boxId, {
+          itemAssessmentId: assessmentId,
+          isDraft: true,
+        })
+        proposedItems.push({
+          box_item_id: boxItem.id,
+          item_assessment_id: assessmentId,
+          item_name: itemName,
+          kind,
+          verdict,
+        })
+        handledIds.add(assessmentId)
+        return true
+      } catch (addErr) {
+        console.warn(`[scan-sticker] Could not add "${itemName}" as a draft:`, addErr)
+        return false
+      }
+    }
 
     for (const itemName of nonNullEntries) {
       const match = fuzzyMatch(itemName, existingItems)
@@ -371,60 +404,32 @@ export async function runStickerScan(
           `[scan-sticker] "${itemName}" → matched "${item.item_name}" (${quality}, verdict: ${verdict ?? 'pending'})`
         )
 
-        if (verdict === Verdict.SHIP || verdict === Verdict.CARRY) {
-          // Skip if already in this box
-          if (existingBoxAssessmentIds.has(item.id)) {
-            console.log(`[scan-sticker] "${item.item_name}" already in box — skipping`)
-            matchedCount++
-            continue
-          }
-          // Auto-assign to box
-          try {
-            await addItemToBox(boxId, { itemAssessmentId: item.id })
-            existingBoxAssessmentIds.add(item.id)
-            matchedCount++
-          } catch (addErr) {
-            console.warn(
-              `[scan-sticker] Could not add "${item.item_name}" to box ${boxId}:`,
-              addErr
-            )
-            // Non-fatal — still count it as matched
-            matchedCount++
-          }
-        } else if (
+        // Already placed (this box or another) — recognised, but the owner has
+        // packed it; nothing to propose.
+        if (handledIds.has(item.id) || packedIds.has(item.id)) {
+          matchedCount++
+          continue
+        }
+
+        if (
           verdict === Verdict.SELL ||
           verdict === Verdict.DONATE ||
           verdict === Verdict.DISCARD ||
           verdict === Verdict.REVISIT
         ) {
-          // Flag it — do not auto-add
-          flaggedItems.push({
-            item_assessment_id: item.id,
-            verdict: verdict,
-            item_name: item.item_name,
-          })
+          // Verdict says don't ship — flag for the owner, do not add.
+          flaggedItems.push({ item_assessment_id: item.id, verdict, item_name: item.item_name })
           flaggedCount++
-        } else {
-          // Verdict is null (assessment pending) — treat as matched, add to box
-          // when verdict resolves the item may need review, but we don't block here
-          if (!existingBoxAssessmentIds.has(item.id)) {
-            try {
-              // Only add if verdict is null (pending) — do not re-add if processing
-              if (item.verdict === null) {
-                await addItemToBox(boxId, { itemAssessmentId: item.id })
-                existingBoxAssessmentIds.add(item.id)
-              }
-              matchedCount++
-            } catch {
-              matchedCount++
-            }
-          } else {
-            matchedCount++
-          }
+          continue
+        }
+
+        // SHIP / CARRY / pending(null) → propose as a draft match.
+        if (await proposeDraft(item.id, item.item_name, 'matched', verdict)) {
+          matchedCount++
         }
       } else {
-        // No match — create new item assessment and add to box
-        console.log(`[scan-sticker] "${itemName}" → no match, creating new item`)
+        // No match — create a new item and propose it as a draft.
+        console.log(`[scan-sticker] "${itemName}" → no match, creating new draft item`)
         try {
           const newItem = await saveItemAssessment({
             user_profile_id: profileId,
@@ -433,16 +438,12 @@ export async function runStickerScan(
             processing_status: ProcessingStatus.PENDING,
             source: ItemSource.STICKER_SCAN,
           })
-
-          // Add new item to box
-          await addItemToBox(boxId, { itemAssessmentId: newItem.id })
-
-          // Fire assessment in the background (fire-and-forget)
-          // assessItem sets processing_status to PROCESSING before calling the LLM
-          void assessItem(newItem.id, profileId)
-
-          newCount++
-          existingBoxAssessmentIds.add(newItem.id)
+          if (await proposeDraft(newItem.id, itemName, 'new', null)) {
+            // Assess in the background so the review shows a real verdict/value.
+            // assessItem sets processing_status to PROCESSING before the LLM call.
+            void assessItem(newItem.id, profileId)
+            newCount++
+          }
         } catch (createErr) {
           console.warn(`[scan-sticker] Could not create item for "${itemName}":`, createErr)
           // Non-fatal — skip this entry
@@ -450,7 +451,7 @@ export async function runStickerScan(
       }
     }
 
-    // 7. Update scan record with final counts
+    // 7. Update scan record with final counts + the draft proposals.
     await updateBoxScan(scanId, {
       status: BoxScanStatus.COMPLETE,
       total_found: extractedNames.length,
@@ -460,6 +461,7 @@ export async function runStickerScan(
       illegible_count: illegibleCount,
       illegible_entries: illegibleEntries,
       flagged_items: flaggedItems,
+      proposed_items: proposedItems,
     })
 
     console.log(

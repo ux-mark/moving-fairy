@@ -1,37 +1,5 @@
 /* Boxes page — DS tokens */
 
-.pageContent {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.header {
-  border-bottom: 1px solid var(--color-border-default);
-  background: color-mix(in srgb, var(--color-bg-page) 95%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.headerInner {
-  margin: 0 auto;
-  display: flex;
-  height: 56px;
-  max-width: 672px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-}
-
-.pageTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
-}
-
 .main {
   margin: 0 auto;
   width: 100%;
@@ -41,24 +9,32 @@
 }
 
 @media (min-width: 1024px) {
-  .headerInner,
   .main {
     max-width: 1280px;
-  }
-  .main {
     padding: 28px 24px 48px;
   }
 }
 
+/* ≥1280: the page becomes a fixed-height two-pane (boxes left, rail right) that
+   each scroll independently, so the whole page doesn't scroll. Fill the app
+   shell's scroll area and let the inner columns own the overflow. */
+@media (min-width: 1280px) {
+  .main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 16px;
+  }
+}
+
 @media (min-width: 1440px) {
-  .headerInner,
   .main {
     max-width: 1440px;
   }
 }
 
 @media (min-width: 1600px) {
-  .headerInner,
   .main {
     max-width: 1600px;
   }

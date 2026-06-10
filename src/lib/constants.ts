@@ -263,11 +263,17 @@ export const BOX_SIZE_DIMENSIONS: Record<BoxSize, { length: number; width: numbe
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
 /**
- * Build a box label: `<PREFIX><NN>-<suffix>`, e.g. `WH01-K`. The number is a
- * per-user global sequence (never reused); the suffix is the room-code letter
- * (or L/C for luggage/carry-on). Single-item boxes keep their descriptive item
- * label — they still carry a global box_number for uniqueness, but it isn't
- * shown. Pure + client-safe — keep in sync with the box-label migration's SQL.
+ * Build a box label. The number is a per-user global sequence (never reused).
+ *
+ * - standard      → `<PREFIX><NN>-<roomcode>`, e.g. `WH01-K`
+ * - single_item   → `<PREFIX><NN>`, e.g. `WH24` — an individual item shipped on
+ *                   its own IS a freight package, so it gets a warehouse code
+ * - checked_luggage / carryon → the descriptive name only (e.g. "Checked
+ *                   Luggage"). Hand luggage travels with you, not as freight, so
+ *                   it gets NO warehouse code. It still carries a global
+ *                   box_number for uniqueness; it just isn't shown.
+ *
+ * Pure + client-safe — keep in sync with the box-label migration's SQL.
  */
 export function computeBoxLabel(
   boxType: BoxType,
@@ -280,11 +286,10 @@ export function computeBoxLabel(
   switch (boxType) {
     case BoxType.STANDARD:
       return `${BOX_LABEL_PREFIX}${n}-${code ?? roomCode(roomName)}`
-    case BoxType.CHECKED_LUGGAGE:
-      return `${BOX_LABEL_PREFIX}${n}-L`
-    case BoxType.CARRYON:
-      return `${BOX_LABEL_PREFIX}${n}-C`
     case BoxType.SINGLE_ITEM:
+      return `${BOX_LABEL_PREFIX}${n}`
+    case BoxType.CHECKED_LUGGAGE:
+    case BoxType.CARRYON:
       return itemLabel ?? roomName
   }
 }

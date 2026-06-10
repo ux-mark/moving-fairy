@@ -38,12 +38,18 @@ export default function ItemDetailPage() {
   const backHref = from === 'boxes' ? '/boxes' : '/decisions'
   const backLabel = from === 'boxes' ? 'Back to boxes' : 'Back to decisions'
   const id = typeof params.id === 'string' ? params.id : params.id?.[0] ?? ''
-  const [pageState, setPageState] = useState<PageState>({ status: 'loading' })
+  // Seed from `id` (known at render) so we never have to setState-not-found
+  // synchronously inside the fetch effect.
+  const [pageState, setPageState] = useState<PageState>(
+    id ? { status: 'loading' } : { status: 'not-found' },
+  )
 
   // Keep a mutable ref so polling callbacks always see the current state
   // without needing to be in the effect dep array.
   const pageStateRef = useRef<PageState>({ status: 'loading' })
-  pageStateRef.current = pageState
+  useEffect(() => {
+    pageStateRef.current = pageState
+  }, [pageState])
 
   const fetchItem = useCallback(async (signal: AbortSignal | null = null): Promise<ItemAssessment | null> => {
     const res = await fetch(`/api/items/${id}`, { signal })
@@ -65,10 +71,8 @@ export default function ItemDetailPage() {
   }, [id])
 
   useEffect(() => {
-    if (!id) {
-      setPageState({ status: 'not-found' })
-      return
-    }
+    // No id → already seeded as not-found above; nothing to fetch.
+    if (!id) return
 
     const controller = new AbortController()
     let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -177,7 +181,7 @@ export default function ItemDetailPage() {
             <div className={styles.notFoundState}>
               <p className={styles.stateTitle}>Item not found</p>
               <p className={styles.stateText}>
-                This item doesn't exist or you don't have access to it.{' '}
+                This item doesn&apos;t exist or you don&apos;t have access to it.{' '}
                 <Link href="/decisions" className={styles.stateLink}>
                   View all your decisions
                 </Link>

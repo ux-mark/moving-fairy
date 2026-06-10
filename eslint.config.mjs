@@ -12,6 +12,17 @@ const eslintConfig = defineConfig([
     // so we only add the recommended rules here
     rules: {
       ...jsxA11y.configs.recommended.rules,
+      // Honour the `_`-prefix convention for intentionally-unused bindings and
+      // the rest-sibling idiom (e.g. omitting a key via `{ secret: _, ...rest }`).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
     },
   },
   {

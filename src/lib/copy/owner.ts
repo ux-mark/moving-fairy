@@ -22,6 +22,12 @@ export const ownerCopy = {
     },
     emptyForFilter: 'Nothing in this view yet.',
     clearFilters: 'Show everything',
+    inventoryValueLabel: 'Inventory value',
+    inventoryValueHint: (cur: string) => `Est. replacement · ${cur} · for insurance & customs`,
+    valueN: (n: number) => (n === 1 ? 'Value 1 item' : `Value ${n} items`),
+    valuing: 'Valuing…',
+    allValued: 'All items valued',
+    valueScanError: "Couldn't start valuing — try again.",
   },
   selling: {
     heading: 'Selling',
@@ -112,6 +118,31 @@ export const ownerCopy = {
     biosecMarkedToast: (label: string) => `${label} marked as biosecurity.`,
     biosecBadge: 'Biosecurity',
     biosecUnmark: 'Not biosecurity',
+    // Post-scan draft review
+    reviewHeading: (n: number) =>
+      n === 1 ? '1 item to review' : `${n} items to review`,
+    reviewSubMatchedNew: (matched: number, created: number) =>
+      `Aisling matched ${matched} from your inventory and added ${created} new from the label. Add the ones that belong, remove any that don't.`,
+    reviewSubNewOnly: (created: number) =>
+      created === 1
+        ? 'Aisling added 1 new item from your label. Add it if it belongs, or remove it.'
+        : `Aisling added ${created} new items from your label. Add the ones that belong, remove any that don't.`,
+    reviewSubMatchedOnly: (matched: number) =>
+      matched === 1
+        ? 'Aisling matched 1 item from your inventory. Add it if it belongs here, or remove it.'
+        : `Aisling matched ${matched} items from your inventory. Add the ones that belong, remove any that don't.`,
+    draftChipNew: 'New',
+    draftChipMatched: 'From inventory',
+    confirmAllDrafts: (n: number, label: string) =>
+      n === 1 ? `Add 1 to ${label}` : `Add all ${n} to ${label}`,
+    confirmingDrafts: 'Adding…',
+    discardAllDrafts: 'Discard all',
+    removeDraft: (name: string) => `Remove ${name}`,
+    editDraft: (name: string) => `Edit ${name}`,
+    draftsConfirmedToast: (n: number, label: string) =>
+      n === 1 ? `Added 1 item to ${label}.` : `Added ${n} items to ${label}.`,
+    draftRemovedToast: (name: string) => `Removed ${name}.`,
+    draftConfirmError: "Couldn't add those items — try again.",
   },
   itinerary: {
     heading: 'Itinerary',
@@ -143,10 +174,17 @@ export const ownerCopy = {
     colBox: 'Box',
     colBiosec: 'Biosecurity',
     colActions: 'Actions',
+    colDescription: 'Description',
+    fieldName: (item: string) => `Edit name for ${item}`,
+    fieldDescription: (item: string) => `Description for ${item}`,
     fieldVerdict: (item: string) => `Verdict for ${item}`,
     fieldValue: (item: string) => `Replacement value for ${item}`,
     fieldBox: (item: string) => `Box for ${item}`,
     fieldBiosec: (item: string) => `Biosecurity flag for ${item}`,
+    namePlaceholder: 'Item name',
+    nameRequired: 'Name can\'t be empty.',
+    descriptionPlaceholder: 'Add detail — quantity, contents, biosecurity notes',
+    addDescription: '+ Add description',
     removeFromBox: 'Remove',
     removeFromBoxLabel: (item: string, box: string) => `Remove ${item} from ${box}`,
     valuePlaceholder: 'e.g. 120',
