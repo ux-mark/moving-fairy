@@ -52,6 +52,18 @@ export function StickerThumbnail({
     setImgLoaded(true);
   }, []);
 
+  // Cached images can finish loading before React's load listener attaches,
+  // leaving the thumbnail stuck behind the skeleton forever. The ref callback
+  // runs at mount: if the browser already has the image, reveal it now.
+  const imgRef = useCallback(
+    (el: HTMLImageElement | null) => {
+      if (!el || !el.complete) return;
+      if (el.naturalWidth > 0) handleLoad();
+      else handleError();
+    },
+    [handleLoad, handleError]
+  );
+
   if (isLoading) {
     return (
       <div className={styles.wrap}>
@@ -90,6 +102,7 @@ export function StickerThumbnail({
         style={{ display: imgLoaded ? "block" : "none" }}
       >
         <Image
+          ref={imgRef}
           src={proxiedUrl}
           alt={`Box sticker for ${boxLabel}`}
           width={1200}
