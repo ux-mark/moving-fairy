@@ -8,6 +8,8 @@ import { Drawer } from '@/components/layout/Drawer'
 import { ItemEditPanel } from '@/components/decisions/ItemEditPanel'
 import { FloatingChatPanel } from '@/components/decisions/FloatingChatPanel'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
+import { useBoxes } from '@/lib/hooks/useBoxes'
+import { useShipments } from '@/lib/hooks/useShipments'
 import { COUNTRY_CURRENCY, ProcessingStatus, Verdict } from '@/lib/constants'
 import { proxyImageUrl } from '@/lib/storage-url'
 import type { ItemAssessment } from '@/types'
@@ -99,22 +101,10 @@ export function ItemDetailDrawer({
       .catch(() => {})
   }, [item.currency, item.replace_currency])
 
-  const [boxes, setBoxes] = useState<Array<{ id: string; label: string; status: string; items: Array<{ item_assessment_id: string | null }> }>>([])
-  const [shipments, setShipments] = useState<Array<{ id: string; label: string }>>([])
-
-  useEffect(() => {
-    fetch('/api/boxes')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setBoxes(Array.isArray(data) ? data : []))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    fetch('/api/shipments')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setShipments(Array.isArray(data) ? data : []))
-      .catch(() => {})
-  }, [])
+  // Live boxes + shipments — box membership and shipment legs stay current
+  // while the drawer is open (no close-to-refresh).
+  const { rows: boxes } = useBoxes()
+  const { rows: shipments } = useShipments()
 
   const handleSave = useCallback(async (updates: Partial<ItemAssessment>) => {
     const res = await fetch(`/api/items/${item.id}`, {

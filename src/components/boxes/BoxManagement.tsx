@@ -11,7 +11,13 @@ import { PackingToast } from "@/components/boxes/PackingToast";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { DraftKind } from "@/components/boxes/ScanDraftReview";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
-import { BoxStatus, type BoxSize, type BoxType } from "@/lib/constants";
+import {
+  mergeLiveEvent,
+  useLiveTableEvents,
+  useRevalidateOnFocus,
+  type LiveTableEvent,
+} from "@/lib/hooks/useLiveTable";
+import { BoxStatus, Verdict, type BoxSize, type BoxType } from "@/lib/constants";
 import { ownerCopy } from "@/lib/copy/owner";
 
 import styles from "./BoxManagement.module.css";
@@ -39,6 +45,48 @@ interface ConfirmPayload {
   box_id: string | null;
   voltage_compatible: boolean;
   needs_transformer: boolean;
+}
+
+// Only SHIP and CARRY assessments matter for box management (mirrors the
+// server filter in boxes/page.tsx).
+const isPackable = (a: ItemAssessment) =>
+  a.verdict === Verdict.SHIP || a.verdict === Verdict.CARRY;
+
+/**
+ * Merge a box_item realtime event into the per-box record. INSERT/UPDATE drop
+ * any copy of the row — or of the same assessment (a server-side move) — from
+ * every box before placing it in its current one, so a move never leaves a
+ * stale copy behind. Events already applied optimistically dedupe by id.
+ */
+function mergeBoxItemEvent(
+  prev: Record<string, BoxItem[]>,
+  event: LiveTableEvent<BoxItem>,
+): Record<string, BoxItem[]> {
+  if (event.eventType === "DELETE") {
+    const id = event.old?.id;
+    if (!id) return prev;
+    let changed = false;
+    const next: Record<string, BoxItem[]> = {};
+    for (const [boxId, items] of Object.entries(prev)) {
+      const filtered = items.filter((i) => i.id !== id);
+      if (filtered.length !== items.length) changed = true;
+      next[boxId] = filtered;
+    }
+    return changed ? next : prev;
+  }
+
+  const row = event.new;
+  if (!row) return prev;
+  const next: Record<string, BoxItem[]> = {};
+  for (const [boxId, items] of Object.entries(prev)) {
+    next[boxId] = items.filter(
+      (i) =>
+        i.id !== row.id &&
+        !(row.item_assessment_id && i.item_assessment_id === row.item_assessment_id),
+    );
+  }
+  next[row.box_id] = [...(next[row.box_id] ?? []), row];
+  return next;
 }
 
 interface FlagMessage {
@@ -84,6 +132,59 @@ export function BoxManagement({
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
   // Transient toast (add confirmation + undo, biosec mark, errors).
   const [toast, setToast] = useState<ToastState | null>(null);
+
+  // Live data: realtime events merge into the same state the optimistic
+  // handlers mutate — echoes of our own writes dedupe by id, and changes from
+  // other devices/tabs (scans, panel edits) land without a refresh.
+  useLiveTableEvents<Box>("box", undefined, (event) =>
+    setBoxes((prev) => mergeLiveEvent(prev, event)),
+  );
+  useLiveTableEvents<BoxItem>("box_item", undefined, (event) =>
+    setBoxItems((prev) => mergeBoxItemEvent(prev, event)),
+  );
+  useLiveTableEvents<ItemAssessment>("item_assessment", undefined, (event) =>
+    setAssessments((prev) => {
+      if (event.eventType === "DELETE") {
+        const id = event.old?.id;
+        if (!id || !prev.some((a) => a.id === id)) return prev;
+        return prev.filter((a) => a.id !== id);
+      }
+      const row = event.new;
+      if (!row) return prev;
+      if (!isPackable(row)) {
+        // Verdict moved away from SHIP/CARRY — drop it from the packing pool.
+        return prev.some((a) => a.id === row.id) ? prev.filter((a) => a.id !== row.id) : prev;
+      }
+      return mergeLiveEvent(prev, event);
+    }),
+  );
+
+  // Refetch on focus/reconnect — covers realtime events missed while hidden.
+  const refreshAll = useCallback(async () => {
+    try {
+      const [boxesRes, itemsRes] = await Promise.all([
+        fetch("/api/boxes"),
+        fetch("/api/items"),
+      ]);
+      if (boxesRes.ok) {
+        const data = (await boxesRes.json()) as (Box & { items?: BoxItem[] })[];
+        if (Array.isArray(data)) {
+          setBoxes(data);
+          setBoxItems(Object.fromEntries(data.map((b) => [b.id, b.items ?? []])));
+        }
+      }
+      if (itemsRes.ok) {
+        const data = (await itemsRes.json()) as
+          | { items?: ItemAssessment[] }
+          | ItemAssessment[];
+        const fetched = Array.isArray(data) ? data : (data.items ?? []);
+        setAssessments(fetched.filter(isPackable));
+      }
+    } catch {
+      // Stale-but-usable state stays; the next focus or event retries.
+    }
+  }, []);
+  useRevalidateOnFocus(() => void refreshAll());
 
   const packingBoxes = useMemo(
     () => boxes.filter((b) => b.status === BoxStatus.PACKING),

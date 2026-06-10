@@ -8,6 +8,10 @@ import { Verdict } from '@/lib/constants'
 
 import styles from './boxes.module.css'
 
+// Authed data page — never serve a cached snapshot; realtime carries updates
+// from the rendered state onward.
+export const dynamic = 'force-dynamic'
+
 export default async function BoxesPage() {
   const { profile } = await getAuthenticatedProfile()
   if (!profile) redirect('/onboarding')

@@ -7,6 +7,10 @@ import { SettingsView } from '@/components/settings/SettingsView'
 import { safeMcp } from '@/lib/safe-mcp'
 import type { SellerSettings } from '@/types/database'
 
+// Authed data page — never serve a cached snapshot; realtime carries updates
+// from the rendered state onward.
+export const dynamic = 'force-dynamic'
+
 // Synthetic stand-in used only when the seller_settings table is not yet
 // migrated — keeps the page renderable so the user can see the layout while
 // the underlying schema is pending. Once the migration is applied, getSettings

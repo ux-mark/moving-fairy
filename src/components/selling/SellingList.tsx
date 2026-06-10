@@ -9,6 +9,7 @@ import { Button, EmptyState } from '@thefairies/design-system/components'
 
 import { proxyImageUrl } from '@/lib/storage-url'
 import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { useListings } from '@/lib/hooks/useListings'
 import { ListingStatus } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
 import { Fab } from '@/components/layout/Fab'
@@ -53,7 +54,10 @@ function formatPrice(amount: number | null, currency: string): string {
   }
 }
 
-export function SellingList({ listings, eligibleCount }: Props) {
+export function SellingList({ listings: initialListings, eligibleCount }: Props) {
+  // Live listings — server-rendered seed, then realtime keeps status/price
+  // fresh (mark-sold on another device, panel edits, etc.).
+  const { rows: listings, refresh } = useListings({ initial: initialListings })
   const router = useRouter()
   const searchParams = useSearchParams()
   const isDesktop = useIsDesktop()
@@ -101,7 +105,7 @@ export function SellingList({ listings, eligibleCount }: Props) {
     setMarkingSold(id)
     try {
       const res = await fetch(`/api/listings/${id}/mark-sold`, { method: 'POST' })
-      if (res.ok) router.refresh()
+      if (res.ok) void refresh()
     } finally {
       setMarkingSold(null)
     }

@@ -17,6 +17,7 @@ import { Button, ConfirmDialog, EmptyState } from '@thefairies/design-system/com
 import { cn } from '@/lib/utils'
 import { ownerCopy, BIOSEC_FLAG_LABELS } from '@/lib/copy/owner'
 import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { useLiveTableEvents, useRevalidateOnFocus } from '@/lib/hooks/useLiveTable'
 import { EditablePill, type EditablePillOption } from '@/components/shared/EditablePill'
 import { CurrencySelect } from '@/components/shared/CurrencySelect'
 import { BoxSelect, type BoxSelectOption } from '@/components/boxes/BoxSelect'
@@ -96,6 +97,38 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
   useEffect(() => {
     setManifestState(manifest)
   }, [manifest])
+
+  // Live manifest: box / box_item / item_assessment changes (this device or
+  // another) trigger a debounced refetch so the snapshot never goes stale.
+  const refreshManifest = useCallback(async () => {
+    if (!activeShipmentId) return
+    try {
+      const res = await fetch(`/api/shipments/${activeShipmentId}?manifest=1`)
+      if (!res.ok) return
+      setManifestState((await res.json()) as Manifest)
+    } catch {
+      // Keep the current manifest — the next event or focus retries.
+    }
+  }, [activeShipmentId])
+
+  const manifestRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleManifestRefresh = useCallback(() => {
+    if (manifestRefetchTimerRef.current) clearTimeout(manifestRefetchTimerRef.current)
+    manifestRefetchTimerRef.current = setTimeout(() => {
+      manifestRefetchTimerRef.current = null
+      void refreshManifest()
+    }, 600)
+  }, [refreshManifest])
+  useEffect(() => {
+    return () => {
+      if (manifestRefetchTimerRef.current) clearTimeout(manifestRefetchTimerRef.current)
+    }
+  }, [])
+
+  useLiveTableEvents('box', undefined, scheduleManifestRefresh)
+  useLiveTableEvents('box_item', undefined, scheduleManifestRefresh)
+  useLiveTableEvents('item_assessment', undefined, scheduleManifestRefresh)
+  useRevalidateOnFocus(() => void refreshManifest())
 
   // Per-control busy + error state, keyed `${boxItemId}:${field}`.
   const [busyFields, setBusyFields] = useState<Set<string>>(new Set())

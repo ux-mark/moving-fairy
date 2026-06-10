@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useCallback, useEffect, useRef } from 'react'
 import type { ItemAssessment } from '@/types'
-import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useLiveTable } from '@/lib/hooks/useLiveTable'
 
 interface UseItemsReturn {
   items: ItemAssessment[]
@@ -17,170 +16,123 @@ interface UseItemsReturn {
   updateVerdict: (id: string, verdict: string) => Promise<void>
 }
 
-export function useItems(profileId?: string): UseItemsReturn {
-  const [items, setItems] = useState<ItemAssessment[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const channelRef = useRef<RealtimeChannel | null>(null)
-  const isMountedRef = useRef(true)
+async function fetchItems(): Promise<ItemAssessment[]> {
+  const res = await fetch('/api/items')
+  if (!res.ok) throw new Error(`Failed to fetch items (${res.status})`)
+  const data = (await res.json()) as { items?: ItemAssessment[] } | ItemAssessment[]
+  return Array.isArray(data) ? data : (data.items ?? [])
+}
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+// Sort oldest first so the first item uploaded appears at the top.
+const oldestFirst = (a: ItemAssessment, b: ItemAssessment) =>
+  new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+
+// Stuck-item recovery thresholds. Assessment runs as in-process background
+// work on the server, so a crash mid-flight orphans items. There is no
+// blanket polling any more — recovery checks run locally on a timer only
+// while pending/processing items exist, and refetch once before firing.
+const STUCK_PENDING_MS = 15_000 // the auto-trigger fires ~1s after upload
+const STUCK_PROCESSING_MS = 180_000 // 3min failsafe for a dead server
+const RECOVERY_CHECK_INTERVAL_MS = 30_000
+const RECOVERY_BACKOFF_BASE_MS = 180_000 // 3min, doubles per attempt
+
+interface RecoveryAttempt {
+  attempts: number
+  lastAt: number
+}
+
+function findStuckItem(
+  items: ItemAssessment[],
+  attempts: Map<string, RecoveryAttempt>,
+  now: number
+): { item: ItemAssessment; force: boolean } | null {
+  // If any item is *actively* processing (recently touched), wait — a Claude
+  // CLI subprocess is running on the server and the dev container OOMs at
+  // modest concurrency. Items stuck from an old crash don't count.
+  const anyActiveProcessing = items.some((i) => {
+    if (i.processing_status !== 'processing') return false
+    return now - new Date(i.updated_at ?? i.created_at).getTime() < STUCK_PROCESSING_MS
+  })
+  if (anyActiveProcessing) return null
+
+  for (const item of items) {
+    const age = now - new Date(item.updated_at ?? item.created_at).getTime()
+    const isStuckPending = item.processing_status === 'pending' && age > STUCK_PENDING_MS
+    const isStuckProcessing =
+      item.processing_status === 'processing' && age > STUCK_PROCESSING_MS
+    if (!isStuckPending && !isStuckProcessing) continue
+
+    // Exponential backoff per item: 3min, 6min, 12min… between attempts.
+    const prior = attempts.get(item.id)
+    if (prior && now - prior.lastAt < RECOVERY_BACKOFF_BASE_MS * 2 ** (prior.attempts - 1)) {
+      continue
+    }
+    return { item, force: isStuckProcessing }
+  }
+  return null
+}
+
+export function useItems(profileId?: string): UseItemsReturn {
+  const {
+    rows: items,
+    setRows: setItems,
+    isLoading,
+    error,
+    refresh: refreshRows,
+  } = useLiveTable<ItemAssessment>({
+    table: 'item_assessment',
+    filter: profileId ? `user_profile_id=eq.${profileId}` : undefined,
+    fetcher: fetchItems,
+    sort: oldestFirst,
+  })
 
   const refresh = useCallback(async () => {
-    if (!isMountedRef.current) return
+    await refreshRows()
+  }, [refreshRows])
+
+  // Targeted stuck-item recovery. Runs only while pending/processing items
+  // exist; confirms staleness with one refetch before re-firing /api/assess
+  // (idempotent), strictly one item at a time.
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const recoveryAttemptsRef = useRef<Map<string, RecoveryAttempt>>(new Map())
+  const recoveryInFlightRef = useRef(false)
+
+  const runRecoveryCheck = useCallback(async () => {
+    if (recoveryInFlightRef.current) return
+    const attempts = recoveryAttemptsRef.current
+    if (!findStuckItem(itemsRef.current, attempts, Date.now())) return
+
+    recoveryInFlightRef.current = true
     try {
-      const res = await fetch('/api/items')
-      if (!res.ok) throw new Error(`Failed to fetch items (${res.status})`)
-      const data = (await res.json()) as { items?: ItemAssessment[] } | ItemAssessment[]
-      const fetched: ItemAssessment[] = Array.isArray(data)
-        ? data
-        : (data.items ?? [])
-      if (isMountedRef.current) {
-        // Sort oldest first so the first item uploaded appears at the top
-        setItems([...fetched].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()))
-        setError(null)
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to load items')
-      }
+      // Confirm against the server before re-firing — a missed realtime event
+      // may mean the item already completed.
+      const fresh = await refreshRows()
+      if (!fresh) return
+      const candidate = findStuckItem(fresh, attempts, Date.now())
+      if (!candidate) return
+
+      const { item, force } = candidate
+      const prior = attempts.get(item.id)
+      attempts.set(item.id, { attempts: (prior?.attempts ?? 0) + 1, lastAt: Date.now() })
+      const url = force ? `/api/assess/${item.id}?force=true` : `/api/assess/${item.id}`
+      await fetch(url, { method: 'POST' }).catch((err) => {
+        console.error('Failed to recover stuck item', item.id, err)
+      })
+    } finally {
+      recoveryInFlightRef.current = false
     }
-  }, [])
+  }, [refreshRows])
 
-  // Initial fetch
   useEffect(() => {
-    isMountedRef.current = true
-    setIsLoading(true)
-    refresh().finally(() => {
-      if (isMountedRef.current) setIsLoading(false)
-    })
-
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [refresh])
-
-  // Polling fallback: refresh every 5s while any item is pending/processing.
-  // This is a safety net in case Realtime misses UPDATE events.
-  useEffect(() => {
-    const hasPending = items.some(
+    const hasInFlight = items.some(
       (i) => i.processing_status === 'pending' || i.processing_status === 'processing'
     )
-    if (!hasPending) return
-
-    const id = setInterval(() => {
-      if (isMountedRef.current) refresh()
-    }, 5_000)
-
+    if (!hasInFlight) return
+    const id = setInterval(() => void runRecoveryCheck(), RECOVERY_CHECK_INTERVAL_MS)
+    void runRecoveryCheck()
     return () => clearInterval(id)
-  }, [items, refresh])
-
-  // Stuck-item recovery: assessment runs as in-process background work, so if
-  // the dev/server process crashes mid-flight, items get orphaned. When we see
-  // an item stuck in 'pending' or 'processing' past a sane threshold, re-fire
-  // /api/assess. The endpoint is idempotent.
-  //
-  // Each /api/assess call spawns a Claude CLI subprocess on the server. The dev
-  // container OOMs at modest concurrency, so we run recovery strictly serially:
-  // only kick off a new assessment when nothing is currently processing.
-  const kickedOffRef = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    if (items.length === 0) return
-
-    const now = Date.now()
-    const STUCK_PENDING_MS = 15_000      // 15s — the auto-trigger fires ~1s after upload
-    const STUCK_PROCESSING_MS = 180_000  // 3min — failsafe for items left in 'processing' on a dead server
-
-    // If any item is *actively* processing (status 'processing' AND recently
-    // touched), wait — a Claude CLI subprocess is running on the server. Items
-    // stuck in 'processing' from an old crash don't count, otherwise we'd
-    // refuse to recover them.
-    const anyActiveProcessing = items.some((i) => {
-      if (i.processing_status !== 'processing') return false
-      const age = now - new Date(i.updated_at ?? i.created_at).getTime()
-      return age < STUCK_PROCESSING_MS
-    })
-    if (anyActiveProcessing) return
-
-    for (const item of items) {
-      if (kickedOffRef.current.has(item.id)) continue
-      const lastTouched = new Date(item.updated_at ?? item.created_at).getTime()
-      const age = now - lastTouched
-      const isStuckPending = item.processing_status === 'pending' && age > STUCK_PENDING_MS
-      const isStuckProcessing = item.processing_status === 'processing' && age > STUCK_PROCESSING_MS
-      if (!isStuckPending && !isStuckProcessing) continue
-
-      kickedOffRef.current.add(item.id)
-      const itemId = item.id
-      const url = isStuckProcessing ? `/api/assess/${itemId}?force=true` : `/api/assess/${itemId}`
-      fetch(url, { method: 'POST' }).catch((err) => {
-        kickedOffRef.current.delete(itemId)
-        console.error('Failed to recover stuck item', itemId, err)
-      })
-      break // one at a time — wait for it to leave 'processing' before next
-    }
-  }, [items])
-
-  // Refresh when the tab regains focus (covers missed Realtime events)
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isMountedRef.current) {
-        refresh()
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [refresh])
-
-  // Supabase Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('item_assessment_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'item_assessment',
-          ...(profileId ? { filter: `user_profile_id=eq.${profileId}` } : {}),
-        },
-        (payload) => {
-          if (!isMountedRef.current) return
-          if (payload.eventType === 'INSERT') {
-            const newItem = payload.new as ItemAssessment
-            setItems((prev) => {
-              // If already exists (optimistic add), replace it
-              const exists = prev.some((i) => i.id === newItem.id)
-              if (exists) {
-                return prev.map((i) => (i.id === newItem.id ? newItem : i))
-              }
-              // Append (oldest first order)
-              return [...prev, newItem]
-            })
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedItem = payload.new as ItemAssessment
-            setItems((prev) =>
-              prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
-            )
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = (payload.old as { id: string }).id
-            setItems((prev) => prev.filter((i) => i.id !== deletedId))
-          }
-        }
-      )
-      .subscribe()
-
-    channelRef.current = channel
-
-    return () => {
-      supabase.removeChannel(channel)
-      channelRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase client is stable; profileId intentionally omitted to avoid re-subscribing mid-session
-  }, [profileId])
+  }, [items, runRecoveryCheck])
 
   const addItemByPhoto = useCallback(async (imageUrl: string): Promise<ItemAssessment> => {
     // Create the item record
@@ -206,7 +158,7 @@ export function useItems(profileId?: string): UseItemsReturn {
     fetch(`/api/assess/${item.id}`, { method: 'POST' }).catch(console.error)
 
     return item
-  }, [])
+  }, [setItems])
 
   const addItemByText = useCallback(async (itemName: string): Promise<ItemAssessment> => {
     const createRes = await fetch('/api/items', {
@@ -231,7 +183,7 @@ export function useItems(profileId?: string): UseItemsReturn {
     fetch(`/api/assess/${item.id}`, { method: 'POST' }).catch(console.error)
 
     return item
-  }, [])
+  }, [setItems])
 
   const confirmItem = useCallback(async (id: string): Promise<void> => {
     const res = await fetch(`/api/items/${id}`, {
@@ -246,7 +198,7 @@ export function useItems(profileId?: string): UseItemsReturn {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, user_confirmed: true } : i))
     )
-  }, [])
+  }, [setItems])
 
   const retryAssessment = useCallback(async (id: string): Promise<void> => {
     const res = await fetch(`/api/assess/${id}`, { method: 'POST' })
@@ -257,7 +209,7 @@ export function useItems(profileId?: string): UseItemsReturn {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, processing_status: 'pending' } : i))
     )
-  }, [])
+  }, [setItems])
 
   const updateVerdict = useCallback(async (id: string, verdict: string): Promise<void> => {
     // Optimistic update — apply immediately; Realtime will confirm
@@ -273,18 +225,12 @@ export function useItems(profileId?: string): UseItemsReturn {
       body: JSON.stringify({ verdict }),
     })
     if (!res.ok) {
-      // Roll back optimistic update on failure
-      setItems((prev) =>
-        prev.map((i) => {
-          if (i.id !== id) return i
-          // We don't have the old value anymore, so refresh from server
-          return i
-        })
-      )
+      // Roll back to server truth on failure
+      await refreshRows()
       throw new Error(`Failed to update verdict (${res.status})`)
     }
     // Realtime will deliver the confirmed update; nothing more needed here
-  }, [])
+  }, [setItems, refreshRows])
 
   return {
     items,

@@ -7,6 +7,10 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { SellingList } from '@/components/selling/SellingList'
 import { safeMcp } from '@/lib/safe-mcp'
 
+// Authed data page — never serve a cached snapshot; realtime carries updates
+// from the rendered state onward.
+export const dynamic = 'force-dynamic'
+
 export default async function SellingPage() {
   const { profile } = await getAuthenticatedProfile()
   if (!profile) redirect('/onboarding')
