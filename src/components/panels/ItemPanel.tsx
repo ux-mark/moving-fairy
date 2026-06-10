@@ -213,9 +213,11 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
   const currentBoxId = boxes.find(box =>
     box.items?.some(bi => bi.item_assessment_id === item.id)
   )?.id ?? ''
+  // Packing AND packed boxes are valid targets — late finds go into packed
+  // boxes too; only shipped/arrived boxes are sealed.
   const availableBoxes = boxes
-    .filter(b => b.status === 'packing')
-    .map(b => ({ id: b.id, label: b.label }))
+    .filter(b => b.status === 'packing' || b.status === 'packed')
+    .map(b => ({ id: b.id, label: b.status === 'packed' ? `${b.label} (packed)` : b.label }))
   const availableShipments = shipments.map(s => ({ id: s.id, label: s.label }))
 
   const verdict = item.verdict

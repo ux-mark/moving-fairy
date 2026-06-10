@@ -1115,7 +1115,10 @@ export function BoxCard({
 
   const isShipped = box.status === "shipped" || box.status === "arrived";
   const isPacking = box.status === "packing";
-  const showAddInput = isPacking && (onAddItem || onAddExistingItem);
+  const isPacked = box.status === "packed";
+  // Packed boxes still accept items — late finds happen; only shipped and
+  // arrived boxes are sealed for real.
+  const showAddInput = (isPacking || isPacked) && (onAddItem || onAddExistingItem);
   const showSize =
     box.size &&
     box.box_type !== BoxType.CARRYON &&

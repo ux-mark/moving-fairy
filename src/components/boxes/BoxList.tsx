@@ -192,9 +192,10 @@ export function BoxList({
     [assessments, itemBoxIdMap],
   );
 
-  // Boxes available for adding items to (packing status only)
+  // Boxes available for adding items to — packing and packed both accept
+  // items (late finds happen); only shipped/arrived are sealed.
   const availableBoxes = useMemo(
-    () => boxes.filter((b) => b.status === BoxStatus.PACKING),
+    () => boxes.filter((b) => b.status === BoxStatus.PACKING || b.status === BoxStatus.PACKED),
     [boxes]
   );
 
