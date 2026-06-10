@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, X as XIcon } from 'lucide-react'
+import { Send, ChevronDown, ChevronUp, Maximize2, ArrowLeft, Sparkles, X as XIcon } from 'lucide-react'
 import { ThinkingDots } from '@thefairies/design-system/components'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { usePerItemChat } from '@/lib/hooks/usePerItemChat'
@@ -276,7 +276,7 @@ export function PerItemChat({
           {isLoadingHistory && (
             <li className={styles.messageItem}>
               <div className={styles.welcomeState}>
-                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <span className={styles.welcomeIcon} aria-hidden="true"><Sparkles size={24} /></span>
                 <p className={styles.welcomeText}>Loading conversation...</p>
               </div>
             </li>
@@ -284,7 +284,7 @@ export function PerItemChat({
           {!hasMessages && !isStreaming && !isLoadingHistory && (
             <li className={styles.messageItem}>
               <div className={styles.welcomeState}>
-                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <span className={styles.welcomeIcon} aria-hidden="true"><Sparkles size={24} /></span>
                 <p className={styles.welcomeText}>
                   Ask Aisling anything about this item. She can answer questions, give more detail, or revise her recommendation if you share more context.
                 </p>
@@ -408,7 +408,7 @@ export function PerItemChat({
           {isLoadingHistory && (
             <li className={styles.messageItem}>
               <div className={styles.welcomeState}>
-                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <span className={styles.welcomeIcon} aria-hidden="true"><Sparkles size={24} /></span>
                 <p className={styles.welcomeText}>Loading conversation...</p>
               </div>
             </li>
@@ -417,7 +417,7 @@ export function PerItemChat({
           {!hasMessages && !isStreaming && !isLoadingHistory && (
             <li className={styles.messageItem}>
               <div className={styles.welcomeState}>
-                <span className={styles.welcomeIcon} aria-hidden="true">✦</span>
+                <span className={styles.welcomeIcon} aria-hidden="true"><Sparkles size={24} /></span>
                 <p className={styles.welcomeText}>
                   Ask Aisling anything about this item. She can answer questions, give more detail, or revise her recommendation if you share more context.
                 </p>

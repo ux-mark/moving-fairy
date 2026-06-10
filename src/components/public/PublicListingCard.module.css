@@ -163,10 +163,8 @@
   font-weight: 600;
   line-height: 1.3;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never clamped. */
+  overflow-wrap: anywhere;
 }
 
 .price {
@@ -196,9 +194,8 @@
 .subtle {
   font-size: 12px;
   color: var(--color-text-muted, #6b7280);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never ellipsised. */
+  overflow-wrap: anywhere;
 }
 
 /* Category badge: discreet, matches the condition badge's visual weight so
@@ -222,7 +219,6 @@
   margin-top: 6px;
   font-size: 12px;
   color: var(--color-text-muted, #6b7280);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never ellipsised. */
+  overflow-wrap: anywhere;
 }

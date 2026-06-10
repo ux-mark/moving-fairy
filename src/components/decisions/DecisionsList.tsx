@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Sparkles, Camera, ChevronDown } from 'lucide-react'
+import { Sparkles, Camera, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   RecommendationCardSkeleton,
   Button,
@@ -467,7 +467,10 @@ export function DecisionsList({
                       <span className={styles.railNextName}>
                         {item.item_name || 'Unnamed item'}
                       </span>
-                      <span className={styles.railNextHint}>Decide →</span>
+                      <span className={styles.railNextHint}>
+                        Decide
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </span>
                     </button>
                   </li>
                 ))}

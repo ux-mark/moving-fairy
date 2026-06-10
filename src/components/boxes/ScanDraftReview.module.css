@@ -71,9 +71,8 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary, #111827);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never ellipsised. */
+  overflow-wrap: anywhere;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -126,6 +125,23 @@
 .editLink:focus-visible {
   outline: 2px solid var(--color-primary, #16a34a);
   outline-offset: 1px;
+}
+
+/* 44px touch target on touch devices (UX_STANDARDS Responsive design) —
+   invisible centred hit area, mirroring the DS Button icon-size pattern. */
+@media (pointer: coarse) {
+  .editLink {
+    position: relative;
+  }
+
+  .editLink::before {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 .footer {

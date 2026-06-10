@@ -62,8 +62,9 @@
 }
 
 .arrow {
+  display: inline-flex;
+  align-items: center;
   color: var(--color-text-muted, #6b7280);
-  font-size: 12px;
 }
 
 .total {

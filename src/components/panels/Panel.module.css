@@ -95,6 +95,14 @@
   outline-offset: 2px;
 }
 
+/* 44px touch targets on touch devices (UX_STANDARDS Responsive design). */
+@media (pointer: coarse) {
+  .iconBtn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* ── Body ─────────────────────────────────────────────── */
 
 .body {

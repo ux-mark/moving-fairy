@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ConfirmDialog, Button } from '@thefairies/design-system/components'
-import { Camera, Sparkles } from 'lucide-react'
+import { Camera, ChevronRight, Sparkles } from 'lucide-react'
 
 import { useItems } from '@/lib/hooks/useItems'
 import { ItemCard } from '@/components/decisions/ItemCard'
@@ -588,7 +588,10 @@ export function ItemsView({ profileId, initialItems }: Props) {
                       <span className={styles.railNextName}>
                         {ctx.item.item_name || 'Unnamed item'}
                       </span>
-                      <span className={styles.railNextHint}>Decide →</span>
+                      <span className={styles.railNextHint}>
+                        Decide
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </span>
                     </button>
                   </li>
                 ))}

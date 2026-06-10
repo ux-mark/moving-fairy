@@ -26,7 +26,7 @@ const STATUS_LABELS: Record<BoxStatus, string> = {
   packing: "Packing",
   packed: "Packed",
   shipped: "Shipped",
-  arrived: "Arrived ✓",
+  arrived: "Arrived",
 };
 
 interface BoxStatusBadgeProps {

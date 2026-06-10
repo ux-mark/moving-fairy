@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Tag,
 } from 'lucide-react'
-import { Button } from '@thefairies/design-system/components'
+import { Button, ConfirmDialog } from '@thefairies/design-system/components'
 
 import { CategoryPicker } from '@/components/shared/CategoryPicker'
 import { Field } from '@/components/shared/Field'
@@ -95,6 +95,8 @@ export function ListingEditor({ listing, item }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [marking, setMarking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   // Dismiss the toast after a few seconds for visual confirmation.
   useEffect(() => {
@@ -255,9 +257,6 @@ export function ListingEditor({ listing, item }: Props) {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this listing? The underlying item stays in your Items list.')) {
-      return
-    }
     setDeleting(true)
     setError(null)
     try {
@@ -267,6 +266,7 @@ export function ListingEditor({ listing, item }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete')
       setDeleting(false)
+      setConfirmDeleteOpen(false)
     }
   }
 
@@ -304,14 +304,16 @@ export function ListingEditor({ listing, item }: Props) {
         <div className={styles.photoGrid}>
           {images.map((url, idx) => (
             <div key={`${url}-${idx}`} className={styles.photoTile}>
-              <Image
-                src={proxyImageUrl(url)}
-                alt={`${name || 'Listing'} photo ${idx + 1}`}
-                fill
-                sizes="(min-width: 768px) 200px, 33vw"
-                className={styles.photoImg}
-                unoptimized
-              />
+              <div className={styles.photoImgWrap}>
+                <Image
+                  src={proxyImageUrl(url)}
+                  alt={`${name || 'Listing'} photo ${idx + 1}`}
+                  fill
+                  sizes="(min-width: 768px) 200px, 33vw"
+                  className={styles.photoImg}
+                  unoptimized
+                />
+              </div>
               <div className={styles.photoActions}>
                 <button
                   type="button"
@@ -321,6 +323,7 @@ export function ListingEditor({ listing, item }: Props) {
                   aria-label="Move photo up"
                 >
                   <ChevronUp size={16} aria-hidden="true" />
+                  Up
                 </button>
                 <button
                   type="button"
@@ -330,6 +333,7 @@ export function ListingEditor({ listing, item }: Props) {
                   aria-label="Move photo down"
                 >
                   <ChevronDown size={16} aria-hidden="true" />
+                  Down
                 </button>
                 <button
                   type="button"
@@ -338,6 +342,7 @@ export function ListingEditor({ listing, item }: Props) {
                   aria-label="Remove photo"
                 >
                   <X size={16} aria-hidden="true" />
+                  Remove
                 </button>
               </div>
             </div>
@@ -527,9 +532,10 @@ export function ListingEditor({ listing, item }: Props) {
       {/* Actions */}
       <section className={styles.actions}>
         <button
+          ref={deleteButtonRef}
           type="button"
           className={styles.deleteBtn}
-          onClick={handleDelete}
+          onClick={() => setConfirmDeleteOpen(true)}
           disabled={deleting}
         >
           {deleting ? 'Deleting…' : ownerCopy.selling.actions.delete}
@@ -561,6 +567,19 @@ export function ListingEditor({ listing, item }: Props) {
           </Button>
         </div>
       </section>
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title="Delete this listing?"
+        description="The underlying item stays in your Items list."
+        confirmLabel="Delete listing"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDelete}
+        isConfirming={deleting}
+        triggerRef={deleteButtonRef}
+      />
     </div>
   )
 }

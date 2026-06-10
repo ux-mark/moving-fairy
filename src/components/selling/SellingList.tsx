@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Tag, Plus } from 'lucide-react'
+import { Tag, Plus, ChevronRight } from 'lucide-react'
 import { Button, EmptyState } from '@thefairies/design-system/components'
 
 import { proxyImageUrl } from '@/lib/storage-url'
@@ -336,7 +336,10 @@ export function SellingList({ listings: initialListings, eligibleCount }: Props)
                       <span className={styles.railNextName}>
                         {l.item_assessment?.item_name ?? 'Untitled'}
                       </span>
-                      <span className={styles.railNextHint}>Edit →</span>
+                      <span className={styles.railNextHint}>
+                        Edit
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </span>
                     </button>
                   </li>
                 ))}

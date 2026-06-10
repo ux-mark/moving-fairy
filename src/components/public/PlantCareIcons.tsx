@@ -370,7 +370,7 @@ type CareCellProps = {
 
 /**
  * Label-over-value cell with a tinted icon tile on the left. Designed to be
- * a child of `.grid`; truncates the value when the column is narrow.
+ * a child of `.grid`; the value wraps when the column is narrow.
  */
 export function CareCell({ palette, label, value, icon }: CareCellProps) {
   return (

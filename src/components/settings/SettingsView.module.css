@@ -288,16 +288,21 @@
   border-radius: var(--radius-md, 8px);
 }
 
+/* Fields sit inline when they fit, wrap when they don't — content-driven
+   (UX_STANDARDS "Fit beats viewport"), no breakpoint. */
 .shipmentFields {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-@media (min-width: 600px) {
-  .shipmentFields {
-    grid-template-columns: 2fr 1fr 1fr;
-  }
+.shipmentFields > :first-child {
+  flex: 2 1 200px;
+}
+
+.shipmentFields > * {
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 .shipmentActions {

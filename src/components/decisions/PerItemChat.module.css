@@ -281,7 +281,7 @@
 }
 
 .welcomeIcon {
-  font-size: 24px;
+  display: inline-flex;
   margin-bottom: 4px;
 }
 
@@ -382,15 +382,13 @@
   gap: 10px;
   margin-left: auto;
   min-width: 0;
-  overflow: hidden;
 }
 
 .fullscreenItemName {
   font-size: 13px;
   color: #6b7280;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never ellipsised. */
+  overflow-wrap: anywhere;
   min-width: 0;
 }
 

@@ -83,22 +83,18 @@
   padding: 0 16px;
 }
 
-/* Side-by-side label/level pairs at ≥480px; stacked on narrow viewports. */
+/* Side-by-side label/level pairs whenever they fit, stacked when they
+   don't — content-driven (UX_STANDARDS "Fit beats viewport"), no breakpoint. */
 .pairRow {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
 }
 
-@media (min-width: 480px) {
-  .pairRow {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .pairRow > * {
-    flex: 1;
-    min-width: 0;
-  }
+.pairRow > * {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 /* Each label-input + level-select pair sits in a single field column. */
