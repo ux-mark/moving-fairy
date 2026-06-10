@@ -3,6 +3,8 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Spinner, ThinkingDots, Button } from "@thefairies/design-system/components";
 
+import { ownerCopy } from "@/lib/copy/owner";
+
 import styles from "./StickerScanSummary.module.css";
 
 interface StickerScanSummaryProps {
@@ -11,6 +13,7 @@ interface StickerScanSummaryProps {
   matchedCount: number;
   newCount: number;
   flaggedCount: number;
+  duplicateCount: number;
   illegibleCount: number;
   errorMessage?: string;
   onRetry?: () => void;
@@ -21,10 +24,11 @@ function buildCompleteMessage({
   matchedCount,
   newCount,
   flaggedCount,
+  duplicateCount,
   illegibleCount,
 }: Pick<
   StickerScanSummaryProps,
-  "totalFound" | "matchedCount" | "newCount" | "flaggedCount" | "illegibleCount"
+  "totalFound" | "matchedCount" | "newCount" | "flaggedCount" | "duplicateCount" | "illegibleCount"
 >): React.ReactNode {
   if (totalFound === 0) {
     return (
@@ -42,8 +46,10 @@ function buildCompleteMessage({
   const parts: React.ReactNode[] = [base + " "];
 
   // Build the matched/new summary
-  if (matchedCount > 0 && newCount === 0 && flaggedCount === 0) {
+  if (matchedCount > 0 && newCount === 0 && flaggedCount === 0 && duplicateCount === 0) {
     parts.push("All matched items you have already assessed.");
+  } else if (matchedCount > 0 && newCount === 0 && flaggedCount === 0) {
+    parts.push(`${matchedCount} matched items you have already assessed. `);
   } else if (matchedCount > 0 && newCount > 0 && flaggedCount === 0) {
     parts.push(
       `${matchedCount} matched your existing items, ${newCount} are new and being assessed.`
@@ -63,6 +69,11 @@ function buildCompleteMessage({
     parts.push(" ");
   }
 
+  if (duplicateCount > 0) {
+    // Leading space guards branches that end without one; HTML collapses doubles.
+    parts.push(" " + ownerCopy.packing.duplicatesToReview(duplicateCount) + " ");
+  }
+
   if (illegibleCount > 0) {
     const entryWord = illegibleCount === 1 ? "entry" : "entries";
     parts.push(
@@ -79,6 +90,7 @@ export function StickerScanSummary({
   matchedCount,
   newCount,
   flaggedCount,
+  duplicateCount,
   illegibleCount,
   errorMessage,
   onRetry,
@@ -144,6 +156,7 @@ export function StickerScanSummary({
             matchedCount,
             newCount,
             flaggedCount,
+            duplicateCount,
             illegibleCount,
           })}
         </div>

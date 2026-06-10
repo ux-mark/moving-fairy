@@ -10,7 +10,7 @@ import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWa
 import { PackingToast } from "@/components/boxes/PackingToast";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { DraftKind } from "@/components/boxes/ScanDraftReview";
-import type { Box, BoxItem, ItemAssessment } from "@/types";
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, BoxScanProposedItem, ItemAssessment } from "@/types";
 import {
   mergeLiveEvent,
   useLiveTableEvents,
@@ -127,6 +127,10 @@ export function BoxManagement({
   const [flaggedItemsByBox, setFlaggedItemsByBox] = useState<Record<string, FlaggedItem[]>>({});
   const [resolvingItemIds, setResolvingItemIds] = useState<Set<string>>(new Set());
   const [confirmingDraftBoxes, setConfirmingDraftBoxes] = useState<Set<string>>(new Set());
+  // Possible-duplicate scan proposals awaiting an add/skip decision, plus the
+  // scan they belong to (the resolve endpoint is scoped to a scan id).
+  const [duplicatesByBox, setDuplicatesByBox] = useState<Record<string, BoxScanDuplicateProposedItem[]>>({});
+  const [duplicateScanIds, setDuplicateScanIds] = useState<Record<string, string>>({});
 
   // Active "packing into" box — the default target for new items.
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
@@ -646,7 +650,7 @@ export function BoxManagement({
   // until then, then flips to the review.
   const pollScan = useCallback(
     async (boxId: string, scanId: string) => {
-      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, illegibleCount: 0 };
+      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, duplicateCount: 0, illegibleCount: 0 };
       const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
       const deadline = Date.now() + 90_000;
 
@@ -658,8 +662,10 @@ export function BoxManagement({
           matched_count?: number;
           new_count?: number;
           flagged_count?: number;
+          duplicate_count?: number;
           illegible_count?: number;
           flagged_items?: Array<{ item_assessment_id: string; verdict: string; item_name: string }>;
+          proposed_items?: BoxScanProposedItem[];
         };
         try {
           const res = await fetch(`/api/boxes/${boxId}/scan/${scanId}`);
@@ -676,6 +682,11 @@ export function BoxManagement({
             item_name: f.item_name,
           }));
           setFlaggedItemsByBox((prev) => ({ ...prev, [boxId]: flagged }));
+          const duplicates = (data.proposed_items ?? []).filter(
+            (p): p is BoxScanDuplicateProposedItem => p.kind === "duplicate",
+          );
+          setDuplicatesByBox((prev) => ({ ...prev, [boxId]: duplicates }));
+          setDuplicateScanIds((prev) => ({ ...prev, [boxId]: scanId }));
           setScanResults((prev) => ({
             ...prev,
             [boxId]: {
@@ -684,6 +695,7 @@ export function BoxManagement({
               matchedCount: data.matched_count ?? 0,
               newCount: data.new_count ?? 0,
               flaggedCount: data.flagged_count ?? 0,
+              duplicateCount: data.duplicate_count ?? 0,
               illegibleCount: data.illegible_count ?? 0,
             },
           }));
@@ -732,6 +744,7 @@ export function BoxManagement({
         matchedCount: 0,
         newCount: 0,
         flaggedCount: 0,
+        duplicateCount: 0,
         illegibleCount: 0,
       },
     }));
@@ -773,6 +786,7 @@ export function BoxManagement({
           matchedCount: 0,
           newCount: 0,
           flaggedCount: 0,
+          duplicateCount: 0,
           illegibleCount: 0,
         },
       }));
@@ -797,6 +811,7 @@ export function BoxManagement({
           matchedCount: 0,
           newCount: 0,
           flaggedCount: 0,
+          duplicateCount: 0,
           illegibleCount: 0,
           errorMessage: "Could not upload the photo. Check your connection and try again.",
         },
@@ -893,6 +908,97 @@ export function BoxManagement({
       }
     },
     [refreshBoxContents],
+  );
+
+  /**
+   * Resolve one possible-duplicate proposal. Both actions remove the row
+   * optimistically and restore it (at its index) if the request fails.
+   */
+  const resolveDuplicate = useCallback(
+    async (
+      boxId: string,
+      proposal: BoxScanDuplicateProposedItem,
+      action: "add_duplicate" | "skip_duplicate",
+    ) => {
+      const scanId = duplicateScanIds[boxId];
+      if (!scanId) return;
+      const box = boxes.find((b) => b.id === boxId);
+      const itemId = proposal.item_assessment_id;
+      const index = (duplicatesByBox[boxId] ?? []).findIndex(
+        (d) => d.item_assessment_id === itemId,
+      );
+
+      setResolvingItemIds((prev) => new Set([...prev, itemId]));
+      // Optimistic: drop the row.
+      setDuplicatesByBox((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).filter((d) => d.item_assessment_id !== itemId),
+      }));
+
+      try {
+        const res = await fetch(`/api/boxes/${boxId}/scan/${scanId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, item_assessment_id: itemId }),
+        });
+        if (!res.ok) throw new Error(`Failed to ${action}`);
+        setScanResults((prev) => {
+          const current = prev[boxId];
+          if (!current) return prev;
+          return {
+            ...prev,
+            [boxId]: {
+              ...current,
+              duplicateCount: Math.max(0, current.duplicateCount - 1),
+            },
+          };
+        });
+        if (action === "add_duplicate") {
+          await refreshBoxContents(boxId);
+          setToast({
+            message: ownerCopy.packing.duplicateAddedToast(
+              proposal.item_name,
+              box?.label ?? "box",
+            ),
+            variant: "success",
+          });
+        }
+      } catch (err) {
+        console.error(`[${action}] failed:`, err);
+        // Roll back: restore the row where it was.
+        setDuplicatesByBox((prev) => {
+          const list = [...(prev[boxId] ?? [])];
+          list.splice(index < 0 ? list.length : index, 0, proposal);
+          return { ...prev, [boxId]: list };
+        });
+        setToast({
+          message:
+            action === "add_duplicate"
+              ? ownerCopy.packing.duplicateAddError(proposal.item_name)
+              : ownerCopy.packing.duplicateSkipError,
+          variant: "error",
+        });
+      } finally {
+        setResolvingItemIds((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+      }
+    },
+    [boxes, duplicateScanIds, duplicatesByBox, refreshBoxContents],
+  );
+
+  const handleAddDuplicate = useCallback(
+    (boxId: string, proposal: BoxScanDuplicateProposedItem) =>
+      void resolveDuplicate(boxId, proposal, "add_duplicate"),
+    [resolveDuplicate],
+  );
+
+  const handleSkipDuplicate = useCallback(
+    (boxId: string, proposal: BoxScanDuplicateProposedItem) =>
+      void resolveDuplicate(boxId, proposal, "skip_duplicate"),
+    [resolveDuplicate],
   );
 
   /**
@@ -1052,6 +1158,9 @@ export function BoxManagement({
         onRemoveFlaggedItem={handleRemoveFlaggedItem}
         onConfirmDrafts={handleConfirmDrafts}
         onRemoveDraft={handleRemoveDraft}
+        duplicatesByBox={duplicatesByBox}
+        onAddDuplicate={handleAddDuplicate}
+        onSkipDuplicate={handleSkipDuplicate}
         confirmingDraftBoxes={confirmingDraftBoxes}
         scanningBoxes={scanningBoxes}
         resolvingItemIds={resolvingItemIds}

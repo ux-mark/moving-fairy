@@ -167,13 +167,38 @@ export interface BoxItem {
  * it from the box) from one the scan created fresh off the label (`new` —
  * removing it deletes the underlying item_assessment too).
  */
-export interface BoxScanProposedItem {
+export interface BoxScanDraftProposedItem {
   box_item_id: string
   item_assessment_id: string
   item_name: string
   kind: 'matched' | 'new'
   verdict: string | null
 }
+
+/**
+ * A label entry that matched an item already packed in a DIFFERENT box — a
+ * possible second physical item (a handwritten "Blender" when a Blender sits
+ * in WH03). Nothing is created yet: no box_item, no item_assessment. The
+ * review UI offers "add as another" (creates a fresh assessment in this box)
+ * or "skip" (drops the proposal from the scan record).
+ */
+export interface BoxScanDuplicateProposedItem {
+  box_item_id: null
+  /** The already-packed item this label entry matched. */
+  item_assessment_id: string
+  item_name: string
+  kind: 'duplicate'
+  verdict: string | null
+  /** The raw text extracted from the label. */
+  extracted_text: string
+  /** The box the matched item is packed in. */
+  packed_box_id: string
+  packed_box_label: string
+}
+
+export type BoxScanProposedItem =
+  | BoxScanDraftProposedItem
+  | BoxScanDuplicateProposedItem
 
 export interface BoxScan {
   id: string
@@ -183,6 +208,7 @@ export interface BoxScan {
   matched_count: number
   new_count: number
   flagged_count: number
+  duplicate_count: number
   illegible_count: number
   illegible_entries: string[]
   flagged_items: Array<{ item_assessment_id: string; verdict: string; item_name: string }>

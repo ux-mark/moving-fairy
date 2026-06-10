@@ -27,7 +27,7 @@ import { StickerLightbox } from "@/components/boxes/StickerLightbox";
 import { StickerScanButton } from "@/components/boxes/StickerScanButton";
 import { StickerScanSummary } from "@/components/boxes/StickerScanSummary";
 import { ScanDraftReview, type DraftKind } from "@/components/boxes/ScanDraftReview";
-import type { Box, BoxItem, ItemAssessment } from "@/types";
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, ItemAssessment } from "@/types";
 import { BoxSize, BoxType, BOX_SIZE_CBM, BOX_SIZE_DIMENSIONS, BOX_LABEL_PREFIX, roomCode } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/storage-url";
@@ -49,6 +49,7 @@ export interface ScanResult {
   matchedCount: number;
   newCount: number;
   flaggedCount: number;
+  duplicateCount: number;
   illegibleCount: number;
   errorMessage?: string;
 }
@@ -96,6 +97,12 @@ interface BoxCardProps {
   onConfirmDrafts?: ((boxId: string) => void) | undefined;
   /** Remove a single draft item (kind decides delete-vs-unlink). */
   onRemoveDraft?: ((boxId: string, item: BoxItem, kind: DraftKind) => void) | undefined;
+  /** Scan entries matching items already packed in ANOTHER box. */
+  duplicateProposals?: BoxScanDuplicateProposedItem[] | undefined;
+  /** Add a possible duplicate to this box as a fresh item. */
+  onAddDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
+  /** Dismiss a possible duplicate — it was the same item after all. */
+  onSkipDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
   /** Whether a confirm-drafts request is in flight for this box. */
   isConfirmingDrafts?: boolean | undefined;
   /** Whether a sticker scan upload/process is in progress for this box */
@@ -1059,6 +1066,9 @@ export function BoxCard({
   onRemoveFlaggedItem,
   onConfirmDrafts,
   onRemoveDraft,
+  duplicateProposals = [],
+  onAddDuplicate,
+  onSkipDuplicate,
   isConfirmingDrafts = false,
   isScanning = false,
   resolvingItemIds,
@@ -1439,6 +1449,7 @@ export function BoxCard({
                     matchedCount={scanResult.matchedCount}
                     newCount={scanResult.newCount}
                     flaggedCount={scanResult.flaggedCount}
+                    duplicateCount={scanResult.duplicateCount}
                     illegibleCount={scanResult.illegibleCount}
                     {...(scanResult.errorMessage
                       ? { errorMessage: scanResult.errorMessage }
@@ -1457,14 +1468,18 @@ export function BoxCard({
                   />
                 )}
 
-                {/* Post-scan review — drafts the owner can add or remove */}
-                {draftItems.length > 0 && (
+                {/* Post-scan review — drafts the owner can add or remove, plus
+                    possible duplicates (already packed in another box) */}
+                {(draftItems.length > 0 || duplicateProposals.length > 0) && (
                   <ScanDraftReview
                     box={box}
                     drafts={draftItems}
                     assessments={assessments}
                     onConfirmAll={() => onConfirmDrafts?.(box.id)}
                     onRemoveDraft={(item, kind) => onRemoveDraft?.(box.id, item, kind)}
+                    duplicates={duplicateProposals}
+                    onAddDuplicate={(proposal) => onAddDuplicate?.(box.id, proposal)}
+                    onSkipDuplicate={(proposal) => onSkipDuplicate?.(box.id, proposal)}
                     isConfirming={isConfirmingDrafts}
                     resolvingItemIds={resolvingItemIds}
                     prefersReducedMotion={prefersReducedMotion}

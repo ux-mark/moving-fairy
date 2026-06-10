@@ -15,7 +15,7 @@ import { originSideFromTrigger, usePanelDeepLink } from "@/components/panels";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { PackAllButton } from "@/components/boxes/PackAllButton";
 import { useIsDesktop } from "@/lib/hooks/useIsDesktop";
-import type { Box, BoxItem, ItemAssessment } from "@/types";
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, ItemAssessment } from "@/types";
 import { BoxType, BoxStatus, Verdict, BiosecurityFlag } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +58,12 @@ interface BoxListProps {
   onConfirmDrafts?: ((boxId: string) => void) | undefined;
   /** Remove a single scan draft item */
   onRemoveDraft?: ((boxId: string, item: BoxItem, kind: DraftKind) => void) | undefined;
+  /** Possible-duplicate scan proposals keyed by box ID */
+  duplicatesByBox?: Record<string, BoxScanDuplicateProposedItem[]> | undefined;
+  /** Add a possible duplicate to the box as a fresh item */
+  onAddDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
+  /** Dismiss a possible duplicate */
+  onSkipDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
   /** Box IDs with a confirm-drafts request in flight */
   confirmingDraftBoxes?: Set<string> | undefined;
   /** Box IDs that are currently scanning */
@@ -85,6 +91,9 @@ export function BoxList({
   onRemoveFlaggedItem,
   onConfirmDrafts,
   onRemoveDraft,
+  duplicatesByBox,
+  onAddDuplicate,
+  onSkipDuplicate,
   confirmingDraftBoxes,
   scanningBoxes,
   resolvingItemIds,
@@ -391,6 +400,9 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
                   {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  duplicateProposals={duplicatesByBox?.[box.id] ?? []}
+                  {...(onAddDuplicate ? { onAddDuplicate } : {})}
+                  {...(onSkipDuplicate ? { onSkipDuplicate } : {})}
                   isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
@@ -434,6 +446,9 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
                   {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  duplicateProposals={duplicatesByBox?.[box.id] ?? []}
+                  {...(onAddDuplicate ? { onAddDuplicate } : {})}
+                  {...(onSkipDuplicate ? { onSkipDuplicate } : {})}
                   isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}

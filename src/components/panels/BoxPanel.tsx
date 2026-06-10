@@ -18,7 +18,7 @@ import {
   computeBoxLabel,
 } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
-import type { Box, BoxItem, ItemAssessment } from '@/types'
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, BoxScanProposedItem, ItemAssessment } from '@/types'
 
 import { usePanels } from './PanelProvider'
 import type { PanelContentProps } from './registry'
@@ -340,10 +340,14 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
   const [flaggedItems, setFlaggedItems] = useState<FlaggedItem[]>([])
   const [resolvingItemIds, setResolvingItemIds] = useState<Set<string>>(new Set())
   const [isConfirmingDrafts, setIsConfirmingDrafts] = useState(false)
+  // Possible-duplicate scan proposals awaiting an add/skip decision, plus the
+  // scan they belong to (the resolve endpoint is scoped to a scan id).
+  const [duplicates, setDuplicates] = useState<BoxScanDuplicateProposedItem[]>([])
+  const [duplicateScanId, setDuplicateScanId] = useState<string | null>(null)
 
   const pollScan = useCallback(
     async (boxId: string, scanId: string) => {
-      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, illegibleCount: 0 }
+      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, duplicateCount: 0, illegibleCount: 0 }
       const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
       const deadline = Date.now() + 90_000
 
@@ -355,8 +359,10 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
           matched_count?: number
           new_count?: number
           flagged_count?: number
+          duplicate_count?: number
           illegible_count?: number
           flagged_items?: Array<{ item_assessment_id: string; verdict: string; item_name: string }>
+          proposed_items?: BoxScanProposedItem[]
         }
         try {
           const res = await fetch(`/api/boxes/${boxId}/scan/${scanId}`)
@@ -374,12 +380,19 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
               item_name: f.item_name,
             }))
           )
+          setDuplicates(
+            (data.proposed_items ?? []).filter(
+              (p): p is BoxScanDuplicateProposedItem => p.kind === 'duplicate'
+            )
+          )
+          setDuplicateScanId(scanId)
           setScanResult({
             status: 'complete',
             totalFound: data.total_found ?? 0,
             matchedCount: data.matched_count ?? 0,
             newCount: data.new_count ?? 0,
             flaggedCount: data.flagged_count ?? 0,
+            duplicateCount: data.duplicate_count ?? 0,
             illegibleCount: data.illegible_count ?? 0,
           })
           await refreshAll()
@@ -407,7 +420,7 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
 
   const handleScanSticker = useCallback(
     async (boxId: string, file: File) => {
-      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, illegibleCount: 0 }
+      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, duplicateCount: 0, illegibleCount: 0 }
       setIsScanning(true)
       setScanResult({ status: 'uploading', ...zero })
       try {
@@ -499,6 +512,78 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
       }
     },
     [refreshAll]
+  )
+
+  // Resolve one possible-duplicate proposal: optimistic row removal, restore
+  // (at its index) on failure.
+  const resolveDuplicate = useCallback(
+    async (
+      boxId: string,
+      proposal: BoxScanDuplicateProposedItem,
+      action: 'add_duplicate' | 'skip_duplicate'
+    ) => {
+      if (!duplicateScanId) return
+      const itemId = proposal.item_assessment_id
+      const index = duplicates.findIndex((d) => d.item_assessment_id === itemId)
+
+      setResolvingItemIds((prev) => new Set([...prev, itemId]))
+      setDuplicates((prev) => prev.filter((d) => d.item_assessment_id !== itemId))
+
+      try {
+        const res = await fetch(`/api/boxes/${boxId}/scan/${duplicateScanId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, item_assessment_id: itemId }),
+        })
+        if (!res.ok) throw new Error(`Failed to ${action}`)
+        setScanResult((prev) =>
+          prev ? { ...prev, duplicateCount: Math.max(0, prev.duplicateCount - 1) } : prev
+        )
+        if (action === 'add_duplicate') {
+          await refreshAll()
+          setToast({
+            message: ownerCopy.packing.duplicateAddedToast(
+              proposal.item_name,
+              box?.label ?? 'box'
+            ),
+            variant: 'success',
+          })
+        }
+      } catch (err) {
+        console.error(`[${action}] failed:`, err)
+        setDuplicates((prev) => {
+          const list = [...prev]
+          list.splice(index < 0 ? list.length : index, 0, proposal)
+          return list
+        })
+        setToast({
+          message:
+            action === 'add_duplicate'
+              ? ownerCopy.packing.duplicateAddError(proposal.item_name)
+              : ownerCopy.packing.duplicateSkipError,
+          variant: 'error',
+        })
+      } finally {
+        setResolvingItemIds((prev) => {
+          const next = new Set(prev)
+          next.delete(itemId)
+          return next
+        })
+      }
+    },
+    [box?.label, duplicateScanId, duplicates, refreshAll]
+  )
+
+  const handleAddDuplicate = useCallback(
+    (boxId: string, proposal: BoxScanDuplicateProposedItem) =>
+      void resolveDuplicate(boxId, proposal, 'add_duplicate'),
+    [resolveDuplicate]
+  )
+
+  const handleSkipDuplicate = useCallback(
+    (boxId: string, proposal: BoxScanDuplicateProposedItem) =>
+      void resolveDuplicate(boxId, proposal, 'skip_duplicate'),
+    [resolveDuplicate]
   )
 
   const handleShipAnyway = useCallback(
@@ -621,6 +706,9 @@ export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
         onRemoveFlaggedItem={handleRemoveFlaggedItem}
         onConfirmDrafts={handleConfirmDrafts}
         onRemoveDraft={handleRemoveDraft}
+        duplicateProposals={duplicates}
+        onAddDuplicate={handleAddDuplicate}
+        onSkipDuplicate={handleSkipDuplicate}
         isConfirmingDrafts={isConfirmingDrafts}
         isScanning={isScanning}
         resolvingItemIds={resolvingItemIds}
