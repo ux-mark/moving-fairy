@@ -1,9 +1,0 @@
-/* BoxDetailDrawer — body styles only; sheet chrome is in Drawer. */
-
-.body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 16px 24px;
-  background: var(--color-bg-page, #f8f9fa);
-}

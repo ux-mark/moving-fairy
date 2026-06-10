@@ -30,6 +30,8 @@ import type {
 } from './types'
 import { usePanelStatePersistence } from './usePanelStatePersistence'
 import styles from './PanelProvider.module.css'
+// Side effect: registers the entity panel content components (lazy-loaded).
+import './registerContent'
 
 interface PanelsContextValue {
   panels: PanelInstance[]

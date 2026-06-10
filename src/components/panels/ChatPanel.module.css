@@ -1,0 +1,15 @@
+/* ChatPanel — fills the panel body with the chat surface. */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* PerItemChat's root section stretches to fill the panel. */
+.body > * {
+  flex: 1;
+  min-height: 0;
+}

@@ -39,6 +39,37 @@ export function originSideFromRect(
   return centre >= viewportWidth / 2 ? 'right' : 'left'
 }
 
+// Last pointer-down x — fallback for browsers (Safari) that don't move focus
+// to a clicked button, where document.activeElement stays on <body>.
+let lastPointerX: number | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      lastPointerX = e.clientX
+    },
+    { capture: true, passive: true }
+  )
+}
+
+/**
+ * Origin side of the interaction that is about to open a panel. Reads the
+ * focused element's rect (keyboard activation and most pointer clicks), and
+ * falls back to the last pointer-down position. Call synchronously from the
+ * click handler, before openPanel.
+ */
+export function originSideFromTrigger(): PanelSide | undefined {
+  if (typeof window === 'undefined') return undefined
+  const el = document.activeElement
+  if (el instanceof HTMLElement && el !== document.body) {
+    return originSideFromRect(el.getBoundingClientRect(), window.innerWidth)
+  }
+  if (lastPointerX !== null) {
+    return lastPointerX >= window.innerWidth / 2 ? 'right' : 'left'
+  }
+  return undefined
+}
+
 export function clampPos(
   pos: PanelPos,
   size: PanelSize,
