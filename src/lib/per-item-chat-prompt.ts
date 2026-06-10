@@ -6,7 +6,7 @@
  * one specific item.
  */
 
-import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
+import { composeAislingCore } from '@/lib/aisling-prompt'
 import type { UserProfile, ItemAssessment } from '@/types/database'
 import { getCostSummary } from '@/mcp'
 
@@ -14,7 +14,8 @@ import { getCostSummary } from '@/mcp'
  * Compose a system prompt for per-item chat.
  *
  * Includes:
- * - Full Aisling persona + country modules (reuses composeAssessmentPrompt)
+ * - Aisling core (persona + profile + country modules + knowledge) — without
+ *   the background-assessment-mode suffix
  * - The specific item's assessment context
  * - Brief inventory summary (verdict counts, total estimated shipping)
  * - Per-item chat mode instructions
@@ -25,17 +26,8 @@ export async function composePerItemChatPrompt(
 ): Promise<string> {
   const sections: string[] = []
 
-  // 1. Base Aisling prompt (persona + profile + country modules + knowledge)
-  // Strip the "Background Assessment Mode" section — we'll replace it with
-  // per-item chat mode instructions.
-  const basePrompt = composeAssessmentPrompt(profile)
-
-  const bgModeIndex = basePrompt.indexOf('## Background Assessment Mode')
-  const promptWithoutBgMode = bgModeIndex > -1
-    ? basePrompt.slice(0, bgModeIndex).trimEnd()
-    : basePrompt
-
-  sections.push(promptWithoutBgMode)
+  // 1. Aisling core (persona + profile + country modules + knowledge)
+  sections.push(composeAislingCore(profile))
 
   // 2. This item's assessment context
   sections.push(composeItemContext(item))

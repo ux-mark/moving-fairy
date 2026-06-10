@@ -9,94 +9,19 @@ import {
   updateItemAssessment,
 } from '@/mcp'
 import { composePerItemChatPrompt } from '@/lib/per-item-chat-prompt'
-import { isCliMode, runCliAgentLoop, type ToolDefinition } from '@/lib/claude-cli'
-import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
-import { fetchImageAsBase64 } from '@/lib/assess-item'
-import { buildStorageUrl } from '@/lib/storage-url'
-import { writeFile } from 'node:fs/promises'
-import type { UserProfile } from '@/types/database'
-
-// ─── Tool definitions for per-item chat ──────────────────────────────────────
-
-const CHAT_TOOLS: ToolDefinition[] = [
-  {
-    name: 'render_assessment_card',
-    description:
-      'Display an updated assessment card when your recommendation changes based on new information from the user.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        item: { type: 'string', description: 'Item name' },
-        verdict: {
-          type: 'string',
-          enum: ['SHIP', 'SELL', 'DONATE', 'DISCARD', 'CARRY', 'REVISIT'],
-        },
-        confidence: { type: 'number', description: 'Confidence score 0–100' },
-        rationale: {
-          type: 'string',
-          description: '1–3 sentences: voltage, cost, restrictions',
-        },
-        action: { type: 'string', description: 'One concrete next step' },
-        import_note: {
-          type: 'string',
-          description: 'Biosecurity or customs restriction. Omit if none.',
-        },
-        item_description: { type: 'string', description: 'Brief description' },
-        voltage_compatible: {
-          type: 'boolean',
-          description: 'Works at destination voltage',
-        },
-        needs_transformer: {
-          type: 'boolean',
-          description: 'Needs voltage transformer',
-        },
-        estimated_ship_cost_usd: {
-          type: 'number',
-          description: 'Shipping cost in departure currency',
-        },
-        currency: { type: 'string', description: 'Currency code' },
-        estimated_replace_cost_usd: {
-          type: 'number',
-          description: 'Replacement cost at arrival',
-        },
-        replace_currency: { type: 'string', description: 'Currency code' },
-      },
-      required: ['item', 'verdict', 'confidence', 'rationale', 'action'],
-    },
-  },
-  {
-    name: 'update_item_assessment',
-    description:
-      'Persist changes to the item assessment in the database. Call this after render_assessment_card when you have updated your recommendation.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        verdict: {
-          type: 'string',
-          enum: ['SHIP', 'SELL', 'DONATE', 'DISCARD', 'CARRY', 'REVISIT'],
-        },
-        advice_text: { type: 'string', description: 'Updated rationale text' },
-        confidence: { type: 'number', description: 'Updated confidence score' },
-        voltage_compatible: { type: 'boolean' },
-        needs_transformer: { type: 'boolean' },
-        estimated_ship_cost: { type: 'number' },
-        currency: { type: 'string' },
-        estimated_replace_cost: { type: 'number' },
-        replace_currency: { type: 'string' },
-      },
-      required: [],
-    },
-  },
-]
-
-// ─── API key resolution ───────────────────────────────────────────────────────
-
-function getApiKey(profile: UserProfile): string {
-  if (process.env.NODE_ENV === 'development') {
-    return getAnthropicApiKey()
-  }
-  return profile.anthropic_api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
-}
+import { isCliMode, runCliAgentLoop } from '@/lib/claude-cli'
+import { refreshAnthropicApiKey } from '@/lib/dev-api-key'
+import {
+  createAnthropicClient,
+  getAislingModel,
+  getApiKey,
+  isRetryable401,
+} from '@/lib/ai/executor'
+import {
+  buildImageAttachment,
+  type ImageAttachment,
+} from '@/lib/ai/image-attachment'
+import { CHAT_TOOLS } from '@/lib/ai/tools'
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
@@ -167,7 +92,7 @@ export async function POST(
       ? allLlmMessages.slice(-MAX_CONTEXT_MESSAGES)
       : allLlmMessages
 
-  const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+  const model = getAislingModel()
 
   // Read abort signal so we can cancel in-flight work if the client disconnects
   const { signal } = req
@@ -176,29 +101,14 @@ export async function POST(
   // If the item has a photo, make it available to Aisling in this conversation.
   // SDK: attach as a base64 image block on the first user message.
   // CLI: download to /tmp so Aisling can use the Read tool to view it.
-  type ImageAttachment =
-    | { kind: 'sdk'; block: { type: 'image'; source: { type: 'base64'; media_type: string; data: string } } }
-    | { kind: 'cli'; tmpPath: string }
   let imageAttachment: ImageAttachment | null = null
   if (item.image_url) {
     try {
-      if (isCliMode()) {
-        const tmpPath = `/tmp/chat-${itemId}.webp`
-        const imgRes = await fetch(buildStorageUrl(item.image_url))
-        if (imgRes.ok) {
-          const buf = Buffer.from(await imgRes.arrayBuffer())
-          await writeFile(tmpPath, buf)
-          imageAttachment = { kind: 'cli', tmpPath }
-        } else {
-          console.warn(`[per-item-chat] Image fetch failed for CLI: HTTP ${imgRes.status}`)
-        }
-      } else {
-        const { base64, mediaType } = await fetchImageAsBase64(item.image_url)
-        imageAttachment = {
-          kind: 'sdk',
-          block: { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-        }
-      }
+      imageAttachment = await buildImageAttachment(
+        item.image_url,
+        isCliMode(),
+        `/tmp/chat-${itemId}.webp`
+      )
     } catch (err) {
       console.warn('[per-item-chat] Could not attach image to chat:', err)
     }
@@ -289,9 +199,7 @@ export async function POST(
           console.log(`[per-item-chat] CLI response length=${fullAssistantText.length}`)
         } else {
           // SDK path — multi-turn tool-use loop
-          const AnthropicSDK = (await import('@anthropic-ai/sdk')).default
-          let apiKey = getApiKey(profile)
-          const client = new AnthropicSDK({ apiKey })
+          const client = await createAnthropicClient(getApiKey(profile))
 
           const sdkTools = CHAT_TOOLS.map((t) => ({
             name: t.name,
@@ -348,13 +256,8 @@ export async function POST(
               )
             } catch (err) {
               // Retry once on 401 in development (refreshes keychain token)
-              if (
-                process.env.NODE_ENV === 'development' &&
-                err instanceof Error &&
-                err.message.includes('401')
-              ) {
-                apiKey = refreshAnthropicApiKey()
-                const retryClient = new AnthropicSDK({ apiKey })
+              if (isRetryable401(err)) {
+                const retryClient = await createAnthropicClient(refreshAnthropicApiKey())
                 response = await retryClient.messages.create(
                   {
                     model,

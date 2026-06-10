@@ -639,8 +639,10 @@ function buildCliPrompt(
 /**
  * Build tool usage instructions to append to the system prompt.
  * The model outputs tool calls as <tool_call> JSON blocks.
+ * Exported so single-turn callers (assess-item) can reuse the exact
+ * same instruction text the agent loop uses.
  */
-function buildToolInstructions(tools: ToolDefinition[]): string {
+export function buildToolInstructions(tools: ToolDefinition[]): string {
   let instructions =
     '\n\n--- TOOL USE INSTRUCTIONS (MANDATORY) ---\n' +
     'CRITICAL: You MUST call tools using <tool_call> XML tags. NEVER output tool ' +

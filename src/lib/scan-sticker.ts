@@ -21,9 +21,18 @@ import {
   updateBoxScan,
 } from '@/mcp'
 import { BoxScanStatus, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
-import { callCli, isCliMode } from '@/lib/claude-cli'
-import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
-import { buildStorageUrl } from '@/lib/storage-url'
+import { callCli } from '@/lib/claude-cli'
+import {
+  createAnthropicClient,
+  getAislingModel,
+  getExecutorMode,
+  withSdk401Retry,
+} from '@/lib/ai/executor'
+import {
+  cleanupTmpImage,
+  downloadImageToTmp,
+  fetchImageAsBase64,
+} from '@/lib/ai/image-attachment'
 import { assessItem } from '@/lib/assess-item'
 import type { BoxScanProposedItem, ItemAssessment, UserProfile } from '@/types/database'
 
@@ -117,15 +126,6 @@ function fuzzyMatch(
   return candidates[0]!
 }
 
-// ─── API key resolution ───────────────────────────────────────────────────────
-
-function getApiKey(profile: UserProfile): string {
-  if (process.env.NODE_ENV === 'development') {
-    return getAnthropicApiKey()
-  }
-  return profile.anthropic_api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
-}
-
 // ─── LLM call: extract item names from sticker image ─────────────────────────
 
 const STICKER_SYSTEM_PROMPT =
@@ -136,30 +136,14 @@ const STICKER_SYSTEM_PROMPT =
   'Be generous with interpretation — handwriting is messy. ' +
   'Return ONLY the JSON array, no other text.'
 
-async function fetchImageAsBase64(
-  imageUrl: string
-): Promise<{ base64: string; mediaType: string }> {
-  const resolvedUrl = buildStorageUrl(imageUrl)
-  const response = await fetch(resolvedUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sticker image: ${response.status} ${response.statusText}`)
-  }
-  const contentType = response.headers.get('content-type') ?? 'image/webp'
-  const mediaType = contentType.startsWith('image/') ? contentType : 'image/webp'
-  const buffer = await response.arrayBuffer()
-  const base64 = Buffer.from(buffer).toString('base64')
-  return { base64, mediaType }
-}
-
 async function extractItemNamesViaSdk(
   imageUrl: string,
   profile: UserProfile
 ): Promise<Array<string | null>> {
-  const Anthropic = (await import('@anthropic-ai/sdk')).default
-  const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+  const model = getAislingModel()
 
-  async function attempt(apiKey: string): Promise<Array<string | null>> {
-    const client = new Anthropic({ apiKey })
+  return withSdk401Retry(profile, 'scan-sticker', async (apiKey) => {
+    const client = await createAnthropicClient(apiKey)
     const { base64, mediaType } = await fetchImageAsBase64(imageUrl)
 
     const response = await client.messages.create({
@@ -189,39 +173,18 @@ async function extractItemNamesViaSdk(
       }
     }
     return []
-  }
-
-  const apiKey = getApiKey(profile)
-  try {
-    return await attempt(apiKey)
-  } catch (err) {
-    if (
-      process.env.NODE_ENV === 'development' &&
-      err instanceof Error &&
-      err.message.includes('401')
-    ) {
-      console.warn('[scan-sticker] Got 401 from SDK — refreshing API key and retrying')
-      const freshKey = refreshAnthropicApiKey()
-      return await attempt(freshKey)
-    }
-    throw err
-  }
+  })
 }
 
 async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | null>> {
-  const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+  const model = getAislingModel()
 
   // Download the sticker image to a temp file so the CLI's Read tool can view it.
   // imageUrl may be a relative storage path — resolve it to a full URL first
   // (mirrors the SDK path's fetchImageAsBase64).
   const tmpPath = `/tmp/sticker-scan-${Date.now()}.webp`
   try {
-    const imgResponse = await fetch(buildStorageUrl(imageUrl))
-    if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`)
-    const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
-    const { writeFile } = await import('node:fs/promises')
-    await writeFile(tmpPath, imgBuffer)
-    console.log(`[scan-sticker] Saved sticker image to ${tmpPath} (${imgBuffer.length} bytes)`)
+    await downloadImageToTmp(imageUrl, tmpPath, 'scan-sticker')
   } catch (imgErr) {
     console.warn('[scan-sticker] Could not download sticker image:', imgErr)
     throw imgErr
@@ -241,8 +204,7 @@ async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | 
     })
     return parseItemNamesJson(responseText)
   } finally {
-    const { unlink } = await import('node:fs/promises')
-    unlink(tmpPath).catch(() => {})
+    cleanupTmpImage(tmpPath)
   }
 }
 
@@ -315,7 +277,7 @@ export async function runStickerScan(
     console.log(`[scan-sticker] Running scan ${scanId} for box ${boxId}`)
 
     // 4. Call the LLM to extract item names from the sticker image
-    const useSdk = !isCliMode()
+    const useSdk = getExecutorMode() === 'sdk'
     console.log(`[scan-sticker] Extracting items from sticker | mode: ${useSdk ? 'sdk' : 'cli'}`)
 
     let extractedNames: Array<string | null>

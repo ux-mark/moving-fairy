@@ -71,19 +71,14 @@ Rules:
 ---
 `.trim()
 
-// ─── Prompt composer ─────────────────────────────────────────────────────────
+// ─── Prompt composers ────────────────────────────────────────────────────────
 
 /**
- * Compose a fully assembled system prompt for Aisling in background assessment mode.
- *
- * Includes:
- * - Aisling's persona (MCP tools and Session Start sections stripped)
- * - Serialised user profile
- * - Relevant country modules based on the user's route
- * - Voltage and shipping economics knowledge
- * - Focused background-mode instruction
+ * Compose Aisling's mode-independent core: persona, user profile, route
+ * country modules, and skill knowledge. Mode-specific composers append
+ * their own instruction suffix to this.
  */
-export function composeAssessmentPrompt(profile: UserProfile): string {
+export function composeAislingCore(profile: UserProfile): string {
   const sections: string[] = []
 
   // 1. Aisling persona (persona sections only)
@@ -114,10 +109,21 @@ export function composeAssessmentPrompt(profile: UserProfile): string {
   sections.push(`---\n\n## Voltage Reference\n\n${VOLTAGE}`)
   sections.push(`---\n\n## Shipping Economics\n\n${SHIPPING_ECON}`)
 
-  // 5. Background assessment instruction (last — highest priority)
-  sections.push(BACKGROUND_ASSESSMENT_INSTRUCTION)
-
   return sections.join('\n\n')
+}
+
+/**
+ * Compose a fully assembled system prompt for Aisling in background assessment mode.
+ *
+ * Includes:
+ * - Aisling's persona (MCP tools and Session Start sections stripped)
+ * - Serialised user profile
+ * - Relevant country modules based on the user's route
+ * - Voltage and shipping economics knowledge
+ * - Focused background-mode instruction (last — highest priority)
+ */
+export function composeAssessmentPrompt(profile: UserProfile): string {
+  return [composeAislingCore(profile), BACKGROUND_ASSESSMENT_INSTRUCTION].join('\n\n')
 }
 
 // ─── Profile serialisation ────────────────────────────────────────────────────
