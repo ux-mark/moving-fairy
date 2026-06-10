@@ -71,10 +71,20 @@ type RawHandler = (
 interface ChannelEntry {
   channel: RealtimeChannel
   handlers: Set<RawHandler>
+  /** Pending deferred teardown — cancelled if a subscriber returns in time. */
+  teardownTimer: ReturnType<typeof setTimeout> | null
 }
 
 const channelRegistry = new Map<string, ChannelEntry>()
 let sharedClient: SupabaseClient | null = null
+
+/**
+ * Teardown grace: when the last handler unsubscribes, keep the channel alive
+ * briefly so a quick remount (StrictMode, route transitions) reuses the
+ * existing entry instead of racing a removeChannel against a fresh channel
+ * with the same topic.
+ */
+const CHANNEL_TEARDOWN_GRACE_MS = 250
 
 function getClient(): SupabaseClient {
   if (!sharedClient) sharedClient = createClient()
@@ -93,6 +103,11 @@ export function subscribeToTableChanges(
 ): () => void {
   const key = `${table}|${filter ?? ''}`
   let entry = channelRegistry.get(key)
+  if (entry?.teardownTimer) {
+    // Re-subscribed during the grace window — reuse the live channel.
+    clearTimeout(entry.teardownTimer)
+    entry.teardownTimer = null
+  }
   if (!entry) {
     const channel = getClient()
       .channel(`live:${key}`)
@@ -106,7 +121,7 @@ export function subscribeToTableChanges(
         }
       )
       .subscribe()
-    entry = { channel, handlers: new Set() }
+    entry = { channel, handlers: new Set(), teardownTimer: null }
     channelRegistry.set(key, entry)
   }
   entry.handlers.add(handler)
@@ -115,9 +130,13 @@ export function subscribeToTableChanges(
     const current = channelRegistry.get(key)
     if (!current) return
     current.handlers.delete(handler)
-    if (current.handlers.size === 0) {
-      channelRegistry.delete(key)
-      void getClient().removeChannel(current.channel)
+    if (current.handlers.size === 0 && !current.teardownTimer) {
+      current.teardownTimer = setTimeout(() => {
+        current.teardownTimer = null
+        if (current.handlers.size > 0) return
+        channelRegistry.delete(key)
+        void getClient().removeChannel(current.channel)
+      }, CHANNEL_TEARDOWN_GRACE_MS)
     }
   }
 }
@@ -241,17 +260,21 @@ export function useLiveTable<T extends LiveRow>(
     }
   }, [])
 
+  // Monotonic token — a refresh started later always wins; a slow fetch that
+  // resolves after a newer one is ignored instead of clobbering fresher rows.
+  const refreshTokenRef = useRef(0)
   const refresh = useCallback(async (): Promise<T[] | null> => {
+    const token = ++refreshTokenRef.current
     try {
       const fetched = await fetcherRef.current()
       const sorted = sortRef.current ? [...fetched].sort(sortRef.current) : fetched
-      if (isMountedRef.current) {
+      if (isMountedRef.current && token === refreshTokenRef.current) {
         setRows(sorted)
         setError(null)
       }
       return sorted
     } catch (err) {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && token === refreshTokenRef.current) {
         setError(err instanceof Error ? err.message : `Failed to load ${table}`)
       }
       return null

@@ -15,11 +15,22 @@ interface UseItemsReturn {
   updateVerdict: (id: string, verdict: string) => Promise<void>
 }
 
-async function fetchItems(): Promise<ItemAssessment[]> {
-  const res = await fetch('/api/items')
-  if (!res.ok) throw new Error(`Failed to fetch items (${res.status})`)
-  const data = (await res.json()) as { items?: ItemAssessment[] } | ItemAssessment[]
-  return Array.isArray(data) ? data : (data.items ?? [])
+// Concurrent fetches share one request — several useItems instances (page +
+// open panels) revalidating on the same focus event fire a single GET.
+let itemsFetchInflight: Promise<ItemAssessment[]> | null = null
+
+function fetchItems(): Promise<ItemAssessment[]> {
+  itemsFetchInflight ??= (async () => {
+    try {
+      const res = await fetch('/api/items')
+      if (!res.ok) throw new Error(`Failed to fetch items (${res.status})`)
+      const data = (await res.json()) as { items?: ItemAssessment[] } | ItemAssessment[]
+      return Array.isArray(data) ? data : (data.items ?? [])
+    } finally {
+      itemsFetchInflight = null
+    }
+  })()
+  return itemsFetchInflight
 }
 
 // Sort oldest first so the first item uploaded appears at the top.
