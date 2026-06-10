@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 
-import { serialiseState } from './panelsReducer'
+import { mergeRemoteState, serialiseState } from './panelsReducer'
 import type { PanelsState, PersistedPanelState } from './types'
 
 /** Debounce window for writes — spec §1 says ~1s. */
@@ -36,6 +36,12 @@ function isPersistedState(value: unknown): value is PersistedPanelState {
  * - subscribe to realtime changes on user_panel_state so another device's
  *   panels appear here, with echo suppression (events whose updated_at we
  *   produced ourselves are ignored).
+ *
+ * Remote state is MERGED, never applied wholesale (mergeRemoteState): panels
+ * open here survive remote writes and a late initial GET, and remote-only
+ * panels land minimised in the tray. After a merge the synced-JSON marker is
+ * set to the merged result so the merge itself doesn't echo a PATCH back
+ * (which would resurrect panels the other device just closed).
  */
 export function usePanelStatePersistence(
   state: PanelsState,
@@ -51,10 +57,23 @@ export function usePanelStatePersistence(
   useEffect(() => {
     hydrateRef.current = hydrate
   }, [hydrate])
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   const serialisedJson = useMemo(() => JSON.stringify(serialiseState(state)), [state])
 
-  // Hydrate on load.
+  /** Merge a remote snapshot into local state without triggering an echo write. */
+  const applyRemote = (remote: PersistedPanelState) => {
+    const merged = mergeRemoteState(stateRef.current, remote)
+    const mergedPersisted = serialiseState(merged)
+    lastSyncedJsonRef.current = JSON.stringify(mergedPersisted)
+    if (merged !== stateRef.current) hydrateRef.current(mergedPersisted)
+  }
+  const applyRemoteRef = useRef(applyRemote)
+  applyRemoteRef.current = applyRemote
+
+  // Hydrate on load. Panels opened while the GET is in flight win — the
+  // merge keeps them and trays the rest (late-GET guard).
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -65,8 +84,7 @@ export function usePanelStatePersistence(
         if (cancelled || !data.ok) return
         profileIdRef.current = data.profileId ?? null
         if (isPersistedState(data.state)) {
-          lastSyncedJsonRef.current = JSON.stringify(data.state)
-          hydrateRef.current(data.state)
+          applyRemoteRef.current(data.state)
         }
       } catch {
         // Persistence is an enhancement — panels still work locally.
@@ -128,8 +146,7 @@ export function usePanelStatePersistence(
             return
           }
           if (isPersistedState(row.state)) {
-            lastSyncedJsonRef.current = JSON.stringify(row.state)
-            hydrateRef.current(row.state)
+            applyRemoteRef.current(row.state)
           }
         }
       )

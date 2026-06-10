@@ -11,15 +11,10 @@ export interface PanelContentProps {
 }
 
 /**
- * kind → content component. Phase C registers the real entity panels
- * (ItemPanel, BoxPanel, ListingPanel, chat) via registerPanelContent.
+ * kind → content component. registerContent.tsx registers the entity panels
+ * (ItemPanel, BoxPanel, ListingPanel, ChatPanel) via registerPanelContent.
  */
-const registry: Partial<Record<PanelKind, ComponentType<PanelContentProps>>> = {
-  // TODO(Phase C): item → ItemPanel
-  // TODO(Phase C): box → BoxPanel
-  // TODO(Phase C): listing → ListingPanel
-  // TODO(Phase C): chat → per-item chat panel
-}
+const registry: Partial<Record<PanelKind, ComponentType<PanelContentProps>>> = {}
 
 export function registerPanelContent(
   kind: PanelKind,
@@ -32,7 +27,7 @@ export function getPanelContent(kind: PanelKind): ComponentType<PanelContentProp
   return registry[kind] ?? PanelContentPlaceholder
 }
 
-/** Rendered until Phase C registers the entity panel for a kind. */
+/** Rendered if a kind ever opens before its content component registers. */
 function PanelContentPlaceholder({ entityId }: PanelContentProps) {
   return <p className={styles.placeholder}>Panel content is on its way for {entityId}.</p>
 }

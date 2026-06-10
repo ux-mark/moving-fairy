@@ -10,6 +10,7 @@ import { LightAssessmentWarning } from '@/components/inventory/LightAssessmentWa
 import { PackingToast } from '@/components/boxes/PackingToast'
 import { useBoxes } from '@/lib/hooks/useBoxes'
 import { useItems } from '@/lib/hooks/useItems'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 import {
   BiosecurityFlag,
   BoxType,
@@ -61,8 +62,9 @@ const isTravellingBox = (box: Box) =>
  */
 export function BoxPanel({ panelId: id, entityId }: PanelContentProps) {
   const { setPanelTitle } = usePanels()
+  const profileId = useProfileId()
   const { rows: boxes, isLoading, refresh: refreshBoxes } = useBoxes()
-  const { items: allItems, refresh: refreshItems } = useItems()
+  const { items: allItems, refresh: refreshItems } = useItems(profileId)
   const box = boxes.find((b) => b.id === entityId)
 
   const title = box ? `${box.label} · ${box.room_name}` : 'Box'

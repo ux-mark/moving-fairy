@@ -8,6 +8,7 @@ import { ItemEditPanel } from '@/components/decisions/ItemEditPanel'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
 import { useItems } from '@/lib/hooks/useItems'
 import { useBoxes } from '@/lib/hooks/useBoxes'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 import { useShipments } from '@/lib/hooks/useShipments'
 import { COUNTRY_CURRENCY, ProcessingStatus, Verdict } from '@/lib/constants'
 import { proxyImageUrl } from '@/lib/storage-url'
@@ -54,7 +55,10 @@ const VERDICT_FG: Record<string, string> = {
  */
 export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
   const { panels, openPanel, closePanel, setPanelTitle } = usePanels()
-  const { items, isLoading, refresh, retryAssessment } = useItems()
+  // Same profileId-filtered call the pages make — shares their realtime
+  // channel instead of opening an unfiltered duplicate.
+  const profileId = useProfileId()
+  const { items, isLoading, refresh, retryAssessment } = useItems(profileId)
   const item = items.find((i) => i.id === entityId)
 
   const [imageError, setImageError] = useState(false)
@@ -389,11 +393,12 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
       )}
 
       {/* Edit panel: name, costs, box, shipment, category, plant care, save,
-          delete (with its own destructive confirm). Keyed by updated_at so a
-          background update re-seeds the form. */}
+          delete (with its own destructive confirm). Not keyed — the form
+          re-seeds itself from props only while the user has no unsaved
+          changes, so a background realtime update never destroys typed
+          input mid-edit. */}
       {isCompleted && (
         <ItemEditPanel
-          key={item.updated_at}
           item={item}
           shipCurrency={shipCurrency}
           replaceCurrency={replaceCurrency}

@@ -93,7 +93,7 @@ export function panelsReducer(state: PanelsState, action: PanelsAction): PanelsS
       }
 
     case 'hydrate':
-      return hydrateState(action.persisted)
+      return mergeRemoteState(state, action.persisted)
   }
 }
 
@@ -116,10 +116,36 @@ export function serialiseState(state: PanelsState): PersistedPanelState {
   }
 }
 
-export function hydrateState(persisted: PersistedPanelState): PanelsState {
-  const panels = Array.isArray(persisted.panels) ? persisted.panels : []
-  return {
-    panels: panels.map((p, i) => ({ ...p, zIndex: i + 1, hasUpdate: false })),
-    nextZ: panels.length + 1,
-  }
+/**
+ * Merge a remote snapshot (initial GET or another device's realtime write)
+ * into local state. Merge — never replace — so a write from another device
+ * (or a late initial GET) can't silently close panels open here:
+ *
+ * - remote panels not known locally are added; on a fresh load (no local
+ *   panels) they restore as persisted, otherwise they arrive minimised into
+ *   the tray (spec §1 cross-device intent),
+ * - locally-known panels keep their local geometry, z-order and minimised
+ *   state — a remote event never closes or moves them.
+ *
+ * Returns the same state reference when the remote adds nothing.
+ */
+export function mergeRemoteState(
+  state: PanelsState,
+  persisted: PersistedPanelState
+): PanelsState {
+  const remote = Array.isArray(persisted.panels) ? persisted.panels : []
+  const localIds = new Set(state.panels.map((p) => p.id))
+  const isFreshLoad = state.panels.length === 0
+
+  let nextZ = state.nextZ
+  const added = remote
+    .filter((p) => !localIds.has(p.id))
+    .map((p) => ({
+      ...p,
+      zIndex: nextZ++,
+      hasUpdate: false,
+      minimised: isFreshLoad ? p.minimised : true,
+    }))
+  if (added.length === 0) return state
+  return { panels: [...state.panels, ...added], nextZ }
 }

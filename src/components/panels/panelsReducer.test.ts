@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   INITIAL_PANELS_STATE,
-  hydrateState,
+  mergeRemoteState,
   panelId,
   panelsReducer,
   serialiseState,
@@ -115,7 +115,7 @@ describe('panelsReducer — close / minimise / restore', () => {
 })
 
 describe('serialise / hydrate round-trip', () => {
-  it('preserves panels, tray membership and z-order', () => {
+  it('preserves panels, tray membership and z-order on a fresh load', () => {
     let state = open(INITIAL_PANELS_STATE, 'item', 'a')
     state = open(state, 'box', 'b')
     state = open(state, 'listing', 'c')
@@ -130,7 +130,7 @@ describe('serialise / hydrate round-trip', () => {
     const persisted = serialiseState(state)
     expect(persisted.tray).toEqual([panelId('box', 'b')])
 
-    const restored = hydrateState(persisted)
+    const restored = mergeRemoteState(INITIAL_PANELS_STATE, persisted)
     expect(restored.panels).toHaveLength(3)
     expect(topPanel(restored)!.id).toBe(panelId('item', 'a'))
     expect(restored.panels.find((p) => p.id === panelId('box', 'b'))!.minimised).toBe(true)
@@ -141,8 +141,71 @@ describe('serialise / hydrate round-trip', () => {
   })
 
   it('hydrates defensively from a malformed payload', () => {
-    const restored = hydrateState({ panels: undefined, tray: [] } as never)
+    const restored = mergeRemoteState(INITIAL_PANELS_STATE, {
+      panels: undefined,
+      tray: [],
+    } as never)
     expect(restored.panels).toEqual([])
     expect(restored.nextZ).toBe(1)
+  })
+})
+
+describe('mergeRemoteState — cross-device merge', () => {
+  it('never closes locally-open panels missing from the remote snapshot', () => {
+    const local = open(open(INITIAL_PANELS_STATE, 'item', 'a'), 'box', 'b')
+    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'item', 'a')) // remote closed box:b
+
+    const merged = mergeRemoteState(local, remote)
+
+    expect(merged).toBe(local) // nothing added → same reference, no echo write
+    expect(merged.panels.map((p) => p.id)).toContain(panelId('box', 'b'))
+  })
+
+  it('adds remote-only panels minimised into the tray when panels are open here', () => {
+    const local = open(INITIAL_PANELS_STATE, 'item', 'a')
+    const remoteState = open(open(INITIAL_PANELS_STATE, 'item', 'a'), 'listing', 'phone')
+
+    const merged = mergeRemoteState(local, serialiseState(remoteState))
+
+    const added = merged.panels.find((p) => p.id === panelId('listing', 'phone'))!
+    expect(added.minimised).toBe(true)
+    expect(added.hasUpdate).toBe(false)
+  })
+
+  it('keeps local geometry for panels open on this device', () => {
+    let local = open(INITIAL_PANELS_STATE, 'item', 'a')
+    local = panelsReducer(local, { type: 'move', id: panelId('item', 'a'), pos: { x: 1, y: 2 } })
+    let remoteState = open(INITIAL_PANELS_STATE, 'item', 'a')
+    remoteState = panelsReducer(remoteState, {
+      type: 'move',
+      id: panelId('item', 'a'),
+      pos: { x: 500, y: 500 },
+    })
+
+    const merged = mergeRemoteState(local, serialiseState(remoteState))
+
+    expect(merged.panels[0]!.pos).toEqual({ x: 1, y: 2 })
+  })
+
+  it('guards a late initial GET: panels opened during load survive, rest go to the tray', () => {
+    const openedDuringLoad = open(INITIAL_PANELS_STATE, 'item', 'fresh')
+    const persistedState = open(INITIAL_PANELS_STATE, 'box', 'old') // open on the server snapshot
+
+    const merged = mergeRemoteState(openedDuringLoad, serialiseState(persistedState))
+
+    const fresh = merged.panels.find((p) => p.id === panelId('item', 'fresh'))!
+    const old = merged.panels.find((p) => p.id === panelId('box', 'old'))!
+    expect(fresh.minimised).toBe(false)
+    expect(old.minimised).toBe(true)
+  })
+
+  it('is idempotent — re-applying the merged snapshot adds nothing', () => {
+    const local = open(INITIAL_PANELS_STATE, 'item', 'a')
+    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'listing', 'p'))
+
+    const merged = mergeRemoteState(local, remote)
+    const again = mergeRemoteState(merged, serialiseState(merged))
+
+    expect(again).toBe(merged)
   })
 })

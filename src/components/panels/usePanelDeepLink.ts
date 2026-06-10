@@ -16,10 +16,11 @@ import type { PanelKind, PanelSide } from './types'
  * Two-way sync between a search param and a panel kind (spec §3 deep links):
  *
  * - `?{param}=<id>` on load (or via a shared link) opens the panel.
- * - `open(id, originSide)` — for click handlers — opens the panel AND writes
- *   the param so the URL stays shareable.
- * - Closing the panel removes the param (router.replace, same pattern the
- *   drawers used — no history spam).
+ * - `open(id, originSide)` — for click handlers — opens the panel AND pushes
+ *   the param (router.push) so the URL stays shareable and browser Back
+ *   closes the panel (param disappears → the state machine closes it).
+ * - Closing the panel removes the param with router.replace — cleanup
+ *   shouldn't add history entries.
  */
 export function usePanelDeepLink(
   kind: PanelKind,
@@ -59,7 +60,9 @@ export function usePanelDeepLink(
       openPanel({ kind, entityId, ...(originSide ? { originSide } : {}) })
       const params = new URLSearchParams(searchParams.toString())
       params.set(param, entityId)
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+      // push (not replace): opening by click creates a history entry, so
+      // browser Back closes the panel instead of leaving the page.
+      router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [kind, param, openPanel, router, pathname, searchParams]
   )

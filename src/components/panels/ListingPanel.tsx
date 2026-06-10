@@ -6,6 +6,7 @@ import { Spinner } from '@thefairies/design-system/components'
 import { ListingEditor } from '@/components/selling/ListingEditor'
 import { useItems } from '@/lib/hooks/useItems'
 import { useListings } from '@/lib/hooks/useListings'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 
 import { usePanels } from './PanelProvider'
 import type { PanelContentProps } from './registry'
@@ -20,8 +21,9 @@ import styles from './ListingPanel.module.css'
  */
 export function ListingPanel({ panelId, entityId }: PanelContentProps) {
   const { setPanelTitle } = usePanels()
+  const profileId = useProfileId()
   const { rows: listings, isLoading: listingsLoading } = useListings()
-  const { items, isLoading: itemsLoading } = useItems()
+  const { items, isLoading: itemsLoading } = useItems(profileId)
 
   const listing = listings.find((l) => l.id === entityId)
   const item = listing

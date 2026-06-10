@@ -11,6 +11,14 @@ import {
   type ReactNode,
 } from 'react'
 
+import {
+  useLiveTableEvents,
+  type LiveRow,
+  type LiveTableEvent,
+} from '@/lib/hooks/useLiveTable'
+import { useProfileId } from '@/lib/hooks/useProfileId'
+
+import { hasOpenModalLayer } from './modalLayer'
 import { Panel } from './Panel'
 import { PanelTray } from './PanelTray'
 import {
@@ -130,6 +138,9 @@ export function PanelProvider({ children, renderTray = true }: PanelProviderProp
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // A modal layer (ConfirmDialog, VerdictPicker, …) owns Escape while it's
+      // open — closing the panel underneath would discard unsaved form input.
+      if (hasOpenModalLayer()) return
       const top = topPanel(stateRef.current)
       if (!top) return
       e.stopPropagation()
@@ -187,6 +198,7 @@ export function PanelProvider({ children, renderTray = true }: PanelProviderProp
           </Panel>
         )
       })}
+      <MinimisedPanelWatcher panels={state.panels} markPanelUpdated={markPanelUpdated} />
       {renderTray && state.panels.length > 0 && (
         <div className={styles.trayDock}>
           <PanelTray />
@@ -194,4 +206,58 @@ export function PanelProvider({ children, renderTray = true }: PanelProviderProp
       )}
     </PanelsContext.Provider>
   )
+}
+
+/**
+ * Live dot for tray chips (spec §1): minimised panel content is unmounted, so
+ * its own live hooks can't see background changes. This watcher subscribes to
+ * the entity tables only while minimised panels of that kind exist, and flags
+ * the matching panel via markPanelUpdated (cleared by restore/open). Filters
+ * mirror the existing hooks' channels (items filtered by profile, box/listing
+ * unfiltered) so it joins their shared channel instead of opening a new one.
+ * Chat panels are fetch-based (no realtime table) and refetch on restore.
+ */
+function MinimisedPanelWatcher({
+  panels,
+  markPanelUpdated,
+}: {
+  panels: PanelInstance[]
+  markPanelUpdated: (id: string) => void
+}) {
+  const profileId = useProfileId()
+  const panelsRef = useRef(panels)
+  useEffect(() => {
+    panelsRef.current = panels
+  }, [panels])
+
+  const flag = useCallback(
+    (kinds: PanelInstance['kind'][], event: LiveTableEvent<LiveRow>) => {
+      const entityId = event.new?.id ?? event.old?.id
+      if (!entityId) return
+      for (const p of panelsRef.current) {
+        if (p.minimised && p.entityId === entityId && kinds.includes(p.kind)) {
+          markPanelUpdated(p.id)
+        }
+      }
+    },
+    [markPanelUpdated]
+  )
+  // An item change also flags its chat panel (saves inject a system message).
+  const onItem = useCallback((e: LiveTableEvent<LiveRow>) => flag(['item', 'chat'], e), [flag])
+  const onBox = useCallback((e: LiveTableEvent<LiveRow>) => flag(['box'], e), [flag])
+  const onListing = useCallback((e: LiveTableEvent<LiveRow>) => flag(['listing'], e), [flag])
+
+  const hasMinimised = (kind: PanelInstance['kind']) =>
+    panels.some((p) => p.kind === kind && p.minimised)
+
+  useLiveTableEvents(
+    'item_assessment',
+    profileId ? `user_profile_id=eq.${profileId}` : undefined,
+    onItem,
+    hasMinimised('item') || hasMinimised('chat')
+  )
+  useLiveTableEvents('box', undefined, onBox, hasMinimised('box'))
+  useLiveTableEvents('listing', undefined, onListing, hasMinimised('listing'))
+
+  return null
 }

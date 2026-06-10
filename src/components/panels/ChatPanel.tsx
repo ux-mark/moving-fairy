@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 import { PerItemChat } from '@/components/decisions/PerItemChat'
 import { useItems } from '@/lib/hooks/useItems'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 import { proxyImageUrl } from '@/lib/storage-url'
 
 import { subscribeChatRefresh } from './chatRefreshBus'
@@ -19,7 +20,8 @@ import styles from './ChatPanel.module.css'
  */
 export function ChatPanel({ panelId, entityId }: PanelContentProps) {
   const { setPanelTitle } = usePanels()
-  const { items } = useItems()
+  const profileId = useProfileId()
+  const { items } = useItems(profileId)
   const item = items.find((i) => i.id === entityId)
   const itemName = item?.item_name || 'this item'
 
