@@ -94,6 +94,20 @@ export async function PATCH(request: Request) {
     changes.equipment = body.equipment as Equipment
   }
 
+  // Assessment guidance — plain text standing instructions for Aisling
+  if (body.assessment_guidance !== undefined) {
+    if (body.assessment_guidance === null) {
+      changes.assessment_guidance = null
+    } else if (typeof body.assessment_guidance !== 'string') {
+      return Response.json({ ok: false, error: 'assessment_guidance must be a string' }, { status: 400 })
+    } else if (body.assessment_guidance.trim().length > 500) {
+      return Response.json({ ok: false, error: 'assessment_guidance must be 500 characters or fewer' }, { status: 400 })
+    } else {
+      const trimmed = body.assessment_guidance.trim()
+      changes.assessment_guidance = trimmed.length > 0 ? trimmed : null
+    }
+  }
+
   // Anthropic API key
   if (body.anthropic_api_key !== undefined) {
     changes.anthropic_api_key = typeof body.anthropic_api_key === 'string' && body.anthropic_api_key.trim().length > 0

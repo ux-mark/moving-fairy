@@ -66,6 +66,11 @@ export interface UserProfile {
   onward_timeline: OnwardTimeline | null
   equipment: Equipment
   anthropic_api_key: string | null
+  /**
+   * Owner-editable standing instructions for Aisling, injected into every
+   * assessment and per-item chat prompt. Null when the owner hasn't set any.
+   */
+  assessment_guidance: string | null
 }
 
 export interface ItemAssessment {

@@ -24,7 +24,7 @@ function getAdminClient() {
 
 export async function updateUserProfile(
   profileId: string,
-  changes: Partial<Pick<UserProfile, 'departure_country' | 'arrival_country' | 'onward_country' | 'onward_timeline' | 'equipment' | 'anthropic_api_key'>>
+  changes: Partial<Pick<UserProfile, 'departure_country' | 'arrival_country' | 'onward_country' | 'onward_timeline' | 'equipment' | 'anthropic_api_key' | 'assessment_guidance'>>
 ): Promise<UserProfile> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
