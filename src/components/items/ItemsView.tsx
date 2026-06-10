@@ -254,6 +254,28 @@ export function ItemsView({ profileId, initialItems }: Props) {
     }, 3000)
   }, [])
 
+  // ── Stable card/tile callbacks (ItemCard and ItemTile are memoised) ─────
+  const openItemPanel = itemPanel.open
+  const handleCardClick = useCallback(
+    (id: string) => openItemPanel(id, originSideFromTrigger()),
+    [openItemPanel],
+  )
+  const handleRetry = useCallback(
+    (id: string) => { retryAssessment(id).catch(console.error) },
+    [retryAssessment],
+  )
+  const handleConfirmCard = useCallback(
+    (id: string) => {
+      confirmItem(id).catch(console.error)
+      markJustDecided(id)
+    },
+    [confirmItem, markJustDecided],
+  )
+  const handleVerdictTrigger = useCallback(
+    (id: string) => setPickerItemId((prev) => (prev === id ? null : id)),
+    [],
+  )
+
   // ── Delete-from-list ───────────────────────────────────────────────────
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -265,6 +287,11 @@ export function ItemsView({ profileId, initialItems }: Props) {
     ? items.find((i) => i.id === pendingDeleteId)
     : undefined
   const deleteItemName = itemBeingDeleted?.item_name || 'this item'
+
+  const handleRequestDelete = useCallback((id: string) => {
+    setDeleteError(null)
+    setPendingDeleteId(id)
+  }, [])
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
@@ -455,38 +482,24 @@ export function ItemsView({ profileId, initialItems }: Props) {
                   opens the detail drawer to edit. Items that still need a
                   decision keep the rich card with inline Accept / Change
                   verdict actions so the user can decide in place. */}
-              {(() => {
-                const isDecided = bucketFor(ctx) !== 'needs-decision'
-                const handleCardClick = (id: string) => {
-                  itemPanel.open(id, originSideFromTrigger())
-                }
-                return isDecided ? (
-                  <ItemTile
-                    item={ctx.item}
-                    justDecided={justDecidedIds.has(ctx.item.id)}
-                    onClick={handleCardClick}
-                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
-                  />
-                ) : (
-                  <ItemCard
-                    item={ctx.item}
-                    justDecided={justDecidedIds.has(ctx.item.id)}
-                    onConfirm={(id) => {
-                      confirmItem(id).catch(console.error)
-                      markJustDecided(id)
-                    }}
-                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
-                    onClick={handleCardClick}
-                    onVerdictChange={() =>
-                      setPickerItemId((prev) => (prev === ctx.item.id ? null : ctx.item.id))
-                    }
-                    onDelete={(id) => {
-                      setDeleteError(null)
-                      setPendingDeleteId(id)
-                    }}
-                  />
-                )
-              })()}
+              {bucketFor(ctx) !== 'needs-decision' ? (
+                <ItemTile
+                  item={ctx.item}
+                  justDecided={justDecidedIds.has(ctx.item.id)}
+                  onClick={handleCardClick}
+                  onRetry={handleRetry}
+                />
+              ) : (
+                <ItemCard
+                  item={ctx.item}
+                  justDecided={justDecidedIds.has(ctx.item.id)}
+                  onConfirm={handleConfirmCard}
+                  onRetry={handleRetry}
+                  onClick={handleCardClick}
+                  onVerdictChange={handleVerdictTrigger}
+                  onDelete={handleRequestDelete}
+                />
+              )}
               {pickerItemId === ctx.item.id && ctx.item.verdict && (
                 <div className={styles.pickerWrap}>
                   <VerdictPicker

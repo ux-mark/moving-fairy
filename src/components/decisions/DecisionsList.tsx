@@ -155,6 +155,13 @@ export function DecisionsList({
     setVerdictPickerItemId(prev => prev === id ? null : id)
   }, [])
 
+  // Stable (id)-shaped handler so the memoised ItemCard rows don't re-render
+  // when a sibling item changes.
+  const handleConfirmCard = useCallback((id: string) => {
+    onConfirm(id)
+    markJustDecided(id)
+  }, [onConfirm, markJustDecided])
+
   const handleVerdictClose = useCallback(() => {
     setVerdictPickerItemId(null)
   }, [])
@@ -340,13 +347,10 @@ export function DecisionsList({
                     <ItemCard
                       item={item}
                       justDecided={justDecidedIds.has(item.id)}
-                      onConfirm={(id) => {
-                        onConfirm(id)
-                        markJustDecided(id)
-                      }}
+                      onConfirm={handleConfirmCard}
                       onRetry={onRetry}
                       onClick={onItemClick}
-                      onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
+                      onVerdictChange={onVerdictChange ? handleVerdictTrigger : undefined}
                       onDelete={onDelete}
                     />
                     {verdictPickerItemId === item.id && item.verdict && (

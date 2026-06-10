@@ -1,12 +1,13 @@
 'use client'
 
-import { Suspense, useState, useEffect, useRef } from 'react'
+import { Suspense, useCallback, useState, useRef } from 'react'
 import { ConfirmDialog } from '@thefairies/design-system/components'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
 import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
 import { useUploadQueue } from '@/components/upload'
 import { useItems } from '@/lib/hooks/useItems'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 
 export default function DecisionsPage() {
   // useSearchParams() requires a Suspense boundary to statically prerender.
@@ -21,18 +22,9 @@ function DecisionsPageContent() {
   // `?item=<id>` opens the item panel (deep link); the panel keeps the URL in
   // sync so links stay shareable and Back closes it.
   const itemPanel = usePanelDeepLink('item', 'item')
-  const [profileId, setProfileId] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    fetch('/api/profile')
-      .then((r) => r.json())
-      .then((data: { profile?: { id?: string } }) => {
-        if (data.profile?.id) setProfileId(data.profile.id)
-      })
-      .catch(() => {
-        // Profile fetch failure is non-fatal — subscription will be unfiltered
-      })
-  }, [])
+  // Shared, cached profile id — panels make the same call, so every useItems
+  // instance lands on one filtered realtime channel.
+  const profileId = useProfileId()
 
   const { items, isLoading, error, refresh, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -58,17 +50,25 @@ function DecisionsPageContent() {
     }
   }
 
-  const handleConfirm = (id: string) => {
+  // Stable callbacks — the memoised ItemCard/ItemTile rows only re-render
+  // when their own item row changes.
+  const handleConfirm = useCallback((id: string) => {
     confirmItem(id).catch(console.error)
-  }
+  }, [confirmItem])
 
-  const handleRetry = (id: string) => {
+  const handleRetry = useCallback((id: string) => {
     retryAssessment(id).catch(console.error)
-  }
+  }, [retryAssessment])
 
-  const handleVerdictChange = async (id: string, verdict: string) => {
+  const handleVerdictChange = useCallback(async (id: string, verdict: string) => {
     await updateVerdict(id, verdict)
-  }
+  }, [updateVerdict])
+
+  const openItemPanel = itemPanel.open
+  const handleItemClick = useCallback(
+    (id: string) => openItemPanel(id, originSideFromTrigger()),
+    [openItemPanel]
+  )
 
   // Delete-from-list flow for items that can't be opened (pending/processing/failed)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -81,10 +81,10 @@ function DecisionsPageContent() {
     : undefined
   const deleteItemName = itemBeingDeleted?.item_name || 'this item'
 
-  const handleRequestDelete = (id: string) => {
+  const handleRequestDelete = useCallback((id: string) => {
     setDeleteError(null)
     setPendingDeleteId(id)
-  }
+  }, [])
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
@@ -118,7 +118,7 @@ function DecisionsPageContent() {
         onConfirm={handleConfirm}
         onRetry={handleRetry}
         onRefresh={refresh}
-        onItemClick={(id) => itemPanel.open(id, originSideFromTrigger())}
+        onItemClick={handleItemClick}
         onVerdictChange={handleVerdictChange}
         onDelete={handleRequestDelete}
         uploadingCount={uploadingCount}
