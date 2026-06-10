@@ -27,7 +27,7 @@ interface PanelTrayProps {
  * A subtle live dot appears when a minimised panel's data changed.
  */
 export function PanelTray({ className }: PanelTrayProps) {
-  const { panels, restorePanel } = usePanels()
+  const { panels, restorePanel, closePanel } = usePanels()
 
   if (panels.length === 0) return null
 
@@ -54,6 +54,17 @@ export function PanelTray({ className }: PanelTrayProps) {
           </li>
         )
       })}
+      {panels.length >= 2 && (
+        <li className={styles.trayItem}>
+          <button
+            type="button"
+            className={cn(styles.chip, styles.closeAll)}
+            onClick={() => panels.forEach((p) => closePanel(p.id))}
+          >
+            Close all
+          </button>
+        </li>
+      )}
     </ul>
   )
 }

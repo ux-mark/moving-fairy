@@ -115,7 +115,7 @@ describe('panelsReducer — close / minimise / restore', () => {
 })
 
 describe('serialise / hydrate round-trip', () => {
-  it('preserves panels, tray membership and z-order on a fresh load', () => {
+  it('restores every panel minimised into the tray on a fresh load, keeping geometry', () => {
     let state = open(INITIAL_PANELS_STATE, 'item', 'a')
     state = open(state, 'box', 'b')
     state = open(state, 'listing', 'c')
@@ -132,8 +132,9 @@ describe('serialise / hydrate round-trip', () => {
 
     const restored = mergeRemoteState(INITIAL_PANELS_STATE, persisted)
     expect(restored.panels).toHaveLength(3)
-    expect(topPanel(restored)!.id).toBe(panelId('item', 'a'))
-    expect(restored.panels.find((p) => p.id === panelId('box', 'b'))!.minimised).toBe(true)
+    // A restore never re-opens a pile of windows — everything waits in the tray.
+    expect(restored.panels.every((p) => p.minimised)).toBe(true)
+    expect(topPanel(restored)).toBeUndefined()
     expect(restored.panels.find((p) => p.id === panelId('listing', 'c'))!.pos).toEqual({
       x: 40,
       y: 80,
@@ -151,14 +152,35 @@ describe('serialise / hydrate round-trip', () => {
 })
 
 describe('mergeRemoteState — cross-device merge', () => {
-  it('never closes locally-open panels missing from the remote snapshot', () => {
+  it('never closes locally-open panels missing from the remote snapshot without proof', () => {
     const local = open(open(INITIAL_PANELS_STATE, 'item', 'a'), 'box', 'b')
-    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'item', 'a')) // remote closed box:b
+    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'item', 'a')) // remote never saw box:b
 
     const merged = mergeRemoteState(local, remote)
 
     expect(merged).toBe(local) // nothing added → same reference, no echo write
     expect(merged.panels.map((p) => p.id)).toContain(panelId('box', 'b'))
+  })
+
+  it('propagates a proven remote close: minimised panels are removed', () => {
+    let local = open(open(INITIAL_PANELS_STATE, 'item', 'a'), 'box', 'b')
+    local = panelsReducer(local, { type: 'minimise', id: panelId('box', 'b') })
+    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'item', 'a'))
+
+    const merged = mergeRemoteState(local, remote, new Set([panelId('box', 'b')]))
+
+    expect(merged.panels.map((p) => p.id)).not.toContain(panelId('box', 'b'))
+    expect(merged.panels.map((p) => p.id)).toContain(panelId('item', 'a'))
+  })
+
+  it('propagates a proven remote close: open panels are minimised, not yanked away', () => {
+    const local = open(open(INITIAL_PANELS_STATE, 'item', 'a'), 'box', 'b')
+    const remote = serialiseState(open(INITIAL_PANELS_STATE, 'item', 'a'))
+
+    const merged = mergeRemoteState(local, remote, new Set([panelId('box', 'b')]))
+
+    const b = merged.panels.find((p) => p.id === panelId('box', 'b'))!
+    expect(b.minimised).toBe(true)
   })
 
   it('adds remote-only panels minimised into the tray when panels are open here', () => {

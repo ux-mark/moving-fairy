@@ -93,7 +93,7 @@ export function panelsReducer(state: PanelsState, action: PanelsAction): PanelsS
       }
 
     case 'hydrate':
-      return mergeRemoteState(state, action.persisted)
+      return mergeRemoteState(state, action.persisted, action.removeIds)
   }
 }
 
@@ -118,24 +118,45 @@ export function serialiseState(state: PanelsState): PersistedPanelState {
 
 /**
  * Merge a remote snapshot (initial GET or another device's realtime write)
- * into local state. Merge — never replace — so a write from another device
- * (or a late initial GET) can't silently close panels open here:
+ * into local state:
  *
- * - remote panels not known locally are added; on a fresh load (no local
- *   panels) they restore as persisted, otherwise they arrive minimised into
- *   the tray (spec §1 cross-device intent),
+ * - remote panels not known locally are added MINIMISED into the tray —
+ *   including on a fresh load. Restores never re-open a pile of windows;
+ *   previous work waits one tap away in the tray,
  * - locally-known panels keep their local geometry, z-order and minimised
- *   state — a remote event never closes or moves them.
+ *   state — a remote event never moves them,
+ * - `removeIds` (panels provably closed on another device — present in the
+ *   last state both sides synced, absent from this remote write) propagate
+ *   the close: removed outright when minimised here, minimised into the
+ *   tray when open here, so a panel mid-use is never yanked away and typed
+ *   input survives.
  *
- * Returns the same state reference when the remote adds nothing.
+ * Returns the same state reference when nothing changes.
  */
 export function mergeRemoteState(
   state: PanelsState,
-  persisted: PersistedPanelState
+  persisted: PersistedPanelState,
+  removeIds?: ReadonlySet<string> | undefined
 ): PanelsState {
   const remote = Array.isArray(persisted.panels) ? persisted.panels : []
   const localIds = new Set(state.panels.map((p) => p.id))
-  const isFreshLoad = state.panels.length === 0
+
+  let removedOrTrayed = false
+  let panels = state.panels
+  if (removeIds && removeIds.size > 0) {
+    const next: PanelInstance[] = []
+    for (const p of panels) {
+      if (!removeIds.has(p.id)) {
+        next.push(p)
+      } else if (!p.minimised) {
+        next.push({ ...p, minimised: true })
+        removedOrTrayed = true
+      } else {
+        removedOrTrayed = true
+      }
+    }
+    panels = next
+  }
 
   let nextZ = state.nextZ
   const added = remote
@@ -144,8 +165,8 @@ export function mergeRemoteState(
       ...p,
       zIndex: nextZ++,
       hasUpdate: false,
-      minimised: isFreshLoad ? p.minimised : true,
+      minimised: true,
     }))
-  if (added.length === 0) return state
-  return { panels: [...state.panels, ...added], nextZ }
+  if (added.length === 0 && !removedOrTrayed) return state
+  return { panels: [...panels, ...added], nextZ }
 }

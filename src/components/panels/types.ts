@@ -66,4 +66,4 @@ export type PanelsAction =
   | { type: 'resize'; id: string; size: PanelSize }
   | { type: 'setTitle'; id: string; title: string }
   | { type: 'markUpdated'; id: string }
-  | { type: 'hydrate'; persisted: PersistedPanelState }
+  | { type: 'hydrate'; persisted: PersistedPanelState; removeIds?: ReadonlySet<string> | undefined }

@@ -91,9 +91,12 @@ export function PanelProvider({ children, renderTray = true }: PanelProviderProp
   /** Trigger element per panel id — Escape/close returns focus there. */
   const triggersRef = useRef<Map<string, HTMLElement>>(new Map())
 
-  const hydrate = useCallback((persisted: PersistedPanelState) => {
-    dispatch({ type: 'hydrate', persisted })
-  }, [])
+  const hydrate = useCallback(
+    (persisted: PersistedPanelState, removeIds?: ReadonlySet<string>) => {
+      dispatch({ type: 'hydrate', persisted, removeIds })
+    },
+    []
+  )
   usePanelStatePersistence(state, hydrate)
 
   const openPanel = useCallback((options: OpenPanelOptions): string => {

@@ -45,7 +45,7 @@ function isPersistedState(value: unknown): value is PersistedPanelState {
  */
 export function usePanelStatePersistence(
   state: PanelsState,
-  hydrate: (persisted: PersistedPanelState) => void
+  hydrate: (persisted: PersistedPanelState, removeIds?: ReadonlySet<string>) => void
 ): void {
   const hydratedRef = useRef(false)
   const profileIdRef = useRef<string | null>(null)
@@ -64,10 +64,25 @@ export function usePanelStatePersistence(
 
   /** Merge a remote snapshot into local state without triggering an echo write. */
   const applyRemote = (remote: PersistedPanelState) => {
-    const merged = mergeRemoteState(stateRef.current, remote)
+    // Close propagation: a panel present in the last state both sides synced
+    // but absent from this remote write was closed on another device. Panels
+    // the other side never saw (local, write still debouncing) are kept.
+    const removeIds = new Set<string>()
+    if (lastSyncedJsonRef.current) {
+      try {
+        const prevSynced = JSON.parse(lastSyncedJsonRef.current) as PersistedPanelState
+        const remoteIds = new Set((remote.panels ?? []).map((p) => p.id))
+        for (const p of prevSynced.panels ?? []) {
+          if (!remoteIds.has(p.id)) removeIds.add(p.id)
+        }
+      } catch {
+        // Unparseable marker — skip removal detection for this event.
+      }
+    }
+    const merged = mergeRemoteState(stateRef.current, remote, removeIds)
     const mergedPersisted = serialiseState(merged)
     lastSyncedJsonRef.current = JSON.stringify(mergedPersisted)
-    if (merged !== stateRef.current) hydrateRef.current(mergedPersisted)
+    if (merged !== stateRef.current) hydrateRef.current(mergedPersisted, removeIds)
   }
   const applyRemoteRef = useRef(applyRemote)
   applyRemoteRef.current = applyRemote
