@@ -14,6 +14,7 @@ import {
   VIEWPORT_MARGIN,
   clampPos,
   defaultPanelPos,
+  defaultPanelSize,
 } from './placement'
 import type { PanelInstance, PanelPos, PanelSize } from './types'
 import styles from './Panel.module.css'
@@ -55,7 +56,9 @@ export function Panel({
   const isDesktop = useIsDesktop()
   const titleId = useId()
 
-  const size = panel.size ?? DEFAULT_PANEL_SIZE
+  const size = panel.size ?? (typeof window === 'undefined'
+    ? DEFAULT_PANEL_SIZE
+    : defaultPanelSize(panel.kind, viewport()))
   const pos = panel.pos ?? (typeof window === 'undefined'
     ? { x: 0, y: 0 }
     : defaultPanelPos(panel.side, size, viewport(), indexOnSide))

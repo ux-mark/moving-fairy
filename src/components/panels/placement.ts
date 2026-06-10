@@ -1,7 +1,9 @@
-import type { PanelPos, PanelSide, PanelSize } from './types'
+import type { PanelKind, PanelPos, PanelSide, PanelSize } from './types'
 
 /** Default floating-window geometry (desktop). Mirrors FloatingChatPanel. */
 export const DEFAULT_PANEL_SIZE: PanelSize = { w: 400, h: 560 }
+/** Entity panels (item/box/listing) default wider than the chat window. */
+const ENTITY_PANEL_WIDTH = 480
 export const MIN_PANEL_WIDTH = 320
 export const MIN_PANEL_HEIGHT = 320
 export const VIEWPORT_MARGIN = 16
@@ -28,6 +30,26 @@ export const PANEL_Z_BASE = 110
  */
 export function resolveDockSide(originSide?: PanelSide | undefined): PanelSide {
   return originSide === 'right' ? 'left' : 'right'
+}
+
+/**
+ * Per-kind default size for a panel that has never been resized. Entity
+ * panels (item, box, listing) take the full height available below the nav —
+ * they're form-heavy workspaces, not pop-ups. Chat keeps the compact
+ * floating-window default. Still user-resizable either way.
+ */
+export function defaultPanelSize(
+  kind: PanelKind,
+  viewport: { w: number; h: number }
+): PanelSize {
+  if (kind === 'chat') return DEFAULT_PANEL_SIZE
+  return {
+    w: Math.max(
+      MIN_PANEL_WIDTH,
+      Math.min(ENTITY_PANEL_WIDTH, viewport.w - VIEWPORT_MARGIN * 2)
+    ),
+    h: Math.max(MIN_PANEL_HEIGHT, viewport.h - TOP_GUARD - VIEWPORT_MARGIN),
+  }
 }
 
 /** Which viewport half a trigger element's centre falls in. */
