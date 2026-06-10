@@ -129,6 +129,55 @@ describe('UploadQueue', () => {
     expect(snap.phase).toBe('settled')
   })
 
+  it('retry after a failed item-creation resumes from createItem without re-uploading', async () => {
+    let uploads = 0
+    let creates = 0
+    const queue = new UploadQueue({
+      uploadFile: () => {
+        uploads++
+        return Promise.resolve('item-images/u/1.webp')
+      },
+      createItem: () => {
+        creates++
+        return creates === 1
+          ? Promise.reject(new Error('Failed to create item (500)'))
+          : Promise.resolve()
+      },
+    })
+
+    queue.enqueue(makeFiles(1))
+    await settle()
+    expect(queue.getSnapshot().failedCount).toBe(1)
+
+    queue.retryFailed()
+    await settle()
+
+    expect(uploads).toBe(1) // no orphaned second storage object
+    expect(creates).toBe(2)
+    expect(queue.getSnapshot().doneCount).toBe(1)
+  })
+
+  it('retry after a failed upload still re-runs the upload', async () => {
+    let uploads = 0
+    const queue = new UploadQueue({
+      uploadFile: () => {
+        uploads++
+        return uploads === 1
+          ? Promise.reject(new Error('Upload failed'))
+          : Promise.resolve('item-images/u/1.webp')
+      },
+      createItem: () => Promise.resolve(),
+    })
+
+    queue.enqueue(makeFiles(1))
+    await settle()
+    queue.retryFile(queue.getSnapshot().files[0]!.id)
+    await settle()
+
+    expect(uploads).toBe(2)
+    expect(queue.getSnapshot().doneCount).toBe(1)
+  })
+
   it('counts a file failed when item creation fails after a successful upload', async () => {
     const queue = new UploadQueue({
       uploadFile: () => Promise.resolve('item-images/u/1.webp'),

@@ -16,6 +16,12 @@ export interface QueuedFile {
   file: File
   status: QueuedFileStatus
   error: string | null
+  /**
+   * Storage URL once uploadFile succeeded. A retry after a failed createItem
+   * resumes from that step instead of re-uploading (which would orphan one
+   * storage object per attempt).
+   */
+  uploadedUrl: string | null
 }
 
 export interface UploadQueueSnapshot {
@@ -82,7 +88,13 @@ export class UploadQueue {
     const room = Math.max(0, MAX_BATCH_SIZE - this.files.length)
     const accepted = input.slice(0, room)
     for (const file of accepted) {
-      this.files.push({ id: `upload-${++this.nextId}`, file, status: 'queued', error: null })
+      this.files.push({
+        id: `upload-${++this.nextId}`,
+        file,
+        status: 'queued',
+        error: null,
+        uploadedUrl: null,
+      })
     }
     this.emit()
     this.pump()
@@ -133,9 +145,13 @@ export class UploadQueue {
 
   private async run(item: QueuedFile): Promise<void> {
     try {
-      const url = await this.tasks.uploadFile(item.file)
+      // Resume from the failed step: a file whose upload already succeeded
+      // skips straight to item creation on retry.
+      if (!item.uploadedUrl) {
+        item.uploadedUrl = await this.tasks.uploadFile(item.file)
+      }
       this.setStatus(item, 'creating')
-      await this.tasks.createItem(url)
+      await this.tasks.createItem(item.uploadedUrl)
       this.setStatus(item, 'done')
     } catch (err) {
       item.error = err instanceof Error ? err.message : 'Upload failed'
