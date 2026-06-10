@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { Button } from "@thefairies/design-system/components";
+import { Plus } from "lucide-react";
 
 import { BoxList } from "@/components/boxes/BoxList";
+import { CreateBoxPanel } from "@/components/boxes/CreateBoxPanel";
 import { LightAssessmentWarning } from "@/components/inventory/LightAssessmentWarning";
 import { PackingToast } from "@/components/boxes/PackingToast";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
+import type { DraftKind } from "@/components/boxes/ScanDraftReview";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
 import { BoxStatus, type BoxSize, type BoxType } from "@/lib/constants";
 import { ownerCopy } from "@/lib/copy/owner";
@@ -66,6 +70,7 @@ export function BoxManagement({
   const [boxItems, setBoxItems] = useState(initialBoxItems);
   const [assessments, setAssessments] = useState(initialAssessments);
   const [isCreating, setIsCreating] = useState(false);
+  const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [pendingWarning, setPendingWarning] = useState<PendingWarning | null>(null);
 
   // Sticker scan state
@@ -73,6 +78,7 @@ export function BoxManagement({
   const [scanResults, setScanResults] = useState<Record<string, ScanResult>>({});
   const [flaggedItemsByBox, setFlaggedItemsByBox] = useState<Record<string, FlaggedItem[]>>({});
   const [resolvingItemIds, setResolvingItemIds] = useState<Set<string>>(new Set());
+  const [confirmingDraftBoxes, setConfirmingDraftBoxes] = useState<Set<string>>(new Set());
 
   // Active "packing into" box — the default target for new items.
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
@@ -183,6 +189,7 @@ export function BoxManagement({
         const newBox: Box = json.box ?? json;
         setBoxes((prev) => [...prev, newBox]);
         setBoxItems((prev) => ({ ...prev, [newBox.id]: [] }));
+        setCreatePanelOpen(false);
       } catch (err) {
         console.error("Failed to create box:", err);
       } finally {
@@ -310,10 +317,20 @@ export function BoxManagement({
 
         if (!res.ok) throw new Error("Failed to add item to box");
         const newItem: BoxItem = await res.json();
-        setBoxItems((prev) => ({
-          ...prev,
-          [boxId]: [...(prev[boxId] ?? []), newItem],
-        }));
+        // The server moves an item that was already boxed (e.g. a CARRY item
+        // pulled from a freight box into luggage). Mirror that: drop the
+        // assessment from every box, then add it to the target — so a move
+        // never leaves a stale copy in the source box.
+        setBoxItems((prev) => {
+          const next: Record<string, BoxItem[]> = {};
+          for (const [bid, items] of Object.entries(prev)) {
+            next[bid] = items.filter(
+              (i) => i.item_assessment_id !== itemAssessmentId,
+            );
+          }
+          next[boxId] = [...(next[boxId] ?? []), newItem];
+          return next;
+        });
         return newItem;
       } catch (err) {
         console.error("Failed to add item to box:", err);
@@ -501,6 +518,106 @@ export function BoxManagement({
     setPendingWarning(null);
   }, []);
 
+  // Re-fetch a box's items (drafts included) + their assessments after a scan.
+  const refreshBoxContents = useCallback(async (boxId: string) => {
+    try {
+      const res = await fetch(`/api/boxes/${boxId}/items`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        box_items?: BoxItem[];
+        assessments?: ItemAssessment[];
+      };
+      const newItems = data.box_items ?? [];
+      const newAssessments = data.assessments ?? [];
+      setBoxItems((prev) => ({ ...prev, [boxId]: newItems }));
+      setAssessments((prev) => {
+        const map = new Map(prev.map((a) => [a.id, a]));
+        for (const a of newAssessments) map.set(a.id, a);
+        return Array.from(map.values());
+      });
+    } catch (err) {
+      console.error("[scan] refresh box contents failed:", err);
+    }
+  }, []);
+
+  // Poll the scan record until it completes or fails. The runner writes counts +
+  // draft proposals + flagged items only when done, so the UI shows "reading…"
+  // until then, then flips to the review.
+  const pollScan = useCallback(
+    async (boxId: string, scanId: string) => {
+      const zero = { totalFound: 0, matchedCount: 0, newCount: 0, flaggedCount: 0, illegibleCount: 0 };
+      const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+      const deadline = Date.now() + 90_000;
+
+      while (Date.now() < deadline) {
+        await sleep(1500);
+        let data: {
+          status?: string;
+          total_found?: number;
+          matched_count?: number;
+          new_count?: number;
+          flagged_count?: number;
+          illegible_count?: number;
+          flagged_items?: Array<{ item_assessment_id: string; verdict: string; item_name: string }>;
+        };
+        try {
+          const res = await fetch(`/api/boxes/${boxId}/scan/${scanId}`);
+          if (!res.ok) continue;
+          data = await res.json();
+        } catch {
+          continue;
+        }
+
+        if (data.status === "complete") {
+          const flagged: FlaggedItem[] = (data.flagged_items ?? []).map((f) => ({
+            item_assessment_id: f.item_assessment_id,
+            verdict: f.verdict as FlaggedItem["verdict"],
+            item_name: f.item_name,
+          }));
+          setFlaggedItemsByBox((prev) => ({ ...prev, [boxId]: flagged }));
+          setScanResults((prev) => ({
+            ...prev,
+            [boxId]: {
+              status: "complete",
+              totalFound: data.total_found ?? 0,
+              matchedCount: data.matched_count ?? 0,
+              newCount: data.new_count ?? 0,
+              flaggedCount: data.flagged_count ?? 0,
+              illegibleCount: data.illegible_count ?? 0,
+            },
+          }));
+          await refreshBoxContents(boxId);
+          return;
+        }
+
+        if (data.status === "failed") {
+          setScanResults((prev) => ({
+            ...prev,
+            [boxId]: {
+              status: "error",
+              ...zero,
+              errorMessage:
+                "Aisling couldn't read this label. Try another photo in good light.",
+            },
+          }));
+          return;
+        }
+        // else still processing — keep polling
+      }
+
+      // Timed out — the scan may still finish; tell the user to refresh.
+      setScanResults((prev) => ({
+        ...prev,
+        [boxId]: {
+          status: "error",
+          ...zero,
+          errorMessage: "This is taking longer than expected — refresh to see the result.",
+        },
+      }));
+    },
+    [refreshBoxContents],
+  );
+
   /**
    * Handle sticker photo selection: upload to storage, save to box, trigger scan.
    */
@@ -559,12 +676,16 @@ export function BoxManagement({
         },
       }));
 
-      // Step 4: Fire scan endpoint (fire-and-forget — results come via Realtime or poll)
-      await fetch(`/api/boxes/${boxId}/scan`, {
+      // Step 4: Fire the scan, capture the scan id, then poll until it resolves.
+      const scanRes = await fetch(`/api/boxes/${boxId}/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ manifest_image_url: url }),
       });
+      if (!scanRes.ok) throw new Error("Scan failed to start");
+      const { scan_id: scanId } = (await scanRes.json()) as { scan_id: string };
+
+      await pollScan(boxId, scanId);
     } catch (err) {
       console.error("[scan sticker] Failed:", err);
       setScanResults((prev) => ({
@@ -586,7 +707,92 @@ export function BoxManagement({
         return next;
       });
     }
-  }, []);
+  }, [pollScan]);
+
+  /**
+   * Confirm all draft items in a box — they become part of the official manifest.
+   */
+  const handleConfirmDrafts = useCallback(
+    async (boxId: string) => {
+      const box = boxes.find((b) => b.id === boxId);
+      const draftCount = (boxItems[boxId] ?? []).filter((i) => i.is_draft).length;
+      if (draftCount === 0) return;
+
+      setConfirmingDraftBoxes((prev) => new Set([...prev, boxId]));
+      // Optimistic: flip the drafts to confirmed locally.
+      setBoxItems((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).map((i) => (i.is_draft ? { ...i, is_draft: false } : i)),
+      }));
+
+      try {
+        const res = await fetch(`/api/boxes/${boxId}/confirm-drafts`, { method: "POST" });
+        if (!res.ok) throw new Error("Failed to confirm drafts");
+        // Drafts are committed — clear the scan review banner for this box.
+        setScanResults((prev) => {
+          const next = { ...prev };
+          delete next[boxId];
+          return next;
+        });
+        setToast({
+          message: ownerCopy.packing.draftsConfirmedToast(draftCount, box?.label ?? "box"),
+          variant: "success",
+        });
+      } catch (err) {
+        console.error("[confirm drafts] failed:", err);
+        await refreshBoxContents(boxId); // roll back to server truth
+        setToast({ message: ownerCopy.packing.draftConfirmError, variant: "error" });
+      } finally {
+        setConfirmingDraftBoxes((prev) => {
+          const next = new Set(prev);
+          next.delete(boxId);
+          return next;
+        });
+      }
+    },
+    [boxes, boxItems, refreshBoxContents],
+  );
+
+  /**
+   * Remove a single draft. A 'new' draft (a scan-created item) is deleted
+   * outright; a 'matched' draft (an existing inventory item) is only unlinked.
+   */
+  const handleRemoveDraft = useCallback(
+    async (boxId: string, item: BoxItem, kind: DraftKind) => {
+      const assessmentId = item.item_assessment_id;
+      if (assessmentId) setResolvingItemIds((prev) => new Set([...prev, assessmentId]));
+
+      // Optimistic removal from the box.
+      setBoxItems((prev) => ({
+        ...prev,
+        [boxId]: (prev[boxId] ?? []).filter((i) => i.id !== item.id),
+      }));
+
+      try {
+        if (kind === "new" && assessmentId) {
+          const res = await fetch(`/api/items/${assessmentId}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Failed to delete item");
+          setAssessments((prev) => prev.filter((a) => a.id !== assessmentId));
+        } else {
+          const res = await fetch(`/api/boxes/${boxId}/items/${item.id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Failed to remove item from box");
+        }
+      } catch (err) {
+        console.error("[remove draft] failed:", err);
+        await refreshBoxContents(boxId); // roll back to server truth
+        setToast({ message: ownerCopy.itinerary.saveError, variant: "error" });
+      } finally {
+        if (assessmentId) {
+          setResolvingItemIds((prev) => {
+            const next = new Set(prev);
+            next.delete(assessmentId);
+            return next;
+          });
+        }
+      }
+    },
+    [refreshBoxContents],
+  );
 
   /**
    * Ship a flagged item anyway: override verdict to SHIP and add to box.
@@ -709,6 +915,13 @@ export function BoxManagement({
 
   return (
     <div className={styles.container}>
+      <header className={styles.header}>
+        <h1 className={styles.heading}>Your boxes</h1>
+        <Button variant="primary" size="md" onClick={() => setCreatePanelOpen(true)}>
+          <Plus size={18} aria-hidden="true" /> New box
+        </Button>
+      </header>
+
       {pendingWarning && (
         <LightAssessmentWarning
           warningCard={pendingWarning.warningCard}
@@ -723,7 +936,7 @@ export function BoxManagement({
         boxes={boxes}
         boxItems={boxItems}
         assessments={assessments}
-        onCreateBox={handleCreateBox}
+        onRequestCreate={() => setCreatePanelOpen(true)}
         onAddItem={handleAddItem}
         onRemoveItem={handleRemoveItem}
         onMarkPacked={handleMarkPacked}
@@ -731,18 +944,27 @@ export function BoxManagement({
         onAddManyToBox={handleAddManyToBox}
         onUpdateBox={handleUpdateBox}
         onPackAll={handlePackAll}
-        isCreating={isCreating}
         scanResults={scanResults}
         flaggedItemsByBox={flaggedItemsByBox}
         onScanSticker={handleScanSticker}
         onShipAnyway={handleShipAnyway}
         onRemoveFlaggedItem={handleRemoveFlaggedItem}
+        onConfirmDrafts={handleConfirmDrafts}
+        onRemoveDraft={handleRemoveDraft}
+        confirmingDraftBoxes={confirmingDraftBoxes}
         scanningBoxes={scanningBoxes}
         resolvingItemIds={resolvingItemIds}
         activeBoxId={activeBoxId}
         onSetActiveBox={setActiveBoxId}
         onMarkBiosecurity={handleMarkBiosecurity}
         onRenumberBox={handleRenumberBox}
+      />
+
+      <CreateBoxPanel
+        open={createPanelOpen}
+        onClose={() => setCreatePanelOpen(false)}
+        onSubmit={handleCreateBox}
+        isSubmitting={isCreating}
       />
 
       {toast && (

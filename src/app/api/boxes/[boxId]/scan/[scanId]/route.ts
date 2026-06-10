@@ -49,6 +49,7 @@ export async function GET(
     flagged_count: scan.flagged_count,
     illegible_count: scan.illegible_count,
     flagged_items: scan.flagged_items,
+    proposed_items: scan.proposed_items,
     illegible_entries: scan.illegible_entries,
     created_at: scan.created_at,
     updated_at: scan.updated_at,

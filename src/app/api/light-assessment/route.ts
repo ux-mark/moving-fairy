@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { saveItemAssessment, addItemToBox } from '@/mcp'
 import { getAuthenticatedProfile } from '@/lib/auth'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
-import { useCliMode, callCli } from '@/lib/claude-cli'
+import { isCliMode, callCli } from '@/lib/claude-cli'
 import { Verdict } from '@/lib/constants'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const cliMode = useCliMode()
+    const cliMode = isCliMode()
 
     const apiKey = cliMode
       ? ''

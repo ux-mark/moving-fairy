@@ -773,11 +773,10 @@
 .activeChip {
   display: inline-flex;
   align-items: center;
-  padding: 1px 8px;
-  border-radius: var(--radius-full, 99px);
-  background: var(--color-primary, #16a34a);
-  color: #fff;
-  font-size: 11px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-primary, #16a34a);
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -829,9 +828,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: var(--radius-full, 99px);
-  background: var(--color-warning-light, #fef3c7);
+  background: transparent;
+  border: 1px solid
+    color-mix(in srgb, var(--color-warning-dark, #92400e) 35%, transparent);
   color: var(--color-warning-dark, #92400e);
   font-size: 12px;
   font-weight: 600;

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test } from '@playwright/test'
 
 test('visual audit - landing page', async ({ page }) => {
   await page.goto('/')
@@ -10,7 +10,7 @@ test('visual audit - landing page', async ({ page }) => {
 
 test('visual audit - inventory page', async ({ page }) => {
   // Try test-auth, then follow wherever it goes
-  const response = await page.goto('/api/test-auth')
+  await page.goto('/api/test-auth')
   await page.waitForLoadState('networkidle')
 
   // Take screenshot of whatever page we landed on

@@ -32,9 +32,6 @@ export async function GET() {
 
   const session = await res.json()
 
-  // Use the SSR client to set the session cookie properly
-  const responseCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = []
-
   const response = NextResponse.redirect(
     new URL('/decisions', 'http://localhost:3333')
   )

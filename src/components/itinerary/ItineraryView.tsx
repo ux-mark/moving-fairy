@@ -452,6 +452,48 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
     [saveItemField, setError, liveTotals.currency],
   )
 
+  const handleNameSave = useCallback(
+    async (assessment: ItemAssessment, rawName: string): Promise<boolean> => {
+      const fieldKey = `${assessment.id}:name`
+      const trimmed = rawName.trim()
+      // Name is required — an empty manifest line item is meaningless.
+      if (trimmed === '') {
+        setError(fieldKey, ownerCopy.itinerary.nameRequired)
+        return false
+      }
+      if (trimmed === assessment.item_name) {
+        setError(fieldKey, null)
+        return true
+      }
+      return saveItemField(
+        assessment.id,
+        fieldKey,
+        { item_name: trimmed },
+        { item_name: assessment.item_name },
+      )
+    },
+    [saveItemField, setError],
+  )
+
+  const handleDescriptionSave = useCallback(
+    async (assessment: ItemAssessment, rawDesc: string): Promise<boolean> => {
+      const fieldKey = `${assessment.id}:description`
+      const trimmed = rawDesc.trim()
+      const next = trimmed === '' ? null : trimmed
+      if (next === (assessment.item_description ?? null)) {
+        setError(fieldKey, null)
+        return true
+      }
+      return saveItemField(
+        assessment.id,
+        fieldKey,
+        { item_description: next },
+        { item_description: assessment.item_description },
+      )
+    },
+    [saveItemField, setError],
+  )
+
   const handleBoxMove = useCallback(
     async (fromBox: ManifestBox, boxItemId: string, assessment: ItemAssessment, toBoxId: string) => {
       if (toBoxId === fromBox.box.id) return
@@ -792,6 +834,8 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                             onVerdictChange={handleVerdictChange}
                             onBiosecChange={handleBiosecChange}
                             onValueSave={handleValueSave}
+                            onNameSave={handleNameSave}
+                            onDescriptionSave={handleDescriptionSave}
                             onBoxMove={handleBoxMove}
                             onRemoveFromBox={handleRemoveFromBox}
                           />
@@ -815,6 +859,8 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                               onVerdictChange={handleVerdictChange}
                               onBiosecChange={handleBiosecChange}
                               onValueSave={handleValueSave}
+                              onNameSave={handleNameSave}
+                              onDescriptionSave={handleDescriptionSave}
                               onBoxMove={handleBoxMove}
                               onRemoveFromBox={handleRemoveFromBox}
                             />
@@ -933,6 +979,8 @@ interface ItineraryItemRowProps {
   onVerdictChange: (box: ManifestBox, a: ItemAssessment, next: string, trigger: HTMLElement | null) => void
   onBiosecChange: (a: ItemAssessment, next: string) => void
   onValueSave: (a: ItemAssessment, raw: string, currency: string) => void
+  onNameSave: (a: ItemAssessment, raw: string) => Promise<boolean>
+  onDescriptionSave: (a: ItemAssessment, raw: string) => void
   onBoxMove: (fromBox: ManifestBox, boxItemId: string, a: ItemAssessment, toBoxId: string) => void
   onRemoveFromBox: (boxId: string, boxItemId: string) => void
 }
@@ -951,6 +999,8 @@ function ItineraryItemRow({
   onVerdictChange,
   onBiosecChange,
   onValueSave,
+  onNameSave,
+  onDescriptionSave,
   onBoxMove,
   onRemoveFromBox,
 }: ItineraryItemRowProps) {
@@ -975,6 +1025,31 @@ function ItineraryItemRow({
     setLastServerCurrency(itemCurrency)
     setCurrencyDraft(itemCurrency)
   }
+
+  // Name + description drafts — same re-seed-during-render pattern as value.
+  const serverName = assessment?.item_name ?? ''
+  const [nameDraft, setNameDraft] = useState(serverName)
+  const [lastServerName, setLastServerName] = useState(serverName)
+  if (serverName !== lastServerName) {
+    setLastServerName(serverName)
+    setNameDraft(serverName)
+  }
+
+  const serverDesc = assessment?.item_description ?? ''
+  const [descDraft, setDescDraft] = useState(serverDesc)
+  const [lastServerDesc, setLastServerDesc] = useState(serverDesc)
+  if (serverDesc !== lastServerDesc) {
+    setLastServerDesc(serverDesc)
+    setDescDraft(serverDesc)
+  }
+
+  // When there's no description, collapse to a "+ Add description" button.
+  // Clicking it reveals the textarea (focused via the effect below).
+  const [showDescInput, setShowDescInput] = useState(false)
+  const descInputRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (showDescInput) descInputRef.current?.focus()
+  }, [showDescInput])
 
   // If the row has no assessment (a bare box_item), there's nothing to edit —
   // render the name and a remove action only.
@@ -1001,12 +1076,75 @@ function ItineraryItemRow({
   }
 
   const a = assessment
+  const nameKey = `${a.id}:name`
+  const descKey = `${a.id}:description`
   const verdictKey = `${a.id}:verdict`
   const valueKey = `${a.id}:value`
   const boxKey = `${a.id}:box`
   const biosecKey = `${a.id}:biosec`
   const verdictValue = a.verdict ?? 'SHIP'
   const biosecValue = a.biosecurity_flag ?? 'none'
+
+  const nameField = (
+    <textarea
+      rows={1}
+      className={cn(styles.nameInput, fieldErrors[nameKey] && styles.fieldErrorInput)}
+      value={nameDraft}
+      placeholder={ownerCopy.itinerary.namePlaceholder}
+      aria-label={ownerCopy.itinerary.fieldName(name)}
+      aria-invalid={fieldErrors[nameKey] ? true : undefined}
+      disabled={busyFields.has(nameKey)}
+      onChange={(e) => setNameDraft(e.target.value)}
+      onKeyDown={(e) => {
+        // Names are single-line conceptually — Enter commits (blurs) rather
+        // than inserting a newline. The textarea is only used so long names
+        // wrap instead of truncating.
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
+      onBlur={async () => {
+        const ok = await onNameSave(a, nameDraft)
+        if (!ok) setNameDraft(serverName)
+      }}
+    />
+  )
+
+  const descField = (
+    <textarea
+      ref={descInputRef}
+      rows={1}
+      className={cn(styles.descInput, fieldErrors[descKey] && styles.fieldErrorInput)}
+      value={descDraft}
+      placeholder={ownerCopy.itinerary.descriptionPlaceholder}
+      aria-label={ownerCopy.itinerary.fieldDescription(name)}
+      aria-invalid={fieldErrors[descKey] ? true : undefined}
+      disabled={busyFields.has(descKey)}
+      onChange={(e) => setDescDraft(e.target.value)}
+      onBlur={() => {
+        onDescriptionSave(a, descDraft)
+        // Nothing typed — collapse back to the "+ Add description" button.
+        if (descDraft.trim() === '') setShowDescInput(false)
+      }}
+    />
+  )
+
+  // Show the textarea when a description exists or the owner is adding one;
+  // otherwise a quiet "+ Add description" button keeps the manifest clean.
+  const descControl =
+    serverDesc !== '' || showDescInput ? (
+      descField
+    ) : (
+      <button
+        type="button"
+        className={styles.addDescBtn}
+        onClick={() => setShowDescInput(true)}
+        disabled={busyFields.has(descKey)}
+      >
+        {ownerCopy.itinerary.addDescription}
+      </button>
+    )
 
   const valueField = (
     <div className={styles.valueField}>
@@ -1091,19 +1229,21 @@ function ItineraryItemRow({
   )
 
   const anyError =
-    fieldErrors[verdictKey] || fieldErrors[valueKey] || fieldErrors[boxKey] || fieldErrors[biosecKey]
+    fieldErrors[nameKey] || fieldErrors[descKey] || fieldErrors[verdictKey] ||
+    fieldErrors[valueKey] || fieldErrors[boxKey] || fieldErrors[biosecKey]
 
   if (isDesktop) {
     return (
       <>
         <div role="row" className={styles.itemGridRow}>
-          <span role="cell" className={styles.itemName}>{name}</span>
+          <span role="cell" className={styles.itemName}>{nameField}</span>
           <span role="cell" className={styles.cell}>{verdictField}</span>
           <span role="cell" className={cn(styles.cell, styles.numCol)}>{valueField}</span>
           <span role="cell" className={styles.cell}>{boxField}</span>
           <span role="cell" className={styles.cell}>{biosecField}</span>
           <span role="cell" className={styles.actionsCell}>{removeBtn}</span>
         </div>
+        <div className={styles.descRow}>{descControl}</div>
         {anyError && (
           <div role="alert" className={styles.rowError}>
             {anyError}
@@ -1117,8 +1257,14 @@ function ItineraryItemRow({
   return (
     <div className={styles.itemCard}>
       <div className={styles.cardTopRow}>
-        <span className={styles.itemName}>{name}</span>
+        <span className={styles.itemName}>{nameField}</span>
         {verdictField}
+      </div>
+      <div className={styles.cardField}>
+        {(serverDesc !== '' || showDescInput) && (
+          <span className={styles.cellLabel}>{ownerCopy.itinerary.colDescription}</span>
+        )}
+        {descControl}
       </div>
       <div className={styles.cardField}>
         <span className={styles.cellLabel}>{ownerCopy.itinerary.colValue}</span>

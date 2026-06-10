@@ -168,6 +168,9 @@ export function ItemTile({ item, onClick, onRetry, onDelete, justDecided }: Item
 
       <div className={styles.body}>
         <h3 className={styles.title}>{itemName}</h3>
+        {item.item_description && (
+          <p className={styles.description}>{item.item_description}</p>
+        )}
         {primaryCost && (
           <div className={styles.meta}>
             <span>{showsShip ? 'Ship' : 'Replace'}</span>

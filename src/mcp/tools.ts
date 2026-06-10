@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
 import { BOX_SIZE_CBM, BoxScanStatus, BoxSize, BoxStatus, BoxType, ItemSource, ProcessingStatus, Verdict, computeBoxLabel, roomCode, roomFamily, uniqueRoomCode } from '@/lib/constants'
 import type { Box, BoxItem, BoxScan, ItemAssessment, ItemConversation, ItemConversationMessage, UserProfile } from '@/types/database'
 
@@ -377,6 +377,23 @@ export async function getCostSummary(userProfileId: string): Promise<{
   }
 }
 
+/**
+ * Ids of items that have never been successfully assessed (pending or failed) —
+ * i.e. the inventory items still missing a value. Drives the bulk "value my
+ * inventory" action. Completed items are left alone so a re-value never clobbers
+ * a verdict the owner already confirmed.
+ */
+export async function getUnassessedItemIds(userProfileId: string): Promise<string[]> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('item_assessment')
+    .select('id')
+    .eq('user_profile_id', userProfileId)
+    .in('processing_status', [ProcessingStatus.PENDING, ProcessingStatus.FAILED])
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id)
+}
+
 // ─── Box ───────────────────────────────────────────────────────────────────
 
 /**
@@ -474,17 +491,14 @@ export async function createBox(
 
   const boxNumber = maxNumber + 1
 
-  // Resolve this box's room code. Luggage/carryon are fixed L/C; single_item
-  // has none. Standard reuses the room's existing code or resolves a fresh
-  // collision-free one against the user's other rooms.
+  // Resolve this box's room code. Only standard boxes carry a room-code suffix.
+  // Single-item boxes use a bare warehouse number (WH<nn>); luggage/carryon use
+  // a descriptive name with no warehouse code at all — so all of them have a
+  // null room_code.
   let roomCodeValue: string | null
   switch (boxType) {
     case BoxType.CHECKED_LUGGAGE:
-      roomCodeValue = 'L'
-      break
     case BoxType.CARRYON:
-      roomCodeValue = 'C'
-      break
     case BoxType.SINGLE_ITEM:
       roomCodeValue = null
       break
@@ -522,7 +536,7 @@ export async function createBox(
 
 export async function addItemToBox(
   boxId: string,
-  opts: { itemAssessmentId?: string; itemName?: string },
+  opts: { itemAssessmentId?: string; itemName?: string; isDraft?: boolean },
   userProfileId?: string
 ): Promise<BoxItem> {
   const supabase = getAdminClient()
@@ -580,6 +594,7 @@ export async function addItemToBox(
     quantity: 1,
     from_handwritten_list: false,
     needs_assessment: !fromAssessment,
+    is_draft: opts.isDraft ?? false,
   }
 
   const { data: boxItem, error } = await supabase
@@ -590,6 +605,35 @@ export async function addItemToBox(
 
   if (error || !boxItem) throw new Error(error?.message ?? 'Failed to add item to box')
   return boxItem as BoxItem
+}
+
+/**
+ * The items in a box together with their embedded assessments — one round-trip.
+ * Used to refresh a box's contents on the client after a sticker scan adds
+ * drafts. Includes drafts (is_draft true); callers filter as needed.
+ */
+export async function getBoxItemsDetailed(
+  boxId: string,
+  userProfileId?: string
+): Promise<{ items: BoxItem[]; assessments: ItemAssessment[] }> {
+  const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+
+  const { data, error } = await supabase
+    .from('box_item')
+    .select('*, item_assessment(*)')
+    .eq('box_id', boxId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  type NestedBoxItem = BoxItem & { item_assessment: ItemAssessment | null }
+  const assessments: ItemAssessment[] = []
+  const items = ((data ?? []) as NestedBoxItem[]).map(({ item_assessment, ...bi }) => {
+    if (item_assessment) assessments.push(item_assessment)
+    return bi as BoxItem
+  })
+  return { items, assessments }
 }
 
 export async function removeItemFromBox(
@@ -846,11 +890,8 @@ export async function renameBoxRoom(
       }
       newCode = uniqueRoomCode(trimmed, usedForResolve)
     }
-  } else if (boxType === BoxType.CHECKED_LUGGAGE) {
-    newCode = 'L'
-  } else if (boxType === BoxType.CARRYON) {
-    newCode = 'C'
   } else {
+    // Single-item, checked-luggage and carry-on boxes have no room-code suffix.
     newCode = null
   }
 
@@ -1182,7 +1223,7 @@ export async function createBoxScan(boxId: string): Promise<BoxScan> {
 
 export async function updateBoxScan(
   scanId: string,
-  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items'>>
+  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items' | 'proposed_items'>>
 ): Promise<BoxScan> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
@@ -1206,6 +1247,48 @@ export async function getBoxScan(scanId: string): Promise<BoxScan | null> {
 
   if (error || !data) return null
   return data as BoxScan
+}
+
+/**
+ * Confirm every draft item in a box — flips is_draft to false so the items
+ * become part of the official manifest. Returns the confirmed box_item rows.
+ */
+export async function confirmBoxDrafts(
+  boxId: string,
+  userProfileId?: string
+): Promise<BoxItem[]> {
+  const supabase = getAdminClient()
+  if (userProfileId) await assertBoxOwner(boxId, userProfileId)
+
+  const { data, error } = await supabase
+    .from('box_item')
+    .update({ is_draft: false })
+    .eq('box_id', boxId)
+    .eq('is_draft', true)
+    .select()
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as BoxItem[]
+}
+
+/**
+ * The set of item_assessment ids that are already in some box for this user —
+ * i.e. "packed". Used by the sticker scan to avoid re-proposing items the owner
+ * has already placed (the brief is "scanned but NOT packed").
+ */
+export async function getPackedAssessmentIds(
+  userProfileId: string
+): Promise<Set<string>> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase
+    .from('box_item')
+    .select('item_assessment_id, box!inner(user_profile_id)')
+    .eq('box.user_profile_id', userProfileId)
+    .not('item_assessment_id', 'is', null)
+
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as Array<{ item_assessment_id: string | null }>
+  return new Set(rows.map((r) => r.item_assessment_id).filter((id): id is string => !!id))
 }
 
 export async function getLatestBoxScan(boxId: string): Promise<BoxScan | null> {

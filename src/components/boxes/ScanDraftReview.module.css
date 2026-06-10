@@ -1,0 +1,143 @@
+.wrap {
+  border: 1px dashed var(--color-primary, #16a34a);
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-bg-subtle, #f9fafb);
+  padding: 12px;
+  margin: 8px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.headIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-primary-subtle, #dcfce7);
+  color: var(--color-primary, #16a34a);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 6px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chipNew,
+.chipMatched {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.chipNew {
+  color: var(--color-primary-strong, #15803d);
+  background: var(--color-primary-subtle, #dcfce7);
+}
+
+.chipMatched {
+  color: var(--color-text-muted, #6b7280);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border: 1px solid var(--color-border-default, #e5e7eb);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.editLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-muted, #6b7280);
+  transition: background var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
+}
+
+.editLink:hover {
+  background: var(--color-bg-subtle, #f3f4f6);
+  color: var(--color-text-primary, #111827);
+}
+
+.editLink:focus-visible {
+  outline: 2px solid var(--color-primary, #16a34a);
+  outline-offset: 1px;
+}
+
+.footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media print {
+  /* Drafts are not part of the manifest — never print the review. */
+  .wrap {
+    display: none;
+  }
+}

@@ -19,7 +19,6 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { buildSlug } from '../src/lib/utils'
 import {
   Verdict,
-  ListingStatus,
   ListingVisibility,
   ListingCondition,
   ProcessingStatus,

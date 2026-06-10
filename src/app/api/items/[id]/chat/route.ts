@@ -9,11 +9,11 @@ import {
   updateItemAssessment,
 } from '@/mcp'
 import { composePerItemChatPrompt } from '@/lib/per-item-chat-prompt'
-import { useCliMode, runCliAgentLoop, type ToolDefinition } from '@/lib/claude-cli'
+import { isCliMode, runCliAgentLoop, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { fetchImageAsBase64 } from '@/lib/assess-item'
 import { buildStorageUrl } from '@/lib/storage-url'
-import { writeFile } from 'fs/promises'
+import { writeFile } from 'node:fs/promises'
 import type { UserProfile } from '@/types/database'
 
 // ─── Tool definitions for per-item chat ──────────────────────────────────────
@@ -116,7 +116,7 @@ export async function POST(
   const profile = maybeProfile
 
   // Reject early if no API key is configured (SDK path only — CLI mode injects its own key)
-  if (!useCliMode()) {
+  if (!isCliMode()) {
     const apiKey = getApiKey(profile)
     if (!apiKey) {
       return Response.json(
@@ -182,7 +182,7 @@ export async function POST(
   let imageAttachment: ImageAttachment | null = null
   if (item.image_url) {
     try {
-      if (useCliMode()) {
+      if (isCliMode()) {
         const tmpPath = `/tmp/chat-${itemId}.webp`
         const imgRes = await fetch(buildStorageUrl(item.image_url))
         if (imgRes.ok) {
@@ -273,7 +273,7 @@ export async function POST(
       let fullAssistantText = ''
 
       try {
-        if (useCliMode()) {
+        if (isCliMode()) {
           // CLI path — runCliAgentLoop handles the multi-turn tool-use loop
           console.log(`[per-item-chat] CLI mode: system prompt length=${systemPrompt.length}, messages=${llmMessages.length}, model=${model}`)
           fullAssistantText = await runCliAgentLoop(

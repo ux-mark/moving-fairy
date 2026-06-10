@@ -1,5 +1,4 @@
 import { clsx, type ClassValue } from "clsx"
-import { randomUUID } from "crypto"
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
@@ -20,6 +19,8 @@ export function buildSlug(name: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
   const stem = base.length > 0 ? base : "item"
-  const suffix = randomUUID().replace(/-/g, "").slice(0, 4)
+  // Global Web Crypto — available in the browser and Node 19+, so this module
+  // stays isomorphic (no Node built-in import that would leak into the client).
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 4)
   return `${stem}-${suffix}`
 }

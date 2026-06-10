@@ -53,24 +53,24 @@ describe('computeBoxLabel()', () => {
     expect(computeBoxLabel(BoxType.STANDARD, 'Pantry', 1)).toBe('WH01-P')
   })
 
-  it('generates "WH01-L" for checked_luggage box number 1', () => {
-    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 1)).toBe('WH01-L')
+  it('checked_luggage has no warehouse code — uses the descriptive name', () => {
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Checked Luggage', 1)).toBe('Checked Luggage')
   })
 
-  it('generates "WH03-L" for checked_luggage box number 3', () => {
-    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 3)).toBe('WH03-L')
+  it('checked_luggage prefers itemLabel when provided', () => {
+    expect(computeBoxLabel(BoxType.CHECKED_LUGGAGE, 'Luggage', 3, 'Big suitcase')).toBe('Big suitcase')
   })
 
-  it('generates "WH99-C" for carryon box number 99', () => {
-    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 99)).toBe('WH99-C')
+  it('carryon has no warehouse code — uses the descriptive name', () => {
+    expect(computeBoxLabel(BoxType.CARRYON, 'Carry-on', 99)).toBe('Carry-on')
   })
 
-  it('single_item uses itemLabel when provided', () => {
-    expect(computeBoxLabel(BoxType.SINGLE_ITEM, 'Misc', 1, 'KitchenAid Mixer')).toBe('KitchenAid Mixer')
+  it('single_item gets a bare warehouse package code', () => {
+    expect(computeBoxLabel(BoxType.SINGLE_ITEM, 'KitchenAid Mixer', 1, 'KitchenAid Mixer')).toBe('WH01')
   })
 
-  it('single_item falls back to roomName when no itemLabel', () => {
-    expect(computeBoxLabel(BoxType.SINGLE_ITEM, 'Guitar', 1)).toBe('Guitar')
+  it('single_item code uses the global box number', () => {
+    expect(computeBoxLabel(BoxType.SINGLE_ITEM, 'Guitar', 24)).toBe('WH24')
   })
 })
 

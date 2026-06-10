@@ -63,6 +63,9 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   const [name, setName] = useState(item.item_name || '')
+  // Owner-facing description: quantity, contents, biosecurity detail. Distinct
+  // from `advice_text` (Aisling's reasoning, edited lower down).
+  const [itemDescription, setItemDescription] = useState(item.item_description ?? '')
   // Verdict is now controlled by the drawer's verdict header strip — no
   // local setter needed. We still read it so conditional fields (box,
   // shipment leg) render correctly and the save payload preserves it.
@@ -116,6 +119,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
 
   const hasChanges =
     name !== (item.item_name || '') ||
+    itemDescription !== (item.item_description ?? '') ||
     verdict !== (item.verdict || '') ||
     shipCost !== (item.estimated_ship_cost?.toString() ?? '') ||
     replaceCost !== (item.estimated_replace_cost?.toString() ?? '') ||
@@ -133,6 +137,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     try {
       await onSave({
         item_name: name,
+        item_description: itemDescription.trim() === '' ? null : itemDescription.trim(),
         verdict: verdict ? (verdict as Verdict) : null,
         estimated_ship_cost: shipCost ? parseFloat(shipCost) : null,
         estimated_replace_cost: replaceCost ? parseFloat(replaceCost) : null,
@@ -176,7 +181,7 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     } finally {
       setIsSaving(false)
     }
-  }, [name, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, category, care, careChanged, item.id, onSave, onNavigateBack])
+  }, [name, itemDescription, verdict, shipCost, replaceCost, description, boxId, currentBoxId, targetShipmentId, category, care, careChanged, item.id, onSave, onNavigateBack])
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true)
@@ -218,6 +223,24 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
           placeholder="What is this item?"
           disabled={isSaving}
           autoComplete="off"
+        />
+      </div>
+
+      {/* Description — owner-facing detail: quantity, contents, condition.
+          Especially important for biosecurity items on the inventory list. */}
+      <div className={styles.field}>
+        <label htmlFor={`${id}-item-description`} className={styles.label}>
+          Description
+        </label>
+        <textarea
+          id={`${id}-item-description`}
+          className={styles.textarea}
+          value={itemDescription}
+          onChange={(e) => setItemDescription(e.target.value)}
+          placeholder="Quantity, contents, condition — e.g. “2 oak bowls, treated timber” or “6 books”. Helps with biosecurity and the manifest."
+          rows={3}
+          maxLength={1000}
+          disabled={isSaving}
         />
       </div>
 

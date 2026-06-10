@@ -6,6 +6,25 @@
   gap: var(--space-section, 24px);
 }
 
+/* List controls — Sort on the left, Mark-all-as-packed on the right. A plain
+   row (not sticky): the page scrolls as one, so there are no nested sticky
+   panes fighting each other. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+}
+
+.toolbarStart,
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+}
+
 /* ── Cockpit grid (≥1280px): boxes left, summary + unboxed rail right ──
    Rail appears at 1280+ only so box cards on a 1024px laptop keep the
    full main column. Unified with /items, /decisions, /selling. */
@@ -20,33 +39,41 @@
 }
 
 @media (min-width: 1280px) {
+  /* Two independent scroll panes filling the page height: boxes left (so they
+     stay on screen for drag-and-drop), the longer rail right. grid-template-rows
+     minmax(0,1fr) bounds the single row to the grid height so each column
+     overflows into its own scroll rather than growing the page. */
+  .list {
+    flex: 1;
+    min-height: 0;
+  }
   .cockpit {
     display: grid;
-    /* Rail widened ~33% (320 → 426) so the not-yet-boxed drag source has room
-       to breathe — grip handle, thumbnail, name, verdict on one comfortable row.
-       Gap bumped with it so the wider panel doesn't crowd the box column. */
     grid-template-columns: minmax(0, 1fr) 426px;
+    grid-template-rows: minmax(0, 1fr);
     gap: 32px;
-    align-items: start;
+    flex: 1;
+    min-height: 0;
   }
-  /* Boxes stay on screen: the box column is pinned and scrolls within itself,
-     so the user always sees the boxes while scrolling the longer rail. */
   .cockpitMain {
     display: flex;
     flex-direction: column;
     gap: 16px;
     min-width: 0;
-    position: sticky;
-    top: 16px;
-    align-self: start;
-    max-height: calc(100vh - 32px);
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    /* Room for each pane's scrollbar so cards don't sit flush against it. */
+    padding-right: 4px;
   }
   .cockpitRail {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
   }
 }
 
@@ -185,11 +212,6 @@
   padding: 18px 18px 20px;
 }
 
-.shipAllRow {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .sectionLabel {
   margin-bottom: 8px;
   padding: 0 4px;
@@ -258,33 +280,6 @@
 .emptyCtaWrap {
   max-width: 320px;
   width: 100%;
-}
-
-/* Ghost "New box" link button */
-.newBoxLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 0;
-  min-height: 44px;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--color-primary, #16a34a);
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity 0.15s ease;
-}
-
-.newBoxLink:hover {
-  opacity: 0.8;
-}
-
-.newBoxLink:focus-visible {
-  outline: 2px solid var(--color-primary, #16a34a);
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 /* ============================================================

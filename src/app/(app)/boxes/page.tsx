@@ -26,21 +26,13 @@ export default async function BoxesPage() {
 
   return (
     <AppLayout>
-      <div className={styles.pageContent}>
-        <header className={styles.header}>
-          <div className={styles.headerInner}>
-            <h1 className={styles.pageTitle}>Your boxes</h1>
-          </div>
-        </header>
-
-        <section className={styles.main}>
-          <BoxManagement
-            initialBoxes={boxes}
-            initialBoxItems={boxItems}
-            initialAssessments={relevantAssessments}
-          />
-        </section>
-      </div>
+      <section className={styles.main}>
+        <BoxManagement
+          initialBoxes={boxes}
+          initialBoxItems={boxItems}
+          initialAssessments={relevantAssessments}
+        />
+      </section>
     </AppLayout>
   )
 }

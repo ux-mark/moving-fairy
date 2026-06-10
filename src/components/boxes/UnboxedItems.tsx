@@ -54,6 +54,14 @@ export function UnboxedItems({
     [items],
   );
 
+  // Search filter — narrows the (already alphabetised) list as the user types.
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((i) => i.item_name.toLowerCase().includes(q));
+  }, [sorted, query]);
+
   // Desktop multi-select state.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Mobile one-off "add to another box" target item.
@@ -70,23 +78,33 @@ export function UnboxedItems({
 
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
-  const allSelected = sorted.length > 0 && selected.size === sorted.length;
+  // Selection operates on the currently-visible (filtered) items.
+  const allSelected =
+    filtered.length > 0 && filtered.every((i) => selected.has(i.id));
   const toggleSelectAll = useCallback(() => {
-    setSelected((prev) =>
-      prev.size === sorted.length ? new Set() : new Set(sorted.map((i) => i.id)),
-    );
-  }, [sorted]);
+    setSelected((prev) => {
+      const allShown = filtered.length > 0 && filtered.every((i) => prev.has(i.id));
+      if (allShown) {
+        const next = new Set(prev);
+        for (const i of filtered) next.delete(i.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const i of filtered) next.add(i.id);
+      return next;
+    });
+  }, [filtered]);
 
   const handleAddSelected = useCallback(() => {
     if (!activeBoxId) {
       onRequestPickBox?.();
       return;
     }
-    const ids = sorted.filter((i) => selected.has(i.id)).map((i) => i.id);
+    const ids = filtered.filter((i) => selected.has(i.id)).map((i) => i.id);
     if (ids.length === 0) return;
     onAddManyToBox?.(ids, activeBoxId);
     clearSelection();
-  }, [activeBoxId, onRequestPickBox, sorted, selected, onAddManyToBox, clearSelection]);
+  }, [activeBoxId, onRequestPickBox, filtered, selected, onAddManyToBox, clearSelection]);
 
   // When a drag of the current selection completes, clear it — the items have
   // moved into a box.
@@ -109,52 +127,69 @@ export function UnboxedItems({
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.headingRow}>
-        {mode === "desktop" && (
-          <input
-            type="checkbox"
-            className={styles.selectAllCheckbox}
-            checked={allSelected}
-            onChange={toggleSelectAll}
-            aria-label={ownerCopy.packing.selectAll}
-          />
+      {/* Heading + search + the selection bar pin together at the top of the
+          rail's scroll pane, so search and "Add N" stay reachable while the
+          item list scrolls under them. */}
+      <div className={styles.stickyHead}>
+        <div className={styles.headingRow}>
+          {mode === "desktop" && (
+            <input
+              type="checkbox"
+              className={styles.selectAllCheckbox}
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label={ownerCopy.packing.selectAll}
+            />
+          )}
+          <h3 className={styles.heading}>
+            Not yet boxed{" "}
+            <span className={styles.headingCount}>
+              ({items.length} {items.length === 1 ? "item" : "items"})
+            </span>
+          </h3>
+        </div>
+
+        <input
+          type="search"
+          className={styles.search}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search items…"
+          aria-label="Search not-yet-boxed items"
+        />
+
+        {/* Desktop selection action bar — right-aligned commit surface */}
+        {mode === "desktop" && selectedCount > 0 && (
+          <div className={styles.selectionBar}>
+            <span className={styles.selectionCount}>
+              {ownerCopy.packing.selectedCount(selectedCount)}
+            </span>
+            <div className={styles.selectionActions}>
+              <Button variant="secondary" size="sm" onClick={clearSelection}>
+                {ownerCopy.packing.clearSelection}
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleAddSelected}>
+                {activeBoxId && activeBoxLabel
+                  ? ownerCopy.packing.addNToBox(selectedCount, activeBoxLabel)
+                  : ownerCopy.packing.pickABox}
+              </Button>
+            </div>
+          </div>
         )}
-        <h3 className={styles.heading}>
-          Not yet boxed{" "}
-          <span className={styles.headingCount}>
-            ({items.length} {items.length === 1 ? "item" : "items"})
-          </span>
-        </h3>
       </div>
 
-      {/* Desktop selection action bar — right-aligned commit surface */}
-      {mode === "desktop" && selectedCount > 0 && (
-        <div className={styles.selectionBar}>
-          <span className={styles.selectionCount}>
-            {ownerCopy.packing.selectedCount(selectedCount)}
-          </span>
-          <div className={styles.selectionActions}>
-            <Button variant="secondary" size="sm" onClick={clearSelection}>
-              {ownerCopy.packing.clearSelection}
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleAddSelected}>
-              {activeBoxId && activeBoxLabel
-                ? ownerCopy.packing.addNToBox(selectedCount, activeBoxLabel)
-                : ownerCopy.packing.pickABox}
-            </Button>
-          </div>
-        </div>
-      )}
-
+      {filtered.length === 0 ? (
+        <p className={styles.noMatch}>No items match “{query.trim()}”.</p>
+      ) : (
       <ul className={styles.list}>
-        {sorted.map((item, index) => (
+        {filtered.map((item, index) => (
           <UnboxedItemRow
             key={item.id}
             item={item}
             mode={mode}
             activeBoxId={activeBoxId}
             activeBoxLabel={activeBoxLabel}
-            isLast={index === sorted.length - 1}
+            isLast={index === filtered.length - 1}
             isSelected={selected.has(item.id)}
             selectedIds={selected}
             onToggleSelected={toggleSelected}
@@ -165,6 +200,7 @@ export function UnboxedItems({
           />
         ))}
       </ul>
+      )}
 
       {/* Mobile one-off "add to another box" sheet */}
       {pickerForItem && (

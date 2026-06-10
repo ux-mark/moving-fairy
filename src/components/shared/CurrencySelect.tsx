@@ -83,7 +83,8 @@ export function CurrencySelect({
       if (disabled) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        open ? closeDropdown() : openDropdown();
+        if (open) closeDropdown();
+        else openDropdown();
       } else if (e.key === "ArrowDown" && !open) {
         e.preventDefault();
         openDropdown();

@@ -7,11 +7,11 @@ import {
   Verdict,
 } from '@/lib/constants'
 import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
-import { callCli, useCliMode, type ToolDefinition } from '@/lib/claude-cli'
+import { callCli, isCliMode, type ToolDefinition } from '@/lib/claude-cli'
 import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
 import { buildStorageUrl } from '@/lib/storage-url'
 import type { PlantCare, UserProfile } from '@/types/database'
-import { writeFile, unlink } from 'fs/promises'
+import { writeFile, unlink } from 'node:fs/promises'
 
 // ─── render_assessment_card tool schema ──────────────────────────────────────
 
@@ -57,7 +57,11 @@ const RENDER_ASSESSMENT_CARD_TOOL: ToolDefinition = {
       },
       item_description: {
         type: 'string',
-        description: 'Brief description of the item',
+        description:
+          'A short factual description for the owner\'s inventory and shipping manifest. ' +
+          'Note quantity when more than one (e.g. "6 dinner plates"), the material/contents, ' +
+          'and any biosecurity-relevant detail (wood, plant matter, soil, leather, foodstuffs) ' +
+          'since this feeds the customs/biosecurity declaration. One sentence, no verdict or advice.',
       },
       voltage_compatible: {
         type: 'boolean',
@@ -350,7 +354,7 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
     // CLI mode (dev): uses the `claude` CLI subprocess — no API key needed.
     //   For images: downloads to a temp file, tells the CLI to Read it (vision).
     // SDK mode (prod / FORCE_SDK): calls the Anthropic SDK directly with tool_use.
-    const useSdk = !useCliMode()
+    const useSdk = !isCliMode()
 
     console.log(
       `[assess-item] Assessing item "${item.item_name}" (${itemId}) ` +
@@ -591,5 +595,22 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
         updateErr
       )
     }
+  }
+}
+
+/**
+ * Assess many items, a few at a time, so a "value my inventory" sweep doesn't
+ * fire dozens of LLM calls at once. Fire-and-forget from the API route — each
+ * assessItem updates its own processing_status, which the client picks up via
+ * realtime.
+ */
+export async function assessItemsBatch(
+  ids: string[],
+  profileId: string,
+  concurrency = 4
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += concurrency) {
+    const batch = ids.slice(i, i + concurrency)
+    await Promise.allSettled(batch.map((id) => assessItem(id, profileId)))
   }
 }

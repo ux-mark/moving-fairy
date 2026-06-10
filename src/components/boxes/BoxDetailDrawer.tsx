@@ -3,6 +3,7 @@
 import { Drawer } from '@/components/layout/Drawer'
 import { BoxCard } from '@/components/boxes/BoxCard'
 import type { FlaggedItem, ScanResult } from '@/components/boxes/BoxCard'
+import type { DraftKind } from '@/components/boxes/ScanDraftReview'
 import type { Box, BoxItem, ItemAssessment } from '@/types'
 
 import styles from './BoxDetailDrawer.module.css'
@@ -29,6 +30,9 @@ interface BoxDetailDrawerProps {
   onScanSticker?: (boxId: string, file: File) => void
   onShipAnyway?: (itemId: string, boxId: string) => void
   onRemoveFlaggedItem?: (itemId: string, boxId: string) => void
+  onConfirmDrafts?: (boxId: string) => void
+  onRemoveDraft?: (boxId: string, item: BoxItem, kind: DraftKind) => void
+  isConfirmingDrafts?: boolean
   isScanning?: boolean
   resolvingItemIds?: Set<string>
 }

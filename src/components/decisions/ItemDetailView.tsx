@@ -27,7 +27,8 @@ interface ItemDetailViewProps {
 // Component
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for interface compatibility; confirm flow will be re-added in a follow-up
+// _onConfirm is kept for interface compatibility; the confirm flow will be
+// re-added in a follow-up. The `_` prefix marks it intentionally unused.
 export function ItemDetailView({ item: initialItem, onConfirm: _onConfirm, onRetry, onItemUpdate }: ItemDetailViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
