@@ -25,7 +25,7 @@ interface DecisionsListProps {
   error: string | null
   uploadError?: string | null
   onDismissUploadError?: () => void
-  onUploadPhotos: (files: File[]) => Promise<void>
+  onUploadPhotos: (files: File[]) => void
   onAddByText: (name: string) => void
   onConfirm: (id: string) => void
   onRetry: (id: string) => void

@@ -5,6 +5,7 @@ import { ConfirmDialog } from '@thefairies/design-system/components'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
 import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
+import { useUploadQueue } from '@/components/upload'
 import { useItems } from '@/lib/hooks/useItems'
 
 export default function DecisionsPage() {
@@ -33,37 +34,19 @@ function DecisionsPageContent() {
       })
   }, [])
 
-  const { items, isLoading, error, refresh, addItemByPhoto, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
+  const { items, isLoading, error, refresh, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadingCount, setUploadingCount] = useState(0)
 
-  const handleUploadPhotos = async (files: File[]) => {
-    setUploadError(null)
-    // Show skeleton placeholders immediately
-    setUploadingCount(files.length)
+  // Background upload queue (mounted in the (app) layout): enqueue returns
+  // immediately, uploads continue across navigation, and the progress card
+  // reports failures/retries. Skeletons are driven by the queue's pending
+  // count so they stay correct on return navigation; the created items
+  // arrive in the list via Realtime.
+  const uploadQueue = useUploadQueue()
+  const uploadingCount = uploadQueue.snapshot.pendingCount
 
-    const uploads = files.map(async (file) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
-      if (!uploadRes.ok) throw new Error('Upload failed')
-      const data = await uploadRes.json() as { url?: string }
-      if (!data.url) throw new Error('No URL returned')
-      const item = await addItemByPhoto(data.url)
-      // Reduce skeleton count as each item is created
-      setUploadingCount((prev) => Math.max(0, prev - 1))
-      return item
-    })
-
-    const results = await Promise.allSettled(uploads)
-    // Clear any remaining skeletons
-    setUploadingCount(0)
-    const failures = results.filter((r) => r.status === 'rejected')
-    if (failures.length > 0) {
-      setUploadError(
-        `${failures.length} photo${failures.length > 1 ? 's' : ''} failed to upload. Please try again.`
-      )
-    }
+  const handleUploadPhotos = (files: File[]) => {
+    uploadQueue.enqueue(files)
   }
 
   const handleAddByText = async (name: string) => {

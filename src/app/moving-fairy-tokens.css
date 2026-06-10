@@ -35,6 +35,16 @@
   --verdict-discard: #6b7280;
   --verdict-decide-later: #3b82f6;
 
+  /* Layout chrome — z-index scale (builds on DS tokens):
+     page content (auto)
+     < top nav + bottom nav        --z-sticky-nav (100)
+     < mobile dock (tray strip + upload card) --mf-z-dock (101)
+     < floating panels / sheets    PANEL_Z_BASE 110 + focus counter (placement.ts)
+     < modals                      --z-modal (500)
+     < upload card on desktop / toasts --z-toast (600) */
+  --mf-bottom-nav-height: 56px;
+  --mf-z-dock: calc(var(--z-sticky-nav, 100) + 1);
+
   /* Verdict bg/fg pairs for badges */
   --verdict-ship-bg: #dcfce7;
   --verdict-ship-fg: #166534;

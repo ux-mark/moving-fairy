@@ -54,6 +54,97 @@
   outline: none;
 }
 
+/* ── Top nav slots — desktop gets the full DS Navigation, mobile a
+   brand-only bar (destinations live in the bottom tab bar). ────────── */
+
+.topNavDesktop {
+  display: none;
+}
+
+.topNavMobile {
+  display: block;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .topNavDesktop {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .topNavMobile {
+    display: none;
+  }
+}
+
+/* ── Desktop tray bar — directly under the top bar (UX_STANDARDS § Panels).
+   Only rendered when panels are open. ──────────────────────────────── */
+
+.desktopTrayBar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .desktopTrayBar {
+    display: flex;
+    flex-shrink: 0;
+    padding: var(--space-8, 0.5rem) var(--space-page-gutter, 16px);
+    background: var(--color-bg-card, #ffffff);
+    border-bottom: 1px solid var(--color-border-default, #e5e7eb);
+  }
+}
+
+/* ── Mobile dock — upload card + tray chip strip, pinned directly above
+   the bottom nav. Below floating panels/sheets (PANEL_Z_BASE 110+), above
+   the navs (--z-sticky-nav 100). ───────────────────────────────────── */
+
+.mobileDock {
+  position: fixed;
+  left: var(--space-12, 0.75rem);
+  right: var(--space-12, 0.75rem);
+  bottom: calc(
+    var(--mf-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) +
+      var(--space-8, 0.5rem)
+  );
+  z-index: var(--mf-z-dock, 101);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-8, 0.5rem);
+  pointer-events: none;
+}
+
+.mobileDock > * {
+  pointer-events: auto;
+}
+
+.mobileTrayStrip {
+  justify-content: flex-start;
+}
+
+@media (min-width: 1024px) {
+  .mobileDock {
+    display: none;
+  }
+}
+
+/* ── Desktop upload progress — docked bottom-right, above panels (whose
+   z grows from 110 with focus order) but small and non-blocking. ───── */
+
+.desktopUploadDock {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .desktopUploadDock {
+    display: block;
+    position: fixed;
+    right: var(--space-16, 1rem);
+    bottom: var(--space-16, 1rem);
+    z-index: var(--z-toast, 600);
+  }
+}
+
 /* Body — single-column content area.
    flex-shrink: 0 is NOT set here — .body should grow/shrink to fill remaining
    space after the nav. The nav override above prevents the nav from shrinking,
@@ -73,4 +164,13 @@
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Keep content clear of the fixed bottom tab bar on <1024px. */
+@media (max-width: 1023px) {
+  .main {
+    padding-bottom: calc(
+      var(--mf-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
+    );
+  }
 }

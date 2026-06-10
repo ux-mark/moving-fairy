@@ -12,6 +12,7 @@ import { VerdictPicker } from '@/components/decisions/VerdictPicker'
 import { BatchUploadButton } from '@/components/decisions/BatchUploadButton'
 import { TextAddInput } from '@/components/decisions/TextAddInput'
 import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
+import { useUploadQueue } from '@/components/upload'
 import { Fab } from '@/components/layout/Fab'
 import { ListingStatus, Verdict } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -126,7 +127,6 @@ export function ItemsView({ profileId, initialItems }: Props) {
     isLoading,
     error,
     refresh,
-    addItemByPhoto,
     addItemByText,
     confirmItem,
     retryAssessment,
@@ -204,30 +204,15 @@ export function ItemsView({ profileId, initialItems }: Props) {
   )
 
   // ── Photo / text upload (mirrors DecisionsPage's pattern) ──────────────
+  // Photos go through the background upload queue ((app) layout): enqueue
+  // returns immediately, the progress card reports failures, and Realtime
+  // delivers the created items. uploadError remains for text adds.
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadingCount, setUploadingCount] = useState(0)
+  const uploadQueue = useUploadQueue()
+  const uploadingCount = uploadQueue.snapshot.pendingCount
 
-  const handleUploadPhotos = async (files: File[]) => {
-    setUploadError(null)
-    setUploadingCount(files.length)
-    const uploads = files.map(async (file) => {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      if (!res.ok) throw new Error('upload failed')
-      const data = (await res.json()) as { url?: string }
-      if (!data.url) throw new Error('no url')
-      await addItemByPhoto(data.url)
-      setUploadingCount((c) => Math.max(0, c - 1))
-    })
-    const results = await Promise.allSettled(uploads)
-    setUploadingCount(0)
-    const failures = results.filter((r) => r.status === 'rejected').length
-    if (failures > 0) {
-      setUploadError(
-        `${failures} photo${failures === 1 ? '' : 's'} failed to upload. Try again.`,
-      )
-    }
+  const handleUploadPhotos = (files: File[]) => {
+    uploadQueue.enqueue(files)
   }
 
   const handleAddByText = async (name: string) => {

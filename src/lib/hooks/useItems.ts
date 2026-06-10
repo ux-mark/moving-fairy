@@ -9,7 +9,6 @@ interface UseItemsReturn {
   isLoading: boolean
   error: string | null
   refresh: () => Promise<void>
-  addItemByPhoto: (imageUrl: string) => Promise<ItemAssessment>
   addItemByText: (itemName: string) => Promise<ItemAssessment>
   confirmItem: (id: string) => Promise<void>
   retryAssessment: (id: string) => Promise<void>
@@ -134,31 +133,9 @@ export function useItems(profileId?: string): UseItemsReturn {
     return () => clearInterval(id)
   }, [items, runRecoveryCheck])
 
-  const addItemByPhoto = useCallback(async (imageUrl: string): Promise<ItemAssessment> => {
-    // Create the item record
-    const createRes = await fetch('/api/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_url: imageUrl, source: 'photo_upload' }),
-    })
-    if (!createRes.ok) {
-      throw new Error(`Failed to create item (${createRes.status})`)
-    }
-    const data = (await createRes.json()) as { item?: ItemAssessment } | ItemAssessment
-    const item: ItemAssessment = 'item' in data && data.item ? data.item : (data as ItemAssessment)
-
-    // Optimistically add the pending item (append — oldest first order)
-    setItems((prev) => {
-      const exists = prev.some((i) => i.id === item.id)
-      if (exists) return prev
-      return [...prev, item]
-    })
-
-    // Trigger background assessment (fire and forget — Realtime will update when done)
-    fetch(`/api/assess/${item.id}`, { method: 'POST' }).catch(console.error)
-
-    return item
-  }, [setItems])
+  // Photo-sourced items are created by the background upload queue
+  // (src/components/upload) so creation works away from this page;
+  // Realtime INSERT events land them in this list.
 
   const addItemByText = useCallback(async (itemName: string): Promise<ItemAssessment> => {
     const createRes = await fetch('/api/items', {
@@ -237,7 +214,6 @@ export function useItems(profileId?: string): UseItemsReturn {
     isLoading,
     error,
     refresh,
-    addItemByPhoto,
     addItemByText,
     confirmItem,
     retryAssessment,
