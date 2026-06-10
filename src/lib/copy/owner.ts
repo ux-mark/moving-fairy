@@ -205,6 +205,7 @@ export const ownerCopy = {
       sale: 'Sale defaults',
       shipments: 'Shipments',
       biosecurity: 'Biosecurity',
+      aisling: 'Aisling',
       account: 'Account',
     },
     sale: {
@@ -234,6 +235,13 @@ export const ownerCopy = {
       label: 'Label',
       targetDate: 'Target date',
       status: 'Status',
+    },
+    aisling: {
+      guidanceLabel: 'Guidance for Aisling',
+      guidanceHelper:
+        'Standing instructions she applies to every assessment — e.g. ‘Only recommend Carry for documents, medicines and the laptop.’',
+      saveButton: 'Save guidance',
+      saveToast: 'Guidance saved.',
     },
     biosecurity: {
       destinationLabel: 'Destination preset',

@@ -64,6 +64,7 @@ export default async function SettingsPage() {
         shipments={shipments}
         arrivalCountry={profile.arrival_country}
         onwardCountry={profile.onward_country}
+        assessmentGuidance={profile.assessment_guidance}
       />
     </AppLayout>
   )

@@ -15,12 +15,13 @@ import type { Country } from '@/lib/constants'
 
 import styles from './SettingsView.module.css'
 
-type TabKey = 'sale' | 'shipments' | 'biosecurity' | 'account'
+type TabKey = 'sale' | 'shipments' | 'biosecurity' | 'aisling' | 'account'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'sale',        label: ownerCopy.settings.tabs.sale },
   { key: 'shipments',   label: ownerCopy.settings.tabs.shipments },
   { key: 'biosecurity', label: ownerCopy.settings.tabs.biosecurity },
+  { key: 'aisling',     label: ownerCopy.settings.tabs.aisling },
   { key: 'account',     label: ownerCopy.settings.tabs.account },
 ]
 
@@ -49,6 +50,15 @@ const HELP_BY_TAB: Record<TabKey, { title: string; body: React.ReactNode }> = {
       <>
         <p>The arrival country drives every biosec call Aisling makes. Wooden items, plants, food and outdoor gear get flagged here long before customs sees them.</p>
         <p>For onward moves to Australia, expect the strictest rules — declare-on-arrival is the default.</p>
+      </>
+    ),
+  },
+  aisling: {
+    title: 'About guidance',
+    body: (
+      <>
+        <p>Aisling reads this guidance before every assessment and every chat reply. Use it for standing preferences — what to carry, what to let go of, how cautious to be.</p>
+        <p>Guidance shapes her recommendations, but safety and biosecurity rules always come first.</p>
       </>
     ),
   },
@@ -85,6 +95,7 @@ interface Props {
   shipments: Shipment[]
   arrivalCountry: Country
   onwardCountry: Country | null
+  assessmentGuidance: string | null
 }
 
 export function SettingsView({
@@ -93,6 +104,7 @@ export function SettingsView({
   shipments,
   arrivalCountry,
   onwardCountry,
+  assessmentGuidance,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('sale')
@@ -170,6 +182,22 @@ export function SettingsView({
               settings={settings}
               arrivalCountry={arrivalCountry}
               onwardCountry={onwardCountry}
+            />
+          )}
+
+          {activeTab === 'aisling' && (
+            <AislingTab
+              guidance={assessmentGuidance}
+              onSaved={() => {
+                setToast(ownerCopy.settings.aisling.saveToast)
+                setError(null)
+                router.refresh()
+                window.setTimeout(() => setToast(null), 2500)
+              }}
+              onError={(msg) => {
+                setError(msg)
+                setToast(null)
+              }}
             />
           )}
 
@@ -617,6 +645,76 @@ function BiosecurityTab({
       </dl>
       <p className={styles.muted}>{ownerCopy.settings.biosecurity.destinationHelper}</p>
       <p className={styles.muted}>{ownerCopy.settings.biosecurity.info}</p>
+    </section>
+  )
+}
+
+// ── Aisling ───────────────────────────────────────────────────────────────
+
+const GUIDANCE_MAX_LENGTH = 500
+
+function AislingTab({
+  guidance,
+  onSaved,
+  onError,
+}: {
+  guidance: string | null
+  onSaved: () => void
+  onError: (msg: string) => void
+}) {
+  const [value, setValue] = useState(guidance ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessment_guidance: value.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(data.error ?? 'Failed to save guidance')
+      }
+      onSaved()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Failed to save guidance')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className={styles.panel} aria-labelledby="aisling-heading">
+      <h2 id="aisling-heading" className={styles.panelHeading}>
+        {ownerCopy.settings.tabs.aisling}
+      </h2>
+
+      <div className={styles.formGrid}>
+        <Field
+          label={ownerCopy.settings.aisling.guidanceLabel}
+          htmlFor="set-aisling-guidance"
+          hint={ownerCopy.settings.aisling.guidanceHelper}
+        >
+          <textarea
+            id="set-aisling-guidance"
+            className={styles.textarea}
+            rows={4}
+            maxLength={GUIDANCE_MAX_LENGTH}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </Field>
+      </div>
+
+      <div className={styles.actions}>
+        <Button variant="primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : ownerCopy.settings.aisling.saveButton}
+        </Button>
+      </div>
     </section>
   )
 }
