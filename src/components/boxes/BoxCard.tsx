@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/storage-url";
 import { ownerCopy } from "@/lib/copy/owner";
 import { useDroppableBox } from "@/components/boxes/PackingDrag";
+import { useItemLinkClick } from "@/components/panels";
 
 import styles from "./BoxCard.module.css";
 
@@ -854,6 +855,8 @@ function MergedItemList({
   resolvingItemIds?: Set<string> | undefined;
   prefersReducedMotion: boolean | null;
 }) {
+  // Plain click opens the item panel in place; modifier clicks still navigate.
+  const itemLinkClick = useItemLinkClick();
   // Build a unified list of entries sorted alphabetically by name
   const entries = useMemo(() => {
     const merged: MergedListEntry[] = [];
@@ -1003,7 +1006,7 @@ function MergedItemList({
                 <Link
                   href={`/decisions/${assessment.id}?from=boxes`}
                   className={styles.itemLink}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={itemLinkClick(assessment.id)}
                 >
                   {innerContent}
                 </Link>

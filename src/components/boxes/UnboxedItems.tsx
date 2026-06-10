@@ -8,6 +8,7 @@ import { Button } from "@thefairies/design-system/components";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
 import { PackingBoxSheet } from "@/components/boxes/PackingBoxSheet";
+import { useItemLinkClick } from "@/components/panels";
 import {
   usePackingDrag,
   useIsDragging,
@@ -249,6 +250,8 @@ function UnboxedItemRow({
   onDropComplete: (ids: string[]) => void;
 }) {
   const itemImageUrl = item.image_url ? proxyImageUrl(item.image_url) : undefined;
+  // Plain click opens the item panel in place; modifier clicks still navigate.
+  const itemLinkClick = useItemLinkClick();
 
   // Pointer-drag wiring (desktop only). The whole selected set lifts together
   // when the grabbed row is part of the selection; otherwise just this row.
@@ -375,7 +378,11 @@ function UnboxedItemRow({
             <Package size={16} />
           </div>
         )}
-        <Link href={`/decisions/${item.id}?from=boxes`} className={styles.itemLink}>
+        <Link
+          href={`/decisions/${item.id}?from=boxes`}
+          className={styles.itemLink}
+          onClick={itemLinkClick(item.id)}
+        >
           <span className={styles.itemName}>{item.item_name}</span>
         </Link>
         <VerdictBadge verdict={item.verdict} />

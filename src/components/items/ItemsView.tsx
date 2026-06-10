@@ -6,13 +6,12 @@ import { ConfirmDialog, Button } from '@thefairies/design-system/components'
 import { Camera, Sparkles } from 'lucide-react'
 
 import { useItems } from '@/lib/hooks/useItems'
-import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
 import { ItemCard } from '@/components/decisions/ItemCard'
 import { ItemTile } from '@/components/items/ItemTile'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
 import { BatchUploadButton } from '@/components/decisions/BatchUploadButton'
 import { TextAddInput } from '@/components/decisions/TextAddInput'
-import { ItemDetailDrawer } from '@/components/items/ItemDetailDrawer'
+import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
 import { Fab } from '@/components/layout/Fab'
 import { ListingStatus, Verdict } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -118,8 +117,8 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeFilters = parseFilters(searchParams.get('status'))
-  const isDesktop = useIsDesktop()
-  const selectedItemId = searchParams.get('item')
+  // `?item=<id>` opens the item panel; the URL stays in sync as it opens/closes.
+  const itemPanel = usePanelDeepLink('item', 'item')
 
   // Live items via the existing hook for realtime updates.
   const {
@@ -474,13 +473,7 @@ export function ItemsView({ profileId, initialItems }: Props) {
               {(() => {
                 const isDecided = bucketFor(ctx) !== 'needs-decision'
                 const handleCardClick = (id: string) => {
-                  if (isDesktop) {
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.set('item', id)
-                    router.replace(`/items?${params.toString()}`, { scroll: false })
-                  } else {
-                    router.push(`/decisions/${id}`)
-                  }
+                  itemPanel.open(id, originSideFromTrigger())
                 }
                 return isDecided ? (
                   <ItemTile
@@ -605,7 +598,7 @@ export function ItemsView({ profileId, initialItems }: Props) {
                     <button
                       type="button"
                       className={styles.railNextItem}
-                      onClick={() => router.push(`/decisions/${ctx.item.id}`)}
+                      onClick={() => itemPanel.open(ctx.item.id, originSideFromTrigger())}
                     >
                       <span className={styles.railNextName}>
                         {ctx.item.item_name || 'Unnamed item'}
@@ -621,32 +614,6 @@ export function ItemsView({ profileId, initialItems }: Props) {
       )}
 
       </div>{/* /.cockpit */}
-
-      {/* In-place item detail drawer (desktop only). Closes via Escape, the
-          backdrop, or removing ?item from the URL. The full route still works
-          for direct links / refreshes — links surface via the drawer header. */}
-      {isDesktop && selectedItemId && (() => {
-        const selectedItem = items.find((i) => i.id === selectedItemId)
-        if (!selectedItem) return null
-        return (
-          <ItemDetailDrawer
-            item={selectedItem}
-            onRetry={async (id) => { await retryAssessment(id) }}
-            onItemUpdate={(updated) => {
-              refresh()
-              // Any save inside the drawer (verdict, confirm, reassessment)
-              // triggers the just-decided beat on the matching tile.
-              markJustDecided(updated.id)
-            }}
-            onClose={() => {
-              const params = new URLSearchParams(searchParams.toString())
-              params.delete('item')
-              const qs = params.toString()
-              router.replace(qs ? `/items?${qs}` : '/items', { scroll: false })
-            }}
-          />
-        )
-      })()}
 
       {hasAnyItems && (
         <Fab

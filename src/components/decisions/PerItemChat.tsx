@@ -32,7 +32,7 @@ interface PerItemChatProps {
   backLabel?: string | undefined
   /** When true, suppress the chat's own header chrome (title, collapse,
    *  maximise icons). Use this when embedding the chat inside a host that
-   *  already provides a title bar (e.g. the ItemDetailDrawer tabs). */
+   *  already provides a title bar (e.g. the chat panel). */
   hideHeader?: boolean
 }
 
@@ -342,7 +342,7 @@ export function PerItemChat({
         </div>
       )}
 
-      {/* Header — hidden when the host (e.g. ItemDetailDrawer) already
+      {/* Header — hidden when the host (e.g. the chat panel) already
           provides a title bar and tab strip. */}
       {!hideHeader && (
         <div className={styles.header}>

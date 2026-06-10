@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   ConfirmDialog,
   EmptyState,
@@ -12,7 +11,7 @@ import { BoxCard } from "@/components/boxes/BoxCard";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { DraftKind } from "@/components/boxes/ScanDraftReview";
 import { PackingDragProvider } from "@/components/boxes/PackingDrag";
-import { BoxDetailDrawer } from "@/components/boxes/BoxDetailDrawer";
+import { originSideFromTrigger, usePanelDeepLink } from "@/components/panels";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { PackAllButton } from "@/components/boxes/PackAllButton";
 import { useIsDesktop } from "@/lib/hooks/useIsDesktop";
@@ -95,28 +94,12 @@ export function BoxList({
   onRenumberBox,
 }: BoxListProps) {
   const [sortBy, setSortBy] = useState<BoxSortKey>("number");
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
-  const selectedBoxId = searchParams.get("box");
 
-  // When a card is "opened" on desktop, route to ?box=ID instead. Mobile
-  // falls back to the BoxCard's internal inline-expand state.
-  const openBoxDrawer = useCallback(
-    (boxId: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("box", boxId);
-      router.replace(`/boxes?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const closeBoxDrawer = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("box");
-    const qs = params.toString();
-    router.replace(qs ? `/boxes?${qs}` : "/boxes", { scroll: false });
-  }, [router, searchParams]);
+  // `?box=<id>` opens the box panel (deep link); opening a card on desktop
+  // writes the param so the URL stays shareable. Mobile keeps the BoxCard's
+  // internal inline-expand state.
+  const boxPanel = usePanelDeepLink("box", "box");
 
   // Build assessment lookup map
   const assessmentMap = useMemo(() => {
@@ -198,13 +181,6 @@ export function BoxList({
         (a) => a.verdict === Verdict.CARRY && itemBoxIdMap.get(a.id) !== boxId,
       ),
     [assessments, itemBoxIdMap],
-  );
-
-  const isTravelling = useCallback(
-    (box: Box) =>
-      box.box_type === BoxType.CARRYON ||
-      box.box_type === BoxType.CHECKED_LUGGAGE,
-    [],
   );
 
   // Boxes available for adding items to (packing status only)
@@ -423,7 +399,7 @@ export function BoxList({
                     ? {
                         open: false,
                         onOpenChange: (next: boolean) => {
-                          if (next) openBoxDrawer(box.id);
+                          if (next) boxPanel.open(box.id, originSideFromTrigger());
                         },
                       }
                     : {})}
@@ -466,7 +442,7 @@ export function BoxList({
                     ? {
                         open: false,
                         onOpenChange: (next: boolean) => {
-                          if (next) openBoxDrawer(box.id);
+                          if (next) boxPanel.open(box.id, originSideFromTrigger());
                         },
                       }
                     : {})}
@@ -550,39 +526,6 @@ export function BoxList({
         </aside>
         </div>{/* /.cockpit */}
       </div>
-
-      {isDesktop && selectedBoxId && (() => {
-        const box = boxes.find((b) => b.id === selectedBoxId);
-        if (!box) return null;
-        return (
-          <BoxDetailDrawer
-            box={box}
-            items={boxItems[box.id] ?? []}
-            assessments={assessmentMap}
-            unboxedItems={isTravelling(box) ? carryCandidatesFor(box.id) : unboxedItems}
-            onClose={closeBoxDrawer}
-            {...(onAddItem ? { onAddItem } : {})}
-            {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
-            {...(onRemoveItem ? { onRemoveItem } : {})}
-            {...(onMarkPacked ? { onMarkPacked } : {})}
-            {...(onUpdateBox ? { onUpdateBox } : {})}
-            biosecItemCount={biosecItemCountByBox[box.id] ?? 0}
-            {...(onMarkBiosecurity ? { onMarkBiosecurity } : {})}
-            {...(onRenumberBox ? { onRenumber: handleRenumberRequest } : {})}
-            {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
-            flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
-            {...(onScanSticker ? { onScanSticker } : {})}
-            {...(onShipAnyway ? { onShipAnyway } : {})}
-            {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
-            {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
-            {...(onRemoveDraft ? { onRemoveDraft } : {})}
-            isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
-            isScanning={scanningBoxes?.has(box.id) ?? false}
-            {...(resolvingItemIds ? { resolvingItemIds } : {})}
-          />
-        );
-      })()}
-
 
       {pendingRenumber && (
         <ConfirmDialog

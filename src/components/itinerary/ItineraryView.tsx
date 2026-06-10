@@ -22,6 +22,7 @@ import { EditablePill, type EditablePillOption } from '@/components/shared/Edita
 import { CurrencySelect } from '@/components/shared/CurrencySelect'
 import { BoxSelect, type BoxSelectOption } from '@/components/boxes/BoxSelect'
 import { BoxPill } from '@/components/boxes/BoxPill'
+import { originSideFromTrigger, usePanels } from '@/components/panels'
 import { BiosecurityFlag, Verdict } from '@/lib/constants'
 import type { Manifest, ManifestBox } from '@/mcp/shipments'
 import type { ItemAssessment, Shipment } from '@/types/database'
@@ -83,6 +84,9 @@ interface DowngradeConfirm {
 
 export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) {
   const router = useRouter()
+  // Box / item click-throughs open panels in place — no navigation, the
+  // manifest (and its inline editing) stays where the user left it.
+  const { openPanel } = usePanels()
   const isDesktop = useIsDesktop()
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
@@ -807,7 +811,13 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                         <button
                           type="button"
                           className={styles.openBoxLink}
-                          onClick={() => router.push(`/boxes?box=${b.box.id}`)}
+                          onClick={() =>
+                            openPanel({
+                              kind: 'box',
+                              entityId: b.box.id,
+                              originSide: originSideFromTrigger(),
+                            })
+                          }
                           aria-label={ownerCopy.itinerary.openBoxInPacking(b.box.label)}
                         >
                           <ExternalLink size={14} aria-hidden="true" />
@@ -925,13 +935,13 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                             <button
                               type="button"
                               className={styles.biosecItemLink}
-                              onClick={() => {
-                                if (isDesktop) {
-                                  router.push(`/items?item=${row.itemId}`)
-                                } else {
-                                  router.push(`/decisions/${row.itemId}`)
-                                }
-                              }}
+                              onClick={() =>
+                                openPanel({
+                                  kind: 'item',
+                                  entityId: row.itemId,
+                                  originSide: originSideFromTrigger(),
+                                })
+                              }
                               aria-label={`Open ${row.itemName}`}
                             >
                               {row.itemName}

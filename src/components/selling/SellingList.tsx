@@ -1,19 +1,18 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Tag, Plus } from 'lucide-react'
 import { Button, EmptyState } from '@thefairies/design-system/components'
 
 import { proxyImageUrl } from '@/lib/storage-url'
-import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
 import { useListings } from '@/lib/hooks/useListings'
 import { ListingStatus } from '@/lib/constants'
 import { ownerCopy } from '@/lib/copy/owner'
 import { Fab } from '@/components/layout/Fab'
-import { SellingDetailDrawer } from '@/components/selling/SellingDetailDrawer'
+import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
 import type { OwnerListing } from '@/mcp/listings'
 import { cn } from '@/lib/utils'
 
@@ -59,27 +58,11 @@ export function SellingList({ listings: initialListings, eligibleCount }: Props)
   // fresh (mark-sold on another device, panel edits, etc.).
   const { rows: listings, refresh } = useListings({ initial: initialListings })
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const isDesktop = useIsDesktop()
-  const selectedListingId = searchParams.get('listing')
+  // `?listing=<id>` opens the listing panel (deep link); the panel keeps the
+  // URL in sync so links stay shareable and Back closes it.
+  const listingPanel = usePanelDeepLink('listing', 'listing')
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [markingSold, setMarkingSold] = useState<string | null>(null)
-
-  const openListingDrawer = useCallback(
-    (id: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('listing', id)
-      router.replace(`/selling?${params.toString()}`, { scroll: false })
-    },
-    [router, searchParams],
-  )
-
-  const closeListingDrawer = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('listing')
-    const qs = params.toString()
-    router.replace(qs ? `/selling?${qs}` : '/selling', { scroll: false })
-  }, [router, searchParams])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return listings
@@ -203,9 +186,9 @@ export function SellingList({ listings: initialListings, eligibleCount }: Props)
                   className={styles.cardLink}
                   onClick={(e) => {
                     // Preserve right-click and cmd/ctrl-click for "open in new tab".
-                    if (isDesktop && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                    if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
                       e.preventDefault()
-                      openListingDrawer(listing.id)
+                      listingPanel.open(listing.id, originSideFromTrigger())
                     }
                   }}
                 >
@@ -348,13 +331,7 @@ export function SellingList({ listings: initialListings, eligibleCount }: Props)
                     <button
                       type="button"
                       className={styles.railNextItem}
-                      onClick={() => {
-                        if (isDesktop) {
-                          openListingDrawer(l.id)
-                        } else {
-                          router.push(`/selling/${l.id}`)
-                        }
-                      }}
+                      onClick={() => listingPanel.open(l.id, originSideFromTrigger())}
                     >
                       <span className={styles.railNextName}>
                         {l.item_assessment?.item_name ?? 'Untitled'}
@@ -369,13 +346,6 @@ export function SellingList({ listings: initialListings, eligibleCount }: Props)
       </aside>
 
       </div>{/* /.cockpit */}
-
-      {isDesktop && selectedListingId && (
-        <SellingDetailDrawer
-          listingId={selectedListingId}
-          onClose={closeListingDrawer}
-        />
-      )}
 
       <Fab
         label="New listing"

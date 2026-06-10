@@ -7,6 +7,7 @@ import { Button } from "@thefairies/design-system/components";
 import { Pencil, Sparkles, X as XIcon } from "lucide-react";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
+import { useItemLinkClick } from "@/components/panels";
 import { ItemSource } from "@/lib/constants";
 import { ownerCopy } from "@/lib/copy/owner";
 import type { Box, BoxItem, ItemAssessment } from "@/types";
@@ -56,6 +57,8 @@ export function ScanDraftReview({
   resolvingItemIds,
   prefersReducedMotion,
 }: ScanDraftReviewProps) {
+  // Plain click opens the item panel in place; modifier clicks still navigate.
+  const itemLinkClick = useItemLinkClick();
   const rows = useMemo(
     () =>
       drafts.map((item) => {
@@ -132,7 +135,7 @@ export function ScanDraftReview({
                       href={`/decisions/${assessment.id}?from=boxes`}
                       className={styles.editLink}
                       aria-label={ownerCopy.packing.editDraft(name)}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={itemLinkClick(assessment.id)}
                     >
                       <Pencil size={15} aria-hidden />
                     </Link>
