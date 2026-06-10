@@ -6,9 +6,14 @@
  * one specific item.
  */
 
-import { composeAislingCore } from '@/lib/aisling-prompt'
+import {
+  composeAislingCore,
+  composeInventoryDigest,
+  currencyForCountry,
+} from '@/lib/aisling-prompt'
+import { ProcessingStatus } from '@/lib/constants'
 import type { UserProfile, ItemAssessment } from '@/types/database'
-import { getCostSummary } from '@/mcp'
+import { getItemAssessments } from '@/mcp'
 
 /**
  * Compose a system prompt for per-item chat.
@@ -17,7 +22,8 @@ import { getCostSummary } from '@/mcp'
  * - Aisling core (persona + profile + country modules + knowledge) — without
  *   the background-assessment-mode suffix
  * - The specific item's assessment context
- * - Brief inventory summary (verdict counts, total estimated shipping)
+ * - Brief inventory summary — the shared digest (verdict counts + current
+ *   CARRY items) plus estimated cost totals
  * - Per-item chat mode instructions
  */
 export async function composePerItemChatPrompt(
@@ -32,10 +38,13 @@ export async function composePerItemChatPrompt(
   // 2. This item's assessment context
   sections.push(composeItemContext(item))
 
-  // 3. Brief inventory summary (non-fatal if unavailable)
+  // 3. Brief inventory summary (non-fatal if unavailable). Same digest
+  // builder as background assessment — one source of truth for the text.
   try {
-    const costSummary = await getCostSummary(profile.id)
-    sections.push(composeInventorySummary(costSummary))
+    const items = await getItemAssessments(profile.id)
+    const others = items.filter((i) => i.id !== item.id)
+    const digest = composeInventoryDigest(others, composeCostLines(others, profile))
+    if (digest) sections.push(digest)
   } catch {
     // Non-fatal — continue without summary
   }
@@ -72,35 +81,26 @@ function composeItemContext(item: ItemAssessment): string {
   return lines.join('\n')
 }
 
-function composeInventorySummary(costSummary: {
-  counts_by_verdict: Record<string, number>
-  total_estimated_ship_cost: number
-  ship_currency: string
-  total_estimated_replace_cost?: number
-  replace_currency?: string
-}): string {
-  const counts = costSummary.counts_by_verdict
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+/**
+ * Cost-total lines appended to the shared inventory digest in chat mode only —
+ * chat conversations lean on economics ("you've already got X to ship").
+ */
+function composeCostLines(items: ItemAssessment[], profile: UserProfile): string[] {
+  const completed = items.filter((i) => i.processing_status === ProcessingStatus.COMPLETED)
+  let totalShip = 0
+  let totalReplace = 0
+  for (const i of completed) {
+    if (i.estimated_ship_cost) totalShip += i.estimated_ship_cost
+    if (i.estimated_replace_cost) totalReplace += i.estimated_replace_cost
+  }
 
   const lines = [
-    '---',
-    '',
-    '## Inventory Summary',
-    '',
-    `Total items assessed: ${total}`,
+    `Estimated total shipping: ${currencyForCountry(profile.departure_country, 'USD')} ${totalShip}`,
   ]
-
-  for (const [verdict, count] of Object.entries(counts)) {
-    lines.push(`- ${verdict}: ${count}`)
+  if (totalReplace > 0) {
+    lines.push(`Estimated total replacement: ${currencyForCountry(profile.arrival_country, 'EUR')} ${totalReplace}`)
   }
-
-  lines.push(`- Estimated total shipping: ${costSummary.ship_currency} ${costSummary.total_estimated_ship_cost}`)
-  if (costSummary.total_estimated_replace_cost && costSummary.replace_currency) {
-    lines.push(`- Estimated total replacement: ${costSummary.replace_currency} ${costSummary.total_estimated_replace_cost}`)
-  }
-  lines.push('')
-
-  return lines.join('\n')
+  return lines
 }
 
 const PER_ITEM_CHAT_INSTRUCTION = `

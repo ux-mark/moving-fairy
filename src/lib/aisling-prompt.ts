@@ -9,6 +9,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { ProcessingStatus, Verdict } from '@/lib/constants'
 import type { UserProfile } from '@/types/database'
 
 // ─── Static file cache (loaded once at module init) ──────────────────────────
@@ -87,6 +88,11 @@ export function composeAislingCore(profile: UserProfile): string {
   // 2. User profile context
   sections.push(composeProfileSection(profile))
 
+  // 2b. Owner's standing guidance, when set
+  if (profile.assessment_guidance?.trim()) {
+    sections.push(composeGuidanceSection(profile.assessment_guidance))
+  }
+
   // 3. Country modules for the user's route
   const departureKey = `${profile.departure_country}-departure`
   if (COUNTRY_MODULES[departureKey]) {
@@ -117,16 +123,119 @@ export function composeAislingCore(profile: UserProfile): string {
  *
  * Includes:
  * - Aisling's persona (MCP tools and Session Start sections stripped)
- * - Serialised user profile
+ * - Serialised user profile (+ owner's standing guidance when set)
  * - Relevant country modules based on the user's route
  * - Voltage and shipping economics knowledge
+ * - Compact inventory digest, when the caller provides one (see
+ *   composeInventoryDigest — the caller fetches, this composer stays pure)
  * - Focused background-mode instruction (last — highest priority)
  */
-export function composeAssessmentPrompt(profile: UserProfile): string {
-  return [composeAislingCore(profile), BACKGROUND_ASSESSMENT_INSTRUCTION].join('\n\n')
+export function composeAssessmentPrompt(
+  profile: UserProfile,
+  inventoryDigest?: string | null
+): string {
+  const sections = [composeAislingCore(profile)]
+  if (inventoryDigest) sections.push(inventoryDigest)
+  sections.push(BACKGROUND_ASSESSMENT_INSTRUCTION)
+  return sections.join('\n\n')
+}
+
+// ─── Inventory digest ─────────────────────────────────────────────────────────
+
+/** Minimal item shape the digest needs — satisfied by ItemAssessment. */
+export interface InventoryDigestItem {
+  item_name: string
+  verdict: string | null
+  processing_status: string
+}
+
+const DIGEST_VERDICT_ORDER: Verdict[] = [
+  Verdict.SHIP,
+  Verdict.SELL,
+  Verdict.DONATE,
+  Verdict.DISCARD,
+  Verdict.CARRY,
+  Verdict.REVISIT,
+]
+
+const DIGEST_CARRY_NAME_CAP = 24
+
+/**
+ * Compact inventory digest (~100–150 tokens) shared by background assessment
+ * and per-item chat. Counts completed items per verdict and names the current
+ * CARRY items — CARRY is the scarce resource, so it alone gets name-level
+ * context. Returns null when there are no completed items yet.
+ *
+ * Pure: takes already-fetched items, never queries.
+ */
+export function composeInventoryDigest(
+  items: InventoryDigestItem[],
+  extraLines: string[] = []
+): string | null {
+  const completed = items.filter(
+    (i) => i.processing_status === ProcessingStatus.COMPLETED && i.verdict
+  )
+  if (completed.length === 0) return null
+
+  const counts: Record<string, number> = {}
+  for (const i of completed) {
+    counts[i.verdict as string] = (counts[i.verdict as string] ?? 0) + 1
+  }
+  const countLine = DIGEST_VERDICT_ORDER.map((v) => `${v} ${counts[v] ?? 0}`).join(' · ')
+
+  const carryNames = completed
+    .filter((i) => i.verdict === Verdict.CARRY)
+    .map((i) => i.item_name)
+  const shown = carryNames.slice(0, DIGEST_CARRY_NAME_CAP)
+  const overflow = carryNames.length - shown.length
+  const carryLine =
+    carryNames.length === 0
+      ? 'Nothing is assigned to CARRY yet.'
+      : `Already in CARRY (hand luggage): ${shown.join(', ')}${overflow > 0 ? ` (+${overflow} more)` : ''}.`
+
+  return [
+    '---',
+    '',
+    '## Inventory Summary',
+    '',
+    `${completed.length} item${completed.length === 1 ? '' : 's'} assessed so far: ${countLine}`,
+    carryLine,
+    ...extraLines,
+    '',
+    'CARRY space is scarce — weigh every CARRY recommendation against what is already in the luggage above, and recommend CARRY only when this item genuinely belongs alongside those.',
+  ].join('\n')
+}
+
+// ─── Owner's standing guidance ────────────────────────────────────────────────
+
+function composeGuidanceSection(guidance: string): string {
+  return [
+    '---',
+    '',
+    "## Owner's Standing Guidance",
+    '',
+    'The owner set these standing instructions. Apply them to every assessment and recommendation:',
+    '',
+    guidance.trim(),
+    '',
+    'This guidance shapes your verdicts and preferences, but it never overrides safety, legal, or biosecurity facts — those always win.',
+  ].join('\n')
 }
 
 // ─── Profile serialisation ────────────────────────────────────────────────────
+
+// Dual currency context — shipping costs in departure currency, replacement
+// costs in arrival currency.
+const CURRENCY_BY_COUNTRY: Record<string, string> = {
+  US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
+}
+
+export function currencyForCountry(
+  country: string | null | undefined,
+  fallback: string
+): string {
+  return (country && CURRENCY_BY_COUNTRY[country.toUpperCase()]) || fallback
+}
 
 function composeProfileSection(profile: UserProfile): string {
   const lines: string[] = [
@@ -154,12 +263,8 @@ function composeProfileSection(profile: UserProfile): string {
     lines.push(`- **Transformer**: not owned`)
   }
 
-  // Dual currency context — shipping costs in departure currency, replacement costs in arrival currency
-  const currencyMap: Record<string, string> = {
-    US: 'USD', IE: 'EUR', AU: 'AUD', CA: 'CAD', UK: 'GBP', NZ: 'NZD',
-  }
-  const shipCurrency = currencyMap[profile.departure_country] ?? 'USD'
-  const replaceCurrency = currencyMap[profile.arrival_country] ?? 'EUR'
+  const shipCurrency = currencyForCountry(profile.departure_country, 'USD')
+  const replaceCurrency = currencyForCountry(profile.arrival_country, 'EUR')
   lines.push(`- **Shipping cost currency**: ${shipCurrency} (estimated_ship_cost_usd field — costs to ship FROM ${profile.departure_country})`)
   lines.push(`- **Replacement cost currency**: ${replaceCurrency} (estimated_replace_cost_usd field — cost to replace AT ${profile.arrival_country})`)
 

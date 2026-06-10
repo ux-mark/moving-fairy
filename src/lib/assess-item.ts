@@ -6,7 +6,7 @@ import {
   ProcessingStatus,
   Verdict,
 } from '@/lib/constants'
-import { composeAssessmentPrompt } from '@/lib/aisling-prompt'
+import { composeAssessmentPrompt, composeInventoryDigest } from '@/lib/aisling-prompt'
 import { buildToolInstructions, callCli } from '@/lib/claude-cli'
 import {
   getAislingModel,
@@ -149,8 +149,12 @@ export async function assessItem(itemId: string, profileId: string): Promise<voi
         ` | has_image: ${hasImage} | mode: ${useSdk ? 'sdk' : 'cli'}`
     )
 
-    // 4. Compose system prompt via Aisling's prompt module
-    const systemPrompt = composeAssessmentPrompt(profile)
+    // 4. Compose system prompt via Aisling's prompt module. The inventory
+    // digest reuses the items already fetched in step 1 (no extra round-trip)
+    // and excludes the item under assessment so a re-assessment never sees
+    // its own previous verdict.
+    const inventoryDigest = composeInventoryDigest(items.filter((a) => a.id !== itemId))
+    const systemPrompt = composeAssessmentPrompt(profile, inventoryDigest)
 
     let card: AssessmentCardInput | null = null
 
