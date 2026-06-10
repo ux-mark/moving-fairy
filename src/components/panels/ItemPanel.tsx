@@ -100,10 +100,17 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
   const { rows: shipments } = useShipments()
 
   const handleSave = useCallback(async (updates: Partial<ItemAssessment>) => {
+    // Saving details on a failed assessment graduates the item to a normal,
+    // manually-described one — the user shouldn't be stuck behind a failed
+    // AI run when they can just type the contents themselves.
+    const body =
+      item?.processing_status === ProcessingStatus.FAILED
+        ? { ...updates, processing_status: ProcessingStatus.COMPLETED }
+        : updates
     const res = await fetch(`/api/items/${entityId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
+      body: JSON.stringify(body),
     })
     if (!res.ok) {
       const data = await res.json() as { error?: string }
@@ -114,7 +121,7 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
     // Give the chat sub-panel a beat to re-fetch — a save injects a system
     // message and Aisling may amend her reasoning.
     setTimeout(() => emitChatRefresh(entityId), 300)
-  }, [entityId, refresh])
+  }, [entityId, item?.processing_status, refresh])
 
   const handleDeleted = useCallback(() => {
     closePanel(panelId('chat', entityId))
@@ -245,8 +252,9 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
         </div>
       ) : null}
 
-      {/* Verdict header strip — the headline of this panel. */}
-      {isCompleted && (
+      {/* Verdict header strip — the headline of this panel. Also shown for
+          failed assessments so the user can set a verdict manually. */}
+      {(isCompleted || isFailed) && (
         <section className={styles.verdictStrip} aria-label="Aisling's recommendation">
           {verdict ? (
             <>
@@ -355,15 +363,6 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
               ? 'Queued for assessment — usually just a moment.'
               : 'The verdict will appear here when ready.'}
           </p>
-        </div>
-      )}
-
-      {isFailed && (
-        <div className={styles.processingState} role="alert">
-          <p className={styles.processingTitle}>Assessment failed</p>
-          <p className={styles.processingText}>
-            Try the assessment again, or delete the item.
-          </p>
           {deleteError && (
             <p className={styles.deleteError} role="alert">{deleteError}</p>
           )}
@@ -380,6 +379,21 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
             >
               {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {isFailed && (
+        <div className={styles.processingState} role="alert">
+          <p className={styles.processingTitle}>Aisling couldn&apos;t assess this item</p>
+          <p className={styles.processingText}>
+            Try the assessment again, or add the details yourself below —
+            saving makes it a normal item.
+          </p>
+          {deleteError && (
+            <p className={styles.deleteError} role="alert">{deleteError}</p>
+          )}
+          <div className={styles.failedActions}>
             <Button
               variant="secondary"
               size="md"
@@ -392,12 +406,15 @@ export function ItemPanel({ panelId: id, entityId }: PanelContentProps) {
         </div>
       )}
 
+      {/* Edit form for failed assessments — manual entry path. The form's own
+          delete replaces the old failed-state delete button. */}
+
       {/* Edit panel: name, costs, box, shipment, category, plant care, save,
           delete (with its own destructive confirm). Not keyed — the form
           re-seeds itself from props only while the user has no unsaved
           changes, so a background realtime update never destroys typed
           input mid-edit. */}
-      {isCompleted && (
+      {(isCompleted || isFailed) && (
         <ItemEditPanel
           item={item}
           shipCurrency={shipCurrency}
