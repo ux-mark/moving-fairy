@@ -15,15 +15,24 @@ import {
   addItemToBox,
   getBox,
   getItemAssessments,
-  getPackedAssessmentIds,
+  getPackedAssessmentBoxes,
   getUserProfile,
   saveItemAssessment,
   updateBoxScan,
 } from '@/mcp'
 import { BoxScanStatus, ItemSource, ProcessingStatus, Verdict } from '@/lib/constants'
-import { callCli, isCliMode } from '@/lib/claude-cli'
-import { getAnthropicApiKey, refreshAnthropicApiKey } from '@/lib/dev-api-key'
-import { buildStorageUrl } from '@/lib/storage-url'
+import { callCli } from '@/lib/claude-cli'
+import {
+  createAnthropicClient,
+  getAislingModel,
+  getExecutorMode,
+  withSdk401Retry,
+} from '@/lib/ai/executor'
+import {
+  cleanupTmpImage,
+  downloadImageToTmp,
+  fetchImageAsBase64,
+} from '@/lib/ai/image-attachment'
 import { assessItem } from '@/lib/assess-item'
 import type { BoxScanProposedItem, ItemAssessment, UserProfile } from '@/types/database'
 
@@ -117,15 +126,6 @@ function fuzzyMatch(
   return candidates[0]!
 }
 
-// ─── API key resolution ───────────────────────────────────────────────────────
-
-function getApiKey(profile: UserProfile): string {
-  if (process.env.NODE_ENV === 'development') {
-    return getAnthropicApiKey()
-  }
-  return profile.anthropic_api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
-}
-
 // ─── LLM call: extract item names from sticker image ─────────────────────────
 
 const STICKER_SYSTEM_PROMPT =
@@ -136,30 +136,14 @@ const STICKER_SYSTEM_PROMPT =
   'Be generous with interpretation — handwriting is messy. ' +
   'Return ONLY the JSON array, no other text.'
 
-async function fetchImageAsBase64(
-  imageUrl: string
-): Promise<{ base64: string; mediaType: string }> {
-  const resolvedUrl = buildStorageUrl(imageUrl)
-  const response = await fetch(resolvedUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sticker image: ${response.status} ${response.statusText}`)
-  }
-  const contentType = response.headers.get('content-type') ?? 'image/webp'
-  const mediaType = contentType.startsWith('image/') ? contentType : 'image/webp'
-  const buffer = await response.arrayBuffer()
-  const base64 = Buffer.from(buffer).toString('base64')
-  return { base64, mediaType }
-}
-
 async function extractItemNamesViaSdk(
   imageUrl: string,
   profile: UserProfile
 ): Promise<Array<string | null>> {
-  const Anthropic = (await import('@anthropic-ai/sdk')).default
-  const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+  const model = getAislingModel()
 
-  async function attempt(apiKey: string): Promise<Array<string | null>> {
-    const client = new Anthropic({ apiKey })
+  return withSdk401Retry(profile, 'scan-sticker', async (apiKey) => {
+    const client = await createAnthropicClient(apiKey)
     const { base64, mediaType } = await fetchImageAsBase64(imageUrl)
 
     const response = await client.messages.create({
@@ -189,39 +173,18 @@ async function extractItemNamesViaSdk(
       }
     }
     return []
-  }
-
-  const apiKey = getApiKey(profile)
-  try {
-    return await attempt(apiKey)
-  } catch (err) {
-    if (
-      process.env.NODE_ENV === 'development' &&
-      err instanceof Error &&
-      err.message.includes('401')
-    ) {
-      console.warn('[scan-sticker] Got 401 from SDK — refreshing API key and retrying')
-      const freshKey = refreshAnthropicApiKey()
-      return await attempt(freshKey)
-    }
-    throw err
-  }
+  })
 }
 
 async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | null>> {
-  const model = process.env.MODEL_AISLING ?? 'claude-sonnet-4-6'
+  const model = getAislingModel()
 
   // Download the sticker image to a temp file so the CLI's Read tool can view it.
   // imageUrl may be a relative storage path — resolve it to a full URL first
   // (mirrors the SDK path's fetchImageAsBase64).
   const tmpPath = `/tmp/sticker-scan-${Date.now()}.webp`
   try {
-    const imgResponse = await fetch(buildStorageUrl(imageUrl))
-    if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`)
-    const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
-    const { writeFile } = await import('node:fs/promises')
-    await writeFile(tmpPath, imgBuffer)
-    console.log(`[scan-sticker] Saved sticker image to ${tmpPath} (${imgBuffer.length} bytes)`)
+    await downloadImageToTmp(imageUrl, tmpPath, 'scan-sticker')
   } catch (imgErr) {
     console.warn('[scan-sticker] Could not download sticker image:', imgErr)
     throw imgErr
@@ -241,8 +204,7 @@ async function extractItemNamesViaCli(imageUrl: string): Promise<Array<string | 
     })
     return parseItemNamesJson(responseText)
   } finally {
-    const { unlink } = await import('node:fs/promises')
-    unlink(tmpPath).catch(() => {})
+    cleanupTmpImage(tmpPath)
   }
 }
 
@@ -315,7 +277,7 @@ export async function runStickerScan(
     console.log(`[scan-sticker] Running scan ${scanId} for box ${boxId}`)
 
     // 4. Call the LLM to extract item names from the sticker image
-    const useSdk = !isCliMode()
+    const useSdk = getExecutorMode() === 'sdk'
     console.log(`[scan-sticker] Extracting items from sticker | mode: ${useSdk ? 'sdk' : 'cli'}`)
 
     let extractedNames: Array<string | null>
@@ -339,18 +301,21 @@ export async function runStickerScan(
       return
     }
 
-    // 5. Fetch existing items (for fuzzy matching) plus the set already packed
-    //    into some box. The brief is "scanned but NOT packed", so we only
-    //    propose matches the owner hasn't already placed.
+    // 5. Fetch existing items (for fuzzy matching) plus where each packed item
+    //    sits. Matches already in THIS box are silently counted; a match packed
+    //    in a DIFFERENT box is surfaced as a possible duplicate (a handwritten
+    //    "Blender" when one sits in WH03 often means a second blender).
     const existingItems = await getItemAssessments(profileId)
-    const packedIds = await getPackedAssessmentIds(profileId)
+    const packedBoxes = await getPackedAssessmentBoxes(profileId)
 
-    // 6. Resolve each extracted entry into matched / new / flagged. Nothing is
-    //    silently committed: matched-unpacked and new items go into the box as
-    //    DRAFTS for the owner to confirm; non-ship matches are flagged.
+    // 6. Resolve each extracted entry into matched / new / flagged / duplicate.
+    //    Nothing is silently committed: matched-unpacked and new items go into
+    //    the box as DRAFTS for the owner to confirm; non-ship matches are
+    //    flagged; packed-elsewhere matches await an add-or-skip decision.
     let matchedCount = 0
     let newCount = 0
     let flaggedCount = 0
+    let duplicateCount = 0
     const illegibleEntries: string[] = []
     const flaggedItems: Array<{ item_assessment_id: string; verdict: string; item_name: string }> = []
     const proposedItems: BoxScanProposedItem[] = []
@@ -404,10 +369,31 @@ export async function runStickerScan(
           `[scan-sticker] "${itemName}" → matched "${item.item_name}" (${quality}, verdict: ${verdict ?? 'pending'})`
         )
 
-        // Already placed (this box or another) — recognised, but the owner has
-        // packed it; nothing to propose.
-        if (handledIds.has(item.id) || packedIds.has(item.id)) {
+        // Already in THIS box (or placed during this scan) — genuinely here;
+        // count silently.
+        if (handledIds.has(item.id)) {
           matchedCount++
+          continue
+        }
+
+        // Packed in a DIFFERENT box — possibly a second physical item. Don't
+        // create anything yet; record a duplicate proposal so the owner can
+        // decide in the review (add as another, or skip).
+        const packedIn = packedBoxes.get(item.id)
+        if (packedIn) {
+          proposedItems.push({
+            box_item_id: null,
+            item_assessment_id: item.id,
+            item_name: item.item_name,
+            kind: 'duplicate',
+            verdict,
+            extracted_text: itemName,
+            packed_box_id: packedIn.box_id,
+            packed_box_label: packedIn.box_label,
+          })
+          duplicateCount++
+          // Same entry twice on one label → one proposal; repeats count as matched.
+          handledIds.add(item.id)
           continue
         }
 
@@ -458,6 +444,7 @@ export async function runStickerScan(
       matched_count: matchedCount,
       new_count: newCount,
       flagged_count: flaggedCount,
+      duplicate_count: duplicateCount,
       illegible_count: illegibleCount,
       illegible_entries: illegibleEntries,
       flagged_items: flaggedItems,
@@ -466,7 +453,7 @@ export async function runStickerScan(
 
     console.log(
       `[scan-sticker] Scan ${scanId} complete: total=${extractedNames.length}, ` +
-        `matched=${matchedCount}, new=${newCount}, flagged=${flaggedCount}, illegible=${illegibleCount}`
+        `matched=${matchedCount}, new=${newCount}, flagged=${flaggedCount}, duplicate=${duplicateCount}, illegible=${illegibleCount}`
     )
   } catch (err) {
     console.error(`[scan-sticker] Unexpected error for box ${boxId}:`, err)

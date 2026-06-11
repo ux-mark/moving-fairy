@@ -90,9 +90,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+  /* Mobile-only control — 44px touch target (UX_STANDARDS Responsive design). */
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   background: none;
   border: none;
   border-radius: var(--radius-sm, 6px);

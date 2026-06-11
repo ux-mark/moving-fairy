@@ -1,13 +1,13 @@
 'use client'
 
-import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useState, useRef } from 'react'
 import { ConfirmDialog } from '@thefairies/design-system/components'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DecisionsList } from '@/components/decisions/DecisionsList'
-import { ItemDetailDrawer } from '@/components/items/ItemDetailDrawer'
+import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
+import { useUploadQueue } from '@/components/upload'
 import { useItems } from '@/lib/hooks/useItems'
-import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { useProfileId } from '@/lib/hooks/useProfileId'
 
 export default function DecisionsPage() {
   // useSearchParams() requires a Suspense boundary to statically prerender.
@@ -19,54 +19,26 @@ export default function DecisionsPage() {
 }
 
 function DecisionsPageContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const isDesktop = useIsDesktop()
-  const selectedItemId = searchParams.get('item')
-  const [profileId, setProfileId] = useState<string | undefined>(undefined)
+  // `?item=<id>` opens the item panel (deep link); the panel keeps the URL in
+  // sync so links stay shareable and Back closes it.
+  const itemPanel = usePanelDeepLink('item', 'item')
+  // Shared, cached profile id — panels make the same call, so every useItems
+  // instance lands on one filtered realtime channel.
+  const profileId = useProfileId()
 
-  useEffect(() => {
-    fetch('/api/profile')
-      .then((r) => r.json())
-      .then((data: { profile?: { id?: string } }) => {
-        if (data.profile?.id) setProfileId(data.profile.id)
-      })
-      .catch(() => {
-        // Profile fetch failure is non-fatal — subscription will be unfiltered
-      })
-  }, [])
-
-  const { items, isLoading, error, refresh, addItemByPhoto, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
+  const { items, isLoading, error, refresh, addItemByText, confirmItem, retryAssessment, updateVerdict } = useItems(profileId)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadingCount, setUploadingCount] = useState(0)
 
-  const handleUploadPhotos = async (files: File[]) => {
-    setUploadError(null)
-    // Show skeleton placeholders immediately
-    setUploadingCount(files.length)
+  // Background upload queue (mounted in the (app) layout): enqueue returns
+  // immediately, uploads continue across navigation, and the progress card
+  // reports failures/retries. Skeletons are driven by the queue's pending
+  // count so they stay correct on return navigation; the created items
+  // arrive in the list via Realtime.
+  const uploadQueue = useUploadQueue()
+  const uploadingCount = uploadQueue.snapshot.pendingCount
 
-    const uploads = files.map(async (file) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
-      if (!uploadRes.ok) throw new Error('Upload failed')
-      const data = await uploadRes.json() as { url?: string }
-      if (!data.url) throw new Error('No URL returned')
-      const item = await addItemByPhoto(data.url)
-      // Reduce skeleton count as each item is created
-      setUploadingCount((prev) => Math.max(0, prev - 1))
-      return item
-    })
-
-    const results = await Promise.allSettled(uploads)
-    // Clear any remaining skeletons
-    setUploadingCount(0)
-    const failures = results.filter((r) => r.status === 'rejected')
-    if (failures.length > 0) {
-      setUploadError(
-        `${failures.length} photo${failures.length > 1 ? 's' : ''} failed to upload. Please try again.`
-      )
-    }
+  const handleUploadPhotos = (files: File[]) => {
+    uploadQueue.enqueue(files)
   }
 
   const handleAddByText = async (name: string) => {
@@ -78,17 +50,25 @@ function DecisionsPageContent() {
     }
   }
 
-  const handleConfirm = (id: string) => {
+  // Stable callbacks — the memoised ItemCard/ItemTile rows only re-render
+  // when their own item row changes.
+  const handleConfirm = useCallback((id: string) => {
     confirmItem(id).catch(console.error)
-  }
+  }, [confirmItem])
 
-  const handleRetry = (id: string) => {
+  const handleRetry = useCallback((id: string) => {
     retryAssessment(id).catch(console.error)
-  }
+  }, [retryAssessment])
 
-  const handleVerdictChange = async (id: string, verdict: string) => {
+  const handleVerdictChange = useCallback(async (id: string, verdict: string) => {
     await updateVerdict(id, verdict)
-  }
+  }, [updateVerdict])
+
+  const openItemPanel = itemPanel.open
+  const handleItemClick = useCallback(
+    (id: string) => openItemPanel(id, originSideFromTrigger()),
+    [openItemPanel]
+  )
 
   // Delete-from-list flow for items that can't be opened (pending/processing/failed)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -101,17 +81,10 @@ function DecisionsPageContent() {
     : undefined
   const deleteItemName = itemBeingDeleted?.item_name || 'this item'
 
-  const handleRequestDelete = (id: string) => {
+  const handleRequestDelete = useCallback((id: string) => {
     setDeleteError(null)
     setPendingDeleteId(id)
-  }
-
-  const closeDrawer = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('item')
-    const qs = params.toString()
-    router.replace(qs ? `/decisions?${qs}` : '/decisions', { scroll: false })
-  }, [router, searchParams])
+  }, [])
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
@@ -145,36 +118,11 @@ function DecisionsPageContent() {
         onConfirm={handleConfirm}
         onRetry={handleRetry}
         onRefresh={refresh}
-        onItemClick={(id) => {
-          if (isDesktop) {
-            const params = new URLSearchParams(searchParams.toString())
-            params.set('item', id)
-            router.replace(`/decisions?${params.toString()}`, { scroll: false })
-          } else {
-            router.push(`/decisions/${id}`)
-          }
-        }}
+        onItemClick={handleItemClick}
         onVerdictChange={handleVerdictChange}
         onDelete={handleRequestDelete}
         uploadingCount={uploadingCount}
       />
-      {isDesktop && selectedItemId && (() => {
-        const selected = items.find((i) => i.id === selectedItemId)
-        if (!selected) return null
-        return (
-          <ItemDetailDrawer
-            item={selected}
-            onRetry={async (id) => { await retryAssessment(id) }}
-            onItemUpdate={() => {
-              refresh()
-              // The just-decided beat lives inside DecisionsList — refresh
-              // alone will cause the matching tile to re-render and the
-              // verdict colour change is enough of a signal here.
-            }}
-            onClose={closeDrawer}
-          />
-        )
-      })()}
 
       <ConfirmDialog
         isOpen={pendingDeleteId !== null}

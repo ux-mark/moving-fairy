@@ -23,7 +23,6 @@ export function StickerThumbnail({
   onExpand,
   isLoading = false,
 }: StickerThumbnailProps) {
-  const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   const proxiedUrl = imageUrl
@@ -42,15 +41,18 @@ export function StickerThumbnail({
     [onExpand]
   );
 
-  const handleLoad = useCallback(() => {
-    setImgLoaded(true);
-    setImgError(false);
-  }, []);
-
   const handleError = useCallback(() => {
     setImgError(true);
-    setImgLoaded(true);
   }, []);
+
+  // Cached-but-broken images can fire their error before React attaches the
+  // listener; the ref callback catches that case at mount.
+  const imgRef = useCallback(
+    (el: HTMLImageElement | null) => {
+      if (el?.complete && el.naturalWidth === 0) handleError();
+    },
+    [handleError]
+  );
 
   if (isLoading) {
     return (
@@ -75,11 +77,11 @@ export function StickerThumbnail({
     );
   }
 
+  // The image is always visible — browsers paint it progressively as it
+  // arrives. Gating visibility on a JS load event left the photo permanently
+  // hidden whenever that event was missed.
   return (
     <div className={styles.wrap}>
-      {!imgLoaded && (
-        <Skeleton className={cn(styles.skeleton)} />
-      )}
       <div
         role="button"
         tabIndex={0}
@@ -87,15 +89,14 @@ export function StickerThumbnail({
         onKeyDown={handleKeyDown}
         className={styles.imageButton}
         aria-label={`View sticker photo for ${boxLabel}. Tap to enlarge.`}
-        style={{ display: imgLoaded ? "block" : "none" }}
       >
         <Image
+          ref={imgRef}
           src={proxiedUrl}
           alt={`Box sticker for ${boxLabel}`}
           width={1200}
           height={900}
           className={styles.image}
-          onLoad={handleLoad}
           onError={handleError}
           unoptimized
         />

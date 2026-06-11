@@ -4,12 +4,13 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@thefairies/design-system/components";
-import { Pencil, Sparkles, X as XIcon } from "lucide-react";
+import { Copy, Pencil, Sparkles, X as XIcon } from "lucide-react";
 
 import { VerdictBadge } from "@/components/chat/VerdictBadge";
+import { useItemLinkClick } from "@/components/panels";
 import { ItemSource } from "@/lib/constants";
 import { ownerCopy } from "@/lib/copy/owner";
-import type { Box, BoxItem, ItemAssessment } from "@/types";
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, ItemAssessment } from "@/types";
 
 import styles from "./ScanDraftReview.module.css";
 
@@ -41,6 +42,13 @@ interface ScanDraftReviewProps {
   onConfirmAll: () => void;
   /** Remove one draft. `kind` decides whether the item is deleted or just unlinked. */
   onRemoveDraft: (item: BoxItem, kind: DraftKind) => void;
+  /** Label entries matching items already packed in ANOTHER box — possible
+   *  second physical items, each resolved individually (add or skip). */
+  duplicates?: BoxScanDuplicateProposedItem[] | undefined;
+  /** Add a fresh item with this name to THIS box (a second physical item). */
+  onAddDuplicate?: ((proposal: BoxScanDuplicateProposedItem) => void) | undefined;
+  /** Drop the duplicate proposal — it was the same item after all. */
+  onSkipDuplicate?: ((proposal: BoxScanDuplicateProposedItem) => void) | undefined;
   isConfirming?: boolean | undefined;
   resolvingItemIds?: Set<string> | undefined;
   prefersReducedMotion?: boolean | null | undefined;
@@ -52,10 +60,15 @@ export function ScanDraftReview({
   assessments,
   onConfirmAll,
   onRemoveDraft,
+  duplicates = [],
+  onAddDuplicate,
+  onSkipDuplicate,
   isConfirming = false,
   resolvingItemIds,
   prefersReducedMotion,
 }: ScanDraftReviewProps) {
+  // Plain click opens the item panel in place; modifier clicks still navigate.
+  const itemLinkClick = useItemLinkClick();
   const rows = useMemo(
     () =>
       drafts.map((item) => {
@@ -82,10 +95,12 @@ export function ScanDraftReview({
         ? ownerCopy.packing.reviewSubNewOnly(newCount)
         : ownerCopy.packing.reviewSubMatchedOnly(matchedCount);
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && duplicates.length === 0) return null;
 
   return (
     <section className={styles.wrap} aria-label={`Review items from the ${box.label} label`}>
+      {rows.length > 0 && (
+        <>
       <header className={styles.header}>
         <span className={styles.headIcon} aria-hidden>
           <Sparkles size={16} />
@@ -132,7 +147,7 @@ export function ScanDraftReview({
                       href={`/decisions/${assessment.id}?from=boxes`}
                       className={styles.editLink}
                       aria-label={ownerCopy.packing.editDraft(name)}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={itemLinkClick(assessment.id)}
                     >
                       <Pencil size={15} aria-hidden />
                     </Link>
@@ -178,6 +193,72 @@ export function ScanDraftReview({
           {ownerCopy.packing.discardAllDrafts}
         </Button>
       </div>
+        </>
+      )}
+
+      {duplicates.length > 0 && (
+        <div className={styles.dupGroup}>
+          <header className={styles.header}>
+            <span className={styles.dupIcon} aria-hidden>
+              <Copy size={16} />
+            </span>
+            <div className={styles.headText}>
+              <p className={styles.heading}>
+                {ownerCopy.packing.duplicatesHeading(duplicates.length)}
+              </p>
+              <p className={styles.sub}>{ownerCopy.packing.duplicatesSub}</p>
+            </div>
+          </header>
+
+          <ul className={styles.list}>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {duplicates.map((dup) => {
+                const busy = resolvingItemIds?.has(dup.item_assessment_id) ?? false;
+                return (
+                  <motion.li
+                    key={dup.item_assessment_id}
+                    layout
+                    className={styles.dupRow}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
+                    transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                  >
+                    <div className={styles.dupInfo}>
+                      <span className={styles.name}>{dup.item_name}</span>
+                      <span className={styles.dupBadge}>
+                        {ownerCopy.packing.duplicateAlreadyPacked(dup.packed_box_label)}
+                      </span>
+                    </div>
+                    {/* Commit surface — right-aligned, secondary left of primary
+                        (UX_STANDARDS Action alignment). */}
+                    <div className={styles.dupActions}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onSkipDuplicate?.(dup)}
+                        disabled={busy}
+                      >
+                        {ownerCopy.packing.duplicateSkip}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => onAddDuplicate?.(dup)}
+                        disabled={busy}
+                      >
+                        {busy
+                          ? ownerCopy.packing.duplicateAdding
+                          : ownerCopy.packing.duplicateAdd(dup.item_name)}
+                      </Button>
+                    </div>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

@@ -24,7 +24,7 @@ function getAdminClient() {
 
 export async function updateUserProfile(
   profileId: string,
-  changes: Partial<Pick<UserProfile, 'departure_country' | 'arrival_country' | 'onward_country' | 'onward_timeline' | 'equipment' | 'anthropic_api_key'>>
+  changes: Partial<Pick<UserProfile, 'departure_country' | 'arrival_country' | 'onward_country' | 'onward_timeline' | 'equipment' | 'anthropic_api_key' | 'assessment_guidance'>>
 ): Promise<UserProfile> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
@@ -1210,6 +1210,7 @@ export async function createBoxScan(boxId: string): Promise<BoxScan> {
       matched_count: 0,
       new_count: 0,
       flagged_count: 0,
+      duplicate_count: 0,
       illegible_count: 0,
       illegible_entries: [],
       flagged_items: [],
@@ -1223,7 +1224,7 @@ export async function createBoxScan(boxId: string): Promise<BoxScan> {
 
 export async function updateBoxScan(
   scanId: string,
-  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items' | 'proposed_items'>>
+  changes: Partial<Pick<BoxScan, 'status' | 'total_found' | 'matched_count' | 'new_count' | 'flagged_count' | 'duplicate_count' | 'illegible_count' | 'illegible_entries' | 'flagged_items' | 'proposed_items'>>
 ): Promise<BoxScan> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
@@ -1272,23 +1273,33 @@ export async function confirmBoxDrafts(
 }
 
 /**
- * The set of item_assessment ids that are already in some box for this user —
- * i.e. "packed". Used by the sticker scan to avoid re-proposing items the owner
- * has already placed (the brief is "scanned but NOT packed").
+ * Map of packed item_assessment id → the box it sits in (id + label) for this
+ * user. Used by the sticker scan: an entry matching an item packed in THIS box
+ * is silently counted, while one packed in a DIFFERENT box is surfaced as a
+ * possible duplicate ("Already packed in WH03") instead of silently skipped.
  */
-export async function getPackedAssessmentIds(
+export async function getPackedAssessmentBoxes(
   userProfileId: string
-): Promise<Set<string>> {
+): Promise<Map<string, { box_id: string; box_label: string }>> {
   const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('box_item')
-    .select('item_assessment_id, box!inner(user_profile_id)')
+    .select('item_assessment_id, box!inner(id, label, user_profile_id)')
     .eq('box.user_profile_id', userProfileId)
     .not('item_assessment_id', 'is', null)
 
   if (error) throw new Error(error.message)
-  const rows = (data ?? []) as Array<{ item_assessment_id: string | null }>
-  return new Set(rows.map((r) => r.item_assessment_id).filter((id): id is string => !!id))
+  const rows = (data ?? []) as unknown as Array<{
+    item_assessment_id: string | null
+    box: { id: string; label: string }
+  }>
+  const map = new Map<string, { box_id: string; box_label: string }>()
+  for (const row of rows) {
+    if (row.item_assessment_id && row.box) {
+      map.set(row.item_assessment_id, { box_id: row.box.id, box_label: row.box.label })
+    }
+  }
+  return map
 }
 
 export async function getLatestBoxScan(boxId: string): Promise<BoxScan | null> {

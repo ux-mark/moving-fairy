@@ -1,0 +1,226 @@
+/* PackageFilter — "Package" pill + multi-select dropdown, and the row of
+   removable selected-package pills above the item list. */
+
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* ── Trigger pill (matches ItemsView .chip shape) ── */
+.trigger {
+  appearance: none;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-default, #222);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  transition: background 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
+}
+
+.trigger:hover {
+  background: var(--color-bg-muted, #f7f7f7);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.triggerActive {
+  border-color: var(--color-primary, #2d7a4f);
+  color: var(--color-primary, #2d7a4f);
+  background: var(--color-primary-light, #e8f3ed);
+}
+
+.triggerActive:hover {
+  background: var(--color-primary-light, #e8f3ed);
+}
+
+.triggerCount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown ── */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: max-content;
+  max-width: min(320px, 80vw);
+  background: var(--color-bg-card, #fff);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-dropdown, 0 4px 16px rgba(0, 0, 0, 0.12));
+  z-index: var(--z-dropdown, 200);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-default, #222);
+  text-align: left;
+}
+
+.option:hover,
+.optionActive {
+  background: var(--color-bg-muted, #f7f7f7);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: -2px;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-border-default, #c4c4c4);
+  border-radius: 4px;
+  flex-shrink: 0;
+  color: var(--color-on-primary, #fff);
+  background: var(--color-bg-default, #fff);
+}
+
+.checkboxChecked {
+  background: var(--color-primary, #2d7a4f);
+  border-color: var(--color-primary, #2d7a4f);
+}
+
+/* Labels wrap rather than truncate (UX_STANDARDS: never truncate). */
+.optionLabel {
+  flex: 1;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.optionCount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ── Selected pills row ── */
+.selectedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: var(--color-primary-light, #e8f3ed);
+  border: 1px solid var(--color-primary, #2d7a4f);
+  color: var(--color-primary-dark, #1d5236);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.selectedLabel {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.removeButton {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -8px 0; /* visual 28px circle inside a ≥44px pointer target */
+  padding: 8px;
+  box-sizing: content-box;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  background: var(--color-primary, #2d7a4f);
+  color: var(--color-on-primary, #fff);
+}
+
+.removeButton:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary, #2d7a4f));
+  outline-offset: 2px;
+}
+
+.clearAll {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-primary, #2d7a4f);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.clearAll:focus-visible {
+  outline: 2px solid var(--color-primary, #2d7a4f);
+  outline-offset: 2px;
+}

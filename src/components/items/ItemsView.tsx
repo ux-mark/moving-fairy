@@ -3,16 +3,29 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ConfirmDialog, Button } from '@thefairies/design-system/components'
-import { Camera, Sparkles } from 'lucide-react'
+import { Camera, ChevronRight, Sparkles } from 'lucide-react'
 
 import { useItems } from '@/lib/hooks/useItems'
-import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { useBoxes, type BoxWithItems } from '@/lib/hooks/useBoxes'
+import {
+  UNPACKED,
+  buildItemBoxIndex,
+  formatPackageParam,
+  matchesItemFilters,
+  parsePackageParam,
+} from '@/lib/items/package-filter'
+import {
+  PackageFilterPill,
+  SelectedPackagePills,
+  type PackageOption,
+} from '@/components/items/PackageFilter'
 import { ItemCard } from '@/components/decisions/ItemCard'
 import { ItemTile } from '@/components/items/ItemTile'
 import { VerdictPicker } from '@/components/decisions/VerdictPicker'
 import { BatchUploadButton } from '@/components/decisions/BatchUploadButton'
 import { TextAddInput } from '@/components/decisions/TextAddInput'
-import { ItemDetailDrawer } from '@/components/items/ItemDetailDrawer'
+import { originSideFromTrigger, usePanelDeepLink } from '@/components/panels'
+import { useUploadQueue } from '@/components/upload'
 import { Fab } from '@/components/layout/Fab'
 import { ListingStatus, Verdict } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -112,14 +125,15 @@ function formatValue(amount: number, currency: string): string {
 interface Props {
   profileId: string
   initialItems: ItemWithContext[]
+  initialBoxes: BoxWithItems[]
 }
 
-export function ItemsView({ profileId, initialItems }: Props) {
+export function ItemsView({ profileId, initialItems, initialBoxes }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeFilters = parseFilters(searchParams.get('status'))
-  const isDesktop = useIsDesktop()
-  const selectedItemId = searchParams.get('item')
+  // `?item=<id>` opens the item panel; the URL stays in sync as it opens/closes.
+  const itemPanel = usePanelDeepLink('item', 'item')
 
   // Live items via the existing hook for realtime updates.
   const {
@@ -127,7 +141,6 @@ export function ItemsView({ profileId, initialItems }: Props) {
     isLoading,
     error,
     refresh,
-    addItemByPhoto,
     addItemByText,
     confirmItem,
     retryAssessment,
@@ -164,17 +177,78 @@ export function ItemsView({ profileId, initialItems }: Props) {
   const [search, setSearch] = useState('')
   const searchLower = search.trim().toLowerCase()
 
+  // ── Package filter (`pkg` param: comma-separated box ids, 'none' = unpacked) ──
+  // Live boxes seeded from SSR so the pkg filter applies on first paint.
+  const { rows: boxes } = useBoxes({ profileId, initial: initialBoxes })
+  const itemBoxIndex = useMemo(() => buildItemBoxIndex(boxes), [boxes])
+  const boxIds = useMemo(() => new Set(boxes.map((b) => b.id)), [boxes])
+
+  // Prune stale ids (deleted boxes) from the effective selection; the raw
+  // param is rewritten on the next toggle.
+  const rawPkgParam = searchParams.get('pkg')
+  const selectedPackages = useMemo(
+    () => parsePackageParam(rawPkgParam).filter((id) => id === UNPACKED || boxIds.has(id)),
+    [rawPkgParam, boxIds],
+  )
+
+  const setPackageSelection = useCallback(
+    (next: string[]) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next.length === 0) params.delete('pkg')
+      else params.set('pkg', formatPackageParam(next))
+      router.replace(`/items?${params.toString()}`)
+    },
+    [router, searchParams],
+  )
+
+  const togglePackage = useCallback(
+    (id: string) => {
+      setPackageSelection(
+        selectedPackages.includes(id)
+          ? selectedPackages.filter((p) => p !== id)
+          : [...selectedPackages, id],
+      )
+    },
+    [selectedPackages, setPackageSelection],
+  )
+
+  const clearPackages = useCallback(() => setPackageSelection([]), [setPackageSelection])
+
+  const packageOptions = useMemo<PackageOption[]>(() => {
+    const unpackedCount = itemsWithCtx.filter((ctx) => !itemBoxIndex.has(ctx.item.id)).length
+    return [
+      ...boxes.map((b) => ({
+        id: b.id,
+        label: b.label,
+        count: b.items.filter((bi) => bi.item_assessment_id).length,
+      })),
+      { id: UNPACKED, label: 'Unpacked', count: unpackedCount },
+    ]
+  }, [boxes, itemsWithCtx, itemBoxIndex])
+
+  // Pills keep the order the user selected in.
+  const selectedPackagePills = useMemo(
+    () =>
+      selectedPackages
+        .map((id) => packageOptions.find((o) => o.id === id))
+        .filter((o): o is PackageOption => o !== undefined),
+    [selectedPackages, packageOptions],
+  )
+
   const filtered = useMemo(() => {
-    const filteredByStatus = itemsWithCtx.filter((ctx) => {
-      const bucket = bucketFor(ctx)
-      if (!bucket) return false
-      return activeFilters.has(bucket)
-    })
-    if (!searchLower) return filteredByStatus
-    return filteredByStatus.filter((ctx) =>
+    const byFilters = itemsWithCtx.filter((ctx) =>
+      matchesItemFilters(
+        bucketFor(ctx),
+        activeFilters,
+        selectedPackages,
+        itemBoxIndex.get(ctx.item.id),
+      ),
+    )
+    if (!searchLower) return byFilters
+    return byFilters.filter((ctx) =>
       ctx.item.item_name.toLowerCase().includes(searchLower),
     )
-  }, [itemsWithCtx, activeFilters, searchLower])
+  }, [itemsWithCtx, activeFilters, selectedPackages, itemBoxIndex, searchLower])
 
   const counts = useMemo(() => {
     const c: Record<ItemFilter, number> = {
@@ -205,30 +279,15 @@ export function ItemsView({ profileId, initialItems }: Props) {
   )
 
   // ── Photo / text upload (mirrors DecisionsPage's pattern) ──────────────
+  // Photos go through the background upload queue ((app) layout): enqueue
+  // returns immediately, the progress card reports failures, and Realtime
+  // delivers the created items. uploadError remains for text adds.
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadingCount, setUploadingCount] = useState(0)
+  const uploadQueue = useUploadQueue()
+  const uploadingCount = uploadQueue.snapshot.pendingCount
 
-  const handleUploadPhotos = async (files: File[]) => {
-    setUploadError(null)
-    setUploadingCount(files.length)
-    const uploads = files.map(async (file) => {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      if (!res.ok) throw new Error('upload failed')
-      const data = (await res.json()) as { url?: string }
-      if (!data.url) throw new Error('no url')
-      await addItemByPhoto(data.url)
-      setUploadingCount((c) => Math.max(0, c - 1))
-    })
-    const results = await Promise.allSettled(uploads)
-    setUploadingCount(0)
-    const failures = results.filter((r) => r.status === 'rejected').length
-    if (failures > 0) {
-      setUploadError(
-        `${failures} photo${failures === 1 ? '' : 's'} failed to upload. Try again.`,
-      )
-    }
+  const handleUploadPhotos = (files: File[]) => {
+    uploadQueue.enqueue(files)
   }
 
   const handleAddByText = async (name: string) => {
@@ -270,6 +329,28 @@ export function ItemsView({ profileId, initialItems }: Props) {
     }, 3000)
   }, [])
 
+  // ── Stable card/tile callbacks (ItemCard and ItemTile are memoised) ─────
+  const openItemPanel = itemPanel.open
+  const handleCardClick = useCallback(
+    (id: string) => openItemPanel(id, originSideFromTrigger()),
+    [openItemPanel],
+  )
+  const handleRetry = useCallback(
+    (id: string) => { retryAssessment(id).catch(console.error) },
+    [retryAssessment],
+  )
+  const handleConfirmCard = useCallback(
+    (id: string) => {
+      confirmItem(id).catch(console.error)
+      markJustDecided(id)
+    },
+    [confirmItem, markJustDecided],
+  )
+  const handleVerdictTrigger = useCallback(
+    (id: string) => setPickerItemId((prev) => (prev === id ? null : id)),
+    [],
+  )
+
   // ── Delete-from-list ───────────────────────────────────────────────────
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -281,6 +362,11 @@ export function ItemsView({ profileId, initialItems }: Props) {
     ? items.find((i) => i.id === pendingDeleteId)
     : undefined
   const deleteItemName = itemBeingDeleted?.item_name || 'this item'
+
+  const handleRequestDelete = useCallback((id: string) => {
+    setDeleteError(null)
+    setPendingDeleteId(id)
+  }, [])
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
@@ -390,8 +476,22 @@ export function ItemsView({ profileId, initialItems }: Props) {
               </button>
             )
           })}
+          {boxes.length > 0 && (
+            <PackageFilterPill
+              options={packageOptions}
+              selectedIds={selectedPackages}
+              onToggle={togglePackage}
+            />
+          )}
         </div>
       )}
+
+      {/* Active package filters — removable pills at the top of the list */}
+      <SelectedPackagePills
+        selected={selectedPackagePills}
+        onRemove={togglePackage}
+        onClearAll={clearPackages}
+      />
 
       {/* Search */}
       {hasAnyItems && (
@@ -456,6 +556,7 @@ export function ItemsView({ profileId, initialItems }: Props) {
             onClick={() => {
               const params = new URLSearchParams(searchParams.toString())
               params.set('status', FILTERS.map((f) => f.value).join(','))
+              params.delete('pkg')
               router.replace(`/items?${params.toString()}`)
             }}
           >
@@ -471,44 +572,24 @@ export function ItemsView({ profileId, initialItems }: Props) {
                   opens the detail drawer to edit. Items that still need a
                   decision keep the rich card with inline Accept / Change
                   verdict actions so the user can decide in place. */}
-              {(() => {
-                const isDecided = bucketFor(ctx) !== 'needs-decision'
-                const handleCardClick = (id: string) => {
-                  if (isDesktop) {
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.set('item', id)
-                    router.replace(`/items?${params.toString()}`, { scroll: false })
-                  } else {
-                    router.push(`/decisions/${id}`)
-                  }
-                }
-                return isDecided ? (
-                  <ItemTile
-                    item={ctx.item}
-                    justDecided={justDecidedIds.has(ctx.item.id)}
-                    onClick={handleCardClick}
-                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
-                  />
-                ) : (
-                  <ItemCard
-                    item={ctx.item}
-                    justDecided={justDecidedIds.has(ctx.item.id)}
-                    onConfirm={(id) => {
-                      confirmItem(id).catch(console.error)
-                      markJustDecided(id)
-                    }}
-                    onRetry={(id) => { retryAssessment(id).catch(console.error) }}
-                    onClick={handleCardClick}
-                    onVerdictChange={() =>
-                      setPickerItemId((prev) => (prev === ctx.item.id ? null : ctx.item.id))
-                    }
-                    onDelete={(id) => {
-                      setDeleteError(null)
-                      setPendingDeleteId(id)
-                    }}
-                  />
-                )
-              })()}
+              {bucketFor(ctx) !== 'needs-decision' ? (
+                <ItemTile
+                  item={ctx.item}
+                  justDecided={justDecidedIds.has(ctx.item.id)}
+                  onClick={handleCardClick}
+                  onRetry={handleRetry}
+                />
+              ) : (
+                <ItemCard
+                  item={ctx.item}
+                  justDecided={justDecidedIds.has(ctx.item.id)}
+                  onConfirm={handleConfirmCard}
+                  onRetry={handleRetry}
+                  onClick={handleCardClick}
+                  onVerdictChange={handleVerdictTrigger}
+                  onDelete={handleRequestDelete}
+                />
+              )}
               {pickerItemId === ctx.item.id && ctx.item.verdict && (
                 <div className={styles.pickerWrap}>
                   <VerdictPicker
@@ -605,12 +686,15 @@ export function ItemsView({ profileId, initialItems }: Props) {
                     <button
                       type="button"
                       className={styles.railNextItem}
-                      onClick={() => router.push(`/decisions/${ctx.item.id}`)}
+                      onClick={() => itemPanel.open(ctx.item.id, originSideFromTrigger())}
                     >
                       <span className={styles.railNextName}>
                         {ctx.item.item_name || 'Unnamed item'}
                       </span>
-                      <span className={styles.railNextHint}>Decide →</span>
+                      <span className={styles.railNextHint}>
+                        Decide
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -621,32 +705,6 @@ export function ItemsView({ profileId, initialItems }: Props) {
       )}
 
       </div>{/* /.cockpit */}
-
-      {/* In-place item detail drawer (desktop only). Closes via Escape, the
-          backdrop, or removing ?item from the URL. The full route still works
-          for direct links / refreshes — links surface via the drawer header. */}
-      {isDesktop && selectedItemId && (() => {
-        const selectedItem = items.find((i) => i.id === selectedItemId)
-        if (!selectedItem) return null
-        return (
-          <ItemDetailDrawer
-            item={selectedItem}
-            onRetry={async (id) => { await retryAssessment(id) }}
-            onItemUpdate={(updated) => {
-              refresh()
-              // Any save inside the drawer (verdict, confirm, reassessment)
-              // triggers the just-decided beat on the matching tile.
-              markJustDecided(updated.id)
-            }}
-            onClose={() => {
-              const params = new URLSearchParams(searchParams.toString())
-              params.delete('item')
-              const qs = params.toString()
-              router.replace(qs ? `/items?${qs}` : '/items', { scroll: false })
-            }}
-          />
-        )
-      })()}
 
       {hasAnyItems && (
         <Fab

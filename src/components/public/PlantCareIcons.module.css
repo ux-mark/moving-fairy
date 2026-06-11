@@ -62,9 +62,8 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never ellipsised. */
+  overflow-wrap: anywhere;
 }
 
 /* Panel variant: same grid as the card preview, plus a prose paragraph

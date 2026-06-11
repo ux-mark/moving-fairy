@@ -58,6 +58,14 @@
   color: var(--color-text-primary);
 }
 
+/* 44px touch target on touch devices (UX_STANDARDS Responsive design). */
+@media (pointer: coarse) {
+  .dismissButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* List */
 .list {
   list-style: none;
@@ -107,11 +115,8 @@
   min-width: 0;
   color: var(--color-text-primary);
   line-height: 1.4;
-  /* 2-line clamp in picker dropdown — keeps the list scannable while showing enough of the name */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  /* No truncation — UX_STANDARDS Microcopy: copy wraps, never clamped. */
+  overflow-wrap: anywhere;
 }
 
 /* ---- Mobile font-size bumps ---- */

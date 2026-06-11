@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Sparkles, Camera, ChevronDown } from 'lucide-react'
+import { Sparkles, Camera, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   RecommendationCardSkeleton,
   Button,
@@ -25,7 +25,7 @@ interface DecisionsListProps {
   error: string | null
   uploadError?: string | null
   onDismissUploadError?: () => void
-  onUploadPhotos: (files: File[]) => Promise<void>
+  onUploadPhotos: (files: File[]) => void
   onAddByText: (name: string) => void
   onConfirm: (id: string) => void
   onRetry: (id: string) => void
@@ -154,6 +154,13 @@ export function DecisionsList({
   const handleVerdictTrigger = useCallback((id: string) => {
     setVerdictPickerItemId(prev => prev === id ? null : id)
   }, [])
+
+  // Stable (id)-shaped handler so the memoised ItemCard rows don't re-render
+  // when a sibling item changes.
+  const handleConfirmCard = useCallback((id: string) => {
+    onConfirm(id)
+    markJustDecided(id)
+  }, [onConfirm, markJustDecided])
 
   const handleVerdictClose = useCallback(() => {
     setVerdictPickerItemId(null)
@@ -340,13 +347,10 @@ export function DecisionsList({
                     <ItemCard
                       item={item}
                       justDecided={justDecidedIds.has(item.id)}
-                      onConfirm={(id) => {
-                        onConfirm(id)
-                        markJustDecided(id)
-                      }}
+                      onConfirm={handleConfirmCard}
                       onRetry={onRetry}
                       onClick={onItemClick}
-                      onVerdictChange={onVerdictChange ? () => handleVerdictTrigger(item.id) : undefined}
+                      onVerdictChange={onVerdictChange ? handleVerdictTrigger : undefined}
                       onDelete={onDelete}
                     />
                     {verdictPickerItemId === item.id && item.verdict && (
@@ -467,7 +471,10 @@ export function DecisionsList({
                       <span className={styles.railNextName}>
                         {item.item_name || 'Unnamed item'}
                       </span>
-                      <span className={styles.railNextHint}>Decide →</span>
+                      <span className={styles.railNextHint}>
+                        Decide
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </span>
                     </button>
                   </li>
                 ))}

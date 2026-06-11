@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import Image from 'next/image'
 import { Camera, Check, RotateCcw, Sparkles, AlertCircle } from 'lucide-react'
 
@@ -58,8 +59,11 @@ function formatCurrency(amount: number | null | undefined, currency: string | nu
  * Whole tile is the primary click target — opens the detail drawer / route.
  * No inline actions (Confirm / Skip / Change verdict / etc.) — those live in
  * the drawer where there is space to do them properly.
+ *
+ * Memoised: realtime updates replace only the changed item's row object, so
+ * sibling tiles skip re-rendering — callers pass stable (useCallback) handlers.
  */
-export function ItemTile({ item, onClick, onRetry, onDelete, justDecided }: ItemTileProps) {
+export const ItemTile = memo(function ItemTile({ item, onClick, onRetry, onDelete, justDecided }: ItemTileProps) {
   const isCompleted = item.processing_status === 'completed'
   const isPending = item.processing_status === 'pending'
   const isProcessing = item.processing_status === 'processing'
@@ -181,4 +185,4 @@ export function ItemTile({ item, onClick, onRetry, onDelete, justDecided }: Item
       </div>
     </button>
   )
-}
+})

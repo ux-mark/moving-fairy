@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@thefairies/design-system/components";
 
 import { cn } from "@/lib/utils";
+import { useItemLinkClick } from "@/components/panels";
 import styles from "./FlaggedItemCard.module.css";
 
 interface FlaggedItemCardProps {
@@ -44,6 +45,8 @@ export function FlaggedItemCard({
   isResolving = false,
 }: FlaggedItemCardProps) {
   const prefersReducedMotion = useReducedMotion();
+  // Plain click opens the item panel in place; modifier clicks still navigate.
+  const itemLinkClick = useItemLinkClick();
 
   const borderColorClass =
     verdict === "SELL"
@@ -107,7 +110,7 @@ export function FlaggedItemCard({
 
         <Link
           href={`/decisions/${itemId}?from=boxes`}
-          onClick={(e) => e.stopPropagation()}
+          onClick={itemLinkClick(itemId)}
           aria-label={`Ask Aisling about ${itemName}`}
           className={cn(styles.actionButton, styles.askAislingLink, isResolving && styles.disabledLink)}
           aria-disabled={isResolving}

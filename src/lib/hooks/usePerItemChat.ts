@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemConversationMessage } from '@/types/database'
 import type { ChatMessage } from '@/types/chat'
 import type { ItemAssessment } from '@/types'
+import { useLiveTableEvents } from '@/lib/hooks/useLiveTable'
 
 // Re-export for convenience so existing imports still resolve
 export type { ChatMessage }
@@ -57,6 +58,23 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
 
   // Track the itemId for use in the refreshTrigger effect
   const currentItemIdRef = useRef<string | null>(null)
+  // State mirror of the active item so the realtime subscription re-keys.
+  const [activeItemId, setActiveItemId] = useState<string | null>(null)
+
+  // Live assessment updates for the active item. Aisling persists tool calls
+  // server-side, so this catches every update — including ones the stream's
+  // tool_result detection misses (the old post-chat single fetch was the only
+  // path, and it raced the write).
+  useLiveTableEvents<ItemAssessment>(
+    'item_assessment',
+    activeItemId ? `id=eq.${activeItemId}` : undefined,
+    (event) => {
+      if (event.eventType === 'UPDATE' && event.new) {
+        onAssessmentUpdatedRef.current?.(event.new)
+      }
+    },
+    activeItemId !== null
+  )
 
   // Cleanup: abort any in-flight stream on unmount
   useEffect(() => {
@@ -67,6 +85,7 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
 
   const loadHistory = useCallback(async (itemId: string) => {
     currentItemIdRef.current = itemId
+    setActiveItemId(itemId)
     setIsLoadingHistory(true)
     try {
       const res = await fetch(`/api/items/${itemId}/chat/messages`)
@@ -107,6 +126,8 @@ export function usePerItemChat(options?: UsePerItemChatOptions): UsePerItemChatR
   // instead to avoid stale closures and unnecessary re-renders.
   const sendMessage = useCallback(async (itemId: string, text: string) => {
     if (!text.trim() || isStreamingRef.current) return
+    currentItemIdRef.current = itemId
+    setActiveItemId(itemId)
 
     // Abort any in-flight request
     abortControllerRef.current?.abort()

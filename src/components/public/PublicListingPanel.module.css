@@ -123,6 +123,14 @@
   outline-offset: 2px;
 }
 
+/* 44px touch target on touch devices (UX_STANDARDS Responsive design). */
+@media (pointer: coarse) {
+  .closeBtn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 .body {
   flex: 1 1 auto;
   min-height: 0;

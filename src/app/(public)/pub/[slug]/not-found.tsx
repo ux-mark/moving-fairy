@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { buyerCopy } from '@/lib/copy/buyer'
 import styles from './page.module.css'
 
@@ -12,8 +13,9 @@ export default function PublicListingNotFound() {
             This item may have been removed or the link could be out of date.
           </p>
           <div className={styles.actions}>
-            <Link href="/" className={styles.backLink} aria-label={buyerCopy.backToCollection}>
-              ← {buyerCopy.backToCollection}
+            <Link href="/" className={styles.backLink}>
+              <ArrowLeft size={16} aria-hidden />
+              {buyerCopy.backToCollection}
             </Link>
           </div>
         </div>

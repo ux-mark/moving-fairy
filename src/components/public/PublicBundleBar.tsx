@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ShoppingBag, X } from 'lucide-react'
+import { ArrowRight, ShoppingBag, X } from 'lucide-react'
 import { buyerCopy, formatPrice } from '@/lib/copy/buyer'
 import { calculateDiscount, type DiscountTier } from '@/lib/discount'
 import { cn } from '@/lib/utils'
@@ -69,7 +69,7 @@ export function PublicBundleBar({ listings, discountTiers, contactEmail }: Props
               {percent > 0 ? (
                 <>
                   <span className={styles.arrow} aria-hidden>
-                    →
+                    <ArrowRight size={12} />
                   </span>
                   <span className={styles.total}>{formatPrice(total)}</span>
                   <span className={styles.saved}>

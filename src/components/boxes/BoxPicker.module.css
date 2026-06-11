@@ -45,6 +45,14 @@
   color: var(--color-text-primary);
 }
 
+/* 44px touch target on touch devices (UX_STANDARDS Responsive design). */
+@media (pointer: coarse) {
+  .dismissButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* List */
 .list {
   list-style: none;

@@ -66,12 +66,10 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   // Owner-facing description: quantity, contents, biosecurity detail. Distinct
   // from `advice_text` (Aisling's reasoning, edited lower down).
   const [itemDescription, setItemDescription] = useState(item.item_description ?? '')
-  // Verdict is now controlled by the drawer's verdict header strip — no
-  // local setter needed. We still read it so conditional fields (box,
-  // shipment leg) render correctly and the save payload preserves it.
-  // `key={item.updated_at}` on the panel guarantees a fresh read when the
-  // drawer changes the verdict from outside.
-  const [verdict] = useState<string>(item.verdict || '')
+  // Verdict is controlled by the panel's verdict header strip, not this form —
+  // derive it from props so an external change (strip, other device) is always
+  // current in the conditional fields and the save payload.
+  const verdict = item.verdict || ''
   const [shipCost, setShipCost] = useState(item.estimated_ship_cost?.toString() ?? '')
   const [replaceCost, setReplaceCost] = useState(item.estimated_replace_cost?.toString() ?? '')
   const [description, setDescription] = useState(item.advice_text || '')
@@ -120,7 +118,6 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
   const hasChanges =
     name !== (item.item_name || '') ||
     itemDescription !== (item.item_description ?? '') ||
-    verdict !== (item.verdict || '') ||
     shipCost !== (item.estimated_ship_cost?.toString() ?? '') ||
     replaceCost !== (item.estimated_replace_cost?.toString() ?? '') ||
     description !== (item.advice_text || '') ||
@@ -128,6 +125,41 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
     targetShipmentId !== (item.target_shipment_id ?? '') ||
     category !== (item.category ?? null) ||
     careChanged
+
+  // Re-seed from props when the item changes underneath the form (realtime
+  // update, save echo) — but only while the form is clean RELATIVE TO WHAT IT
+  // WAS SEEDED FROM. A background update while the user is mid-edit must not
+  // stomp typed input; their values stay and the save flow reconciles.
+  const fieldsRef = useRef({ name, itemDescription, shipCost, replaceCost, description, boxId, targetShipmentId, category, care })
+  fieldsRef.current = { name, itemDescription, shipCost, replaceCost, description, boxId, targetShipmentId, category, care }
+  const seededRef = useRef({ item, boxId: currentBoxId ?? '' })
+  useEffect(() => {
+    const seeded = seededRef.current
+    const nextBoxId = currentBoxId ?? ''
+    if (seeded.item === item && seeded.boxId === nextBoxId) return
+    const f = fieldsRef.current
+    const dirty =
+      f.name !== (seeded.item.item_name || '') ||
+      f.itemDescription !== (seeded.item.item_description ?? '') ||
+      f.shipCost !== (seeded.item.estimated_ship_cost?.toString() ?? '') ||
+      f.replaceCost !== (seeded.item.estimated_replace_cost?.toString() ?? '') ||
+      f.description !== (seeded.item.advice_text || '') ||
+      f.boxId !== seeded.boxId ||
+      f.targetShipmentId !== (seeded.item.target_shipment_id ?? '') ||
+      f.category !== (seeded.item.category ?? null) ||
+      JSON.stringify(f.care) !== JSON.stringify(seeded.item.care ?? null)
+    seededRef.current = { item, boxId: nextBoxId }
+    if (dirty) return
+    setName(item.item_name || '')
+    setItemDescription(item.item_description ?? '')
+    setShipCost(item.estimated_ship_cost?.toString() ?? '')
+    setReplaceCost(item.estimated_replace_cost?.toString() ?? '')
+    setDescription(item.advice_text || '')
+    setBoxId(nextBoxId)
+    setTargetShipmentId(item.target_shipment_id ?? '')
+    setCategory(item.category ?? null)
+    setCare(item.care ?? null)
+  }, [item, currentBoxId])
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -199,13 +231,6 @@ export function ItemEditPanel({ item, shipCurrency = 'USD', replaceCurrency = 'E
       setIsDeleting(false)
     }
   }, [item.id, onDeleted])
-
-  // Allow external reset when item data updates (e.g. after Aisling reassesses)
-  // We deliberately don't include a deep equality check — the parent calls
-  // updateItem which replaces the whole item object reference, so new data is
-  // always picked up on the next render naturally via useState initial values.
-  // Instead we expose an imperative reset so the parent can call it after a
-  // reassessment event.
 
   return (
     <section className={styles.root} aria-label="Edit item details">

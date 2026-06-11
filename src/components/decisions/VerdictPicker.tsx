@@ -125,12 +125,15 @@ export function VerdictPicker({
         onClick={onClose}
       />
 
+      {/* role=dialog + aria-modal: the picker owns Escape/outside-click while
+          open, and the panel system's Escape handler stands down (it checks
+          for an open [aria-modal="true"] layer before closing a panel). */}
       <div
         ref={listRef}
         className={styles.container}
-        role="listbox"
+        role="dialog"
+        aria-modal="true"
         aria-label={itemName ? `Change verdict for ${itemName}` : 'Change verdict'}
-        aria-activedescendant={currentVerdict ? `verdict-option-${currentVerdict}` : undefined}
         tabIndex={-1}
       >
         <div className={styles.header}>
@@ -145,7 +148,9 @@ export function VerdictPicker({
           </button>
         </div>
 
-        <div className={styles.optionList}>
+        {/* Focus roves between the option buttons themselves, so no
+            aria-activedescendant is needed here. */}
+        <div className={styles.optionList} role="listbox" aria-label="Verdict options">
           {VERDICT_OPTIONS.map(({ value, label }, index) => {
             const colors = VERDICT_COLORS[value]
             const isSelected = value === currentVerdict

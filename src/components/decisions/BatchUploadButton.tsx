@@ -1,37 +1,33 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Camera } from 'lucide-react'
 import { Button } from '@thefairies/design-system/components'
 
 interface BatchUploadButtonProps {
-  onUpload: (files: File[]) => Promise<void>
+  /** Hands the files to the background upload queue and returns immediately. */
+  onUpload: (files: File[]) => void
   disabled?: boolean
 }
 
 export function BatchUploadButton({ onUpload, disabled }: BatchUploadButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [isUploading, setIsUploading] = useState(false)
 
   function handleClick() {
     inputRef.current?.click()
   }
 
-  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
 
-    setIsUploading(true)
-    try {
-      await onUpload(files)
-    } catch {
-      // Error handling is done by the parent
-    } finally {
-      setIsUploading(false)
-      // Reset the input so the same file(s) can be re-selected if needed
-      if (inputRef.current) {
-        inputRef.current.value = ''
-      }
+    // Enqueue and return to idle immediately — progress, failures and
+    // retries are reported by the docked upload progress card.
+    onUpload(files)
+
+    // Reset the input so the same file(s) can be re-selected if needed
+    if (inputRef.current) {
+      inputRef.current.value = ''
     }
   }
 
@@ -53,11 +49,11 @@ export function BatchUploadButton({ onUpload, disabled }: BatchUploadButtonProps
         variant="primary"
         size="lg"
         onClick={handleClick}
-        disabled={disabled || isUploading}
+        disabled={disabled}
         aria-label="Upload photos of items"
       >
         <Camera style={{ width: 20, height: 20 }} aria-hidden="true" />
-        {isUploading ? 'Uploading...' : 'Upload photos'}
+        Upload photos
       </Button>
     </>
   )

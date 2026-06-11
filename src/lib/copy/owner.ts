@@ -143,6 +143,21 @@ export const ownerCopy = {
       n === 1 ? `Added 1 item to ${label}.` : `Added ${n} items to ${label}.`,
     draftRemovedToast: (name: string) => `Removed ${name}.`,
     draftConfirmError: "Couldn't add those items — try again.",
+    // Possible duplicates — label entries matching items packed in another box
+    duplicatesHeading: (n: number) =>
+      n === 1 ? '1 possible duplicate' : `${n} possible duplicates`,
+    duplicatesSub:
+      'These label entries match items already packed in another box. If you own more than one, add it as a second item — otherwise skip it.',
+    duplicateAlreadyPacked: (boxLabel: string) => `Already packed in ${boxLabel}`,
+    duplicateAdd: (name: string) => `Add as another ${name}`,
+    duplicateSkip: 'Skip',
+    duplicateAdding: 'Adding…',
+    duplicateAddedToast: (name: string, label: string) =>
+      `Added another ${name} to ${label}.`,
+    duplicateAddError: (name: string) => `Couldn't add another ${name} — try again.`,
+    duplicateSkipError: "Couldn't skip that one — try again.",
+    duplicatesToReview: (n: number) =>
+      n === 1 ? '1 possible duplicate to review.' : `${n} possible duplicates to review.`,
   },
   itinerary: {
     heading: 'Itinerary',
@@ -205,6 +220,7 @@ export const ownerCopy = {
       sale: 'Sale defaults',
       shipments: 'Shipments',
       biosecurity: 'Biosecurity',
+      aisling: 'Aisling',
       account: 'Account',
     },
     sale: {
@@ -234,6 +250,13 @@ export const ownerCopy = {
       label: 'Label',
       targetDate: 'Target date',
       status: 'Status',
+    },
+    aisling: {
+      guidanceLabel: 'Guidance for Aisling',
+      guidanceHelper:
+        'Standing instructions she applies to every assessment — e.g. ‘Only recommend Carry for documents, medicines and the laptop.’',
+      saveButton: 'Save guidance',
+      saveToast: 'Guidance saved.',
     },
     biosecurity: {
       destinationLabel: 'Destination preset',

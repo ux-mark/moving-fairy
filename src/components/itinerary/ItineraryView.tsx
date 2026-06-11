@@ -17,10 +17,12 @@ import { Button, ConfirmDialog, EmptyState } from '@thefairies/design-system/com
 import { cn } from '@/lib/utils'
 import { ownerCopy, BIOSEC_FLAG_LABELS } from '@/lib/copy/owner'
 import { useIsDesktop } from '@/lib/hooks/useIsDesktop'
+import { useLiveTableEvents, useRevalidateOnFocus } from '@/lib/hooks/useLiveTable'
 import { EditablePill, type EditablePillOption } from '@/components/shared/EditablePill'
 import { CurrencySelect } from '@/components/shared/CurrencySelect'
 import { BoxSelect, type BoxSelectOption } from '@/components/boxes/BoxSelect'
 import { BoxPill } from '@/components/boxes/BoxPill'
+import { originSideFromTrigger, usePanels } from '@/components/panels'
 import { BiosecurityFlag, Verdict } from '@/lib/constants'
 import type { Manifest, ManifestBox } from '@/mcp/shipments'
 import type { ItemAssessment, Shipment } from '@/types/database'
@@ -82,6 +84,9 @@ interface DowngradeConfirm {
 
 export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) {
   const router = useRouter()
+  // Box / item click-throughs open panels in place — no navigation, the
+  // manifest (and its inline editing) stays where the user left it.
+  const { openPanel } = usePanels()
   const isDesktop = useIsDesktop()
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareLoading, setShareLoading] = useState(false)
@@ -96,6 +101,38 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
   useEffect(() => {
     setManifestState(manifest)
   }, [manifest])
+
+  // Live manifest: box / box_item / item_assessment changes (this device or
+  // another) trigger a debounced refetch so the snapshot never goes stale.
+  const refreshManifest = useCallback(async () => {
+    if (!activeShipmentId) return
+    try {
+      const res = await fetch(`/api/shipments/${activeShipmentId}?manifest=1`)
+      if (!res.ok) return
+      setManifestState((await res.json()) as Manifest)
+    } catch {
+      // Keep the current manifest — the next event or focus retries.
+    }
+  }, [activeShipmentId])
+
+  const manifestRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleManifestRefresh = useCallback(() => {
+    if (manifestRefetchTimerRef.current) clearTimeout(manifestRefetchTimerRef.current)
+    manifestRefetchTimerRef.current = setTimeout(() => {
+      manifestRefetchTimerRef.current = null
+      void refreshManifest()
+    }, 600)
+  }, [refreshManifest])
+  useEffect(() => {
+    return () => {
+      if (manifestRefetchTimerRef.current) clearTimeout(manifestRefetchTimerRef.current)
+    }
+  }, [])
+
+  useLiveTableEvents('box', undefined, scheduleManifestRefresh)
+  useLiveTableEvents('box_item', undefined, scheduleManifestRefresh)
+  useLiveTableEvents('item_assessment', undefined, scheduleManifestRefresh)
+  useRevalidateOnFocus(() => void refreshManifest())
 
   // Per-control busy + error state, keyed `${boxItemId}:${field}`.
   const [busyFields, setBusyFields] = useState<Set<string>>(new Set())
@@ -774,7 +811,13 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                         <button
                           type="button"
                           className={styles.openBoxLink}
-                          onClick={() => router.push(`/boxes?box=${b.box.id}`)}
+                          onClick={() =>
+                            openPanel({
+                              kind: 'box',
+                              entityId: b.box.id,
+                              originSide: originSideFromTrigger(),
+                            })
+                          }
                           aria-label={ownerCopy.itinerary.openBoxInPacking(b.box.label)}
                         >
                           <ExternalLink size={14} aria-hidden="true" />
@@ -892,13 +935,13 @@ export function ItineraryView({ shipments, activeShipmentId, manifest }: Props) 
                             <button
                               type="button"
                               className={styles.biosecItemLink}
-                              onClick={() => {
-                                if (isDesktop) {
-                                  router.push(`/items?item=${row.itemId}`)
-                                } else {
-                                  router.push(`/decisions/${row.itemId}`)
-                                }
-                              }}
+                              onClick={() =>
+                                openPanel({
+                                  kind: 'item',
+                                  entityId: row.itemId,
+                                  originSide: originSideFromTrigger(),
+                                })
+                              }
                               aria-label={`Open ${row.itemName}`}
                             >
                               {row.itemName}

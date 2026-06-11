@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   ConfirmDialog,
   EmptyState,
@@ -12,11 +11,11 @@ import { BoxCard } from "@/components/boxes/BoxCard";
 import type { FlaggedItem, ScanResult } from "@/components/boxes/BoxCard";
 import type { DraftKind } from "@/components/boxes/ScanDraftReview";
 import { PackingDragProvider } from "@/components/boxes/PackingDrag";
-import { BoxDetailDrawer } from "@/components/boxes/BoxDetailDrawer";
+import { originSideFromTrigger, usePanelDeepLink } from "@/components/panels";
 import { UnboxedItems } from "@/components/boxes/UnboxedItems";
 import { PackAllButton } from "@/components/boxes/PackAllButton";
 import { useIsDesktop } from "@/lib/hooks/useIsDesktop";
-import type { Box, BoxItem, ItemAssessment } from "@/types";
+import type { Box, BoxItem, BoxScanDuplicateProposedItem, ItemAssessment } from "@/types";
 import { BoxType, BoxStatus, Verdict, BiosecurityFlag } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +58,12 @@ interface BoxListProps {
   onConfirmDrafts?: ((boxId: string) => void) | undefined;
   /** Remove a single scan draft item */
   onRemoveDraft?: ((boxId: string, item: BoxItem, kind: DraftKind) => void) | undefined;
+  /** Possible-duplicate scan proposals keyed by box ID */
+  duplicatesByBox?: Record<string, BoxScanDuplicateProposedItem[]> | undefined;
+  /** Add a possible duplicate to the box as a fresh item */
+  onAddDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
+  /** Dismiss a possible duplicate */
+  onSkipDuplicate?: ((boxId: string, proposal: BoxScanDuplicateProposedItem) => void) | undefined;
   /** Box IDs with a confirm-drafts request in flight */
   confirmingDraftBoxes?: Set<string> | undefined;
   /** Box IDs that are currently scanning */
@@ -86,6 +91,9 @@ export function BoxList({
   onRemoveFlaggedItem,
   onConfirmDrafts,
   onRemoveDraft,
+  duplicatesByBox,
+  onAddDuplicate,
+  onSkipDuplicate,
   confirmingDraftBoxes,
   scanningBoxes,
   resolvingItemIds,
@@ -95,28 +103,12 @@ export function BoxList({
   onRenumberBox,
 }: BoxListProps) {
   const [sortBy, setSortBy] = useState<BoxSortKey>("number");
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
-  const selectedBoxId = searchParams.get("box");
 
-  // When a card is "opened" on desktop, route to ?box=ID instead. Mobile
-  // falls back to the BoxCard's internal inline-expand state.
-  const openBoxDrawer = useCallback(
-    (boxId: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("box", boxId);
-      router.replace(`/boxes?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const closeBoxDrawer = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("box");
-    const qs = params.toString();
-    router.replace(qs ? `/boxes?${qs}` : "/boxes", { scroll: false });
-  }, [router, searchParams]);
+  // `?box=<id>` opens the box panel (deep link); opening a card on desktop
+  // writes the param so the URL stays shareable. Mobile keeps the BoxCard's
+  // internal inline-expand state.
+  const boxPanel = usePanelDeepLink("box", "box");
 
   // Build assessment lookup map
   const assessmentMap = useMemo(() => {
@@ -200,16 +192,10 @@ export function BoxList({
     [assessments, itemBoxIdMap],
   );
 
-  const isTravelling = useCallback(
-    (box: Box) =>
-      box.box_type === BoxType.CARRYON ||
-      box.box_type === BoxType.CHECKED_LUGGAGE,
-    [],
-  );
-
-  // Boxes available for adding items to (packing status only)
+  // Boxes available for adding items to — packing and packed both accept
+  // items (late finds happen); only shipped/arrived are sealed.
   const availableBoxes = useMemo(
-    () => boxes.filter((b) => b.status === BoxStatus.PACKING),
+    () => boxes.filter((b) => b.status === BoxStatus.PACKING || b.status === BoxStatus.PACKED),
     [boxes]
   );
 
@@ -415,6 +401,9 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
                   {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  duplicateProposals={duplicatesByBox?.[box.id] ?? []}
+                  {...(onAddDuplicate ? { onAddDuplicate } : {})}
+                  {...(onSkipDuplicate ? { onSkipDuplicate } : {})}
                   isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
@@ -423,7 +412,7 @@ export function BoxList({
                     ? {
                         open: false,
                         onOpenChange: (next: boolean) => {
-                          if (next) openBoxDrawer(box.id);
+                          if (next) boxPanel.open(box.id, originSideFromTrigger());
                         },
                       }
                     : {})}
@@ -458,6 +447,9 @@ export function BoxList({
                   {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
                   {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
                   {...(onRemoveDraft ? { onRemoveDraft } : {})}
+                  duplicateProposals={duplicatesByBox?.[box.id] ?? []}
+                  {...(onAddDuplicate ? { onAddDuplicate } : {})}
+                  {...(onSkipDuplicate ? { onSkipDuplicate } : {})}
                   isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
                   isScanning={scanningBoxes?.has(box.id) ?? false}
                   resolvingItemIds={resolvingItemIds}
@@ -466,7 +458,7 @@ export function BoxList({
                     ? {
                         open: false,
                         onOpenChange: (next: boolean) => {
-                          if (next) openBoxDrawer(box.id);
+                          if (next) boxPanel.open(box.id, originSideFromTrigger());
                         },
                       }
                     : {})}
@@ -550,39 +542,6 @@ export function BoxList({
         </aside>
         </div>{/* /.cockpit */}
       </div>
-
-      {isDesktop && selectedBoxId && (() => {
-        const box = boxes.find((b) => b.id === selectedBoxId);
-        if (!box) return null;
-        return (
-          <BoxDetailDrawer
-            box={box}
-            items={boxItems[box.id] ?? []}
-            assessments={assessmentMap}
-            unboxedItems={isTravelling(box) ? carryCandidatesFor(box.id) : unboxedItems}
-            onClose={closeBoxDrawer}
-            {...(onAddItem ? { onAddItem } : {})}
-            {...(onAddToBox ? { onAddExistingItem: handleAddExistingItem } : {})}
-            {...(onRemoveItem ? { onRemoveItem } : {})}
-            {...(onMarkPacked ? { onMarkPacked } : {})}
-            {...(onUpdateBox ? { onUpdateBox } : {})}
-            biosecItemCount={biosecItemCountByBox[box.id] ?? 0}
-            {...(onMarkBiosecurity ? { onMarkBiosecurity } : {})}
-            {...(onRenumberBox ? { onRenumber: handleRenumberRequest } : {})}
-            {...(scanResults?.[box.id] ? { scanResult: scanResults[box.id] } : {})}
-            flaggedItems={flaggedItemsByBox?.[box.id] ?? []}
-            {...(onScanSticker ? { onScanSticker } : {})}
-            {...(onShipAnyway ? { onShipAnyway } : {})}
-            {...(onRemoveFlaggedItem ? { onRemoveFlaggedItem } : {})}
-            {...(onConfirmDrafts ? { onConfirmDrafts } : {})}
-            {...(onRemoveDraft ? { onRemoveDraft } : {})}
-            isConfirmingDrafts={confirmingDraftBoxes?.has(box.id) ?? false}
-            isScanning={scanningBoxes?.has(box.id) ?? false}
-            {...(resolvingItemIds ? { resolvingItemIds } : {})}
-          />
-        );
-      })()}
-
 
       {pendingRenumber && (
         <ConfirmDialog

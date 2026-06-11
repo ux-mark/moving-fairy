@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { RecommendationCard } from '@thefairies/design-system/components'
 import type { ItemAssessment } from '@/types'
 import { proxyImageUrl } from '@/lib/storage-url'
@@ -10,7 +11,7 @@ interface ItemCardProps {
   onConfirm: (id: string) => void
   onRetry: (id: string) => void
   onClick: (id: string) => void
-  onVerdictChange?: (() => void) | undefined
+  onVerdictChange?: ((id: string) => void) | undefined
   onDelete?: ((id: string) => void) | undefined
   /** When true, flashes the verdict-coloured left edge for ~2.6s as a
    *  delight beat after a confirm / verdict change. */
@@ -55,7 +56,9 @@ const VERDICT_ACCENT: Record<string, string> = {
   REVISIT: 'var(--verdict-decide-later, #3b82f6)',
 }
 
-export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, onDelete, justDecided }: ItemCardProps) {
+// Memoised: realtime updates replace only the changed item's row object, so
+// sibling cards skip re-rendering — callers pass stable (useCallback) handlers.
+export const ItemCard = memo(function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, onDelete, justDecided }: ItemCardProps) {
   const verdictColors = item.verdict ? VERDICT_COLORS[item.verdict] : undefined
   const verdictLabel = item.verdict ? VERDICT_LABELS[item.verdict] : undefined
   const verdictAccent = item.verdict ? VERDICT_ACCENT[item.verdict] : undefined
@@ -114,7 +117,7 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, o
         <button
           type="button"
           className={styles.verdictTrigger}
-          onClick={(e) => { e.stopPropagation(); onVerdictChange() }}
+          onClick={(e) => { e.stopPropagation(); onVerdictChange(item.id) }}
           aria-label={`Change verdict for ${item.item_name || 'this item'}`}
         >
           Change verdict
@@ -132,4 +135,4 @@ export function ItemCard({ item, onConfirm, onRetry, onClick, onVerdictChange, o
       )}
     </div>
   )
-}
+})

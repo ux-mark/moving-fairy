@@ -1,0 +1,31 @@
+/* Default tray dock. Desktop: tucked under the DS nav, top-right (per
+   UX_STANDARDS § Panels the tray lives in the top bar — Phase E integrates
+   it there properly; this floating dock is the interim position). Mobile:
+   pinned above the bottom edge — Phase E moves it directly above the
+   bottom nav. */
+
+.trayDock {
+  position: fixed;
+  /* Above page content, below the floating panels (base 110). */
+  z-index: 109;
+  left: var(--space-16, 1rem);
+  right: var(--space-16, 1rem);
+  bottom: calc(var(--space-16, 1rem) + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: flex-start;
+  pointer-events: none;
+}
+
+.trayDock > * {
+  pointer-events: auto;
+}
+
+@media (min-width: 1024px) {
+  .trayDock {
+    /* 56px DS nav + breathing room. */
+    top: calc(56px + var(--space-8, 0.5rem));
+    bottom: auto;
+    left: auto;
+    justify-content: flex-end;
+  }
+}

@@ -235,6 +235,9 @@
 
 .railNextHint {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   font-size: 13px;
   font-weight: 500;
   color: var(--color-primary, #16a34a);

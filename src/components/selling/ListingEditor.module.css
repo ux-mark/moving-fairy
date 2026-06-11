@@ -92,20 +92,17 @@
   margin: 0 0 4px;
 }
 
+/* Field pairs sit side by side when they fit and wrap when they don't —
+   content-driven per UX_STANDARDS "Fit beats viewport", no breakpoint. */
 .row {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
 }
 
-@media (min-width: 600px) {
-  .row {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .flex1 { flex: 1; }
-  .flex2 { flex: 2; }
-}
+.flex1 { flex: 1 1 160px; }
+.flex2 { flex: 2 1 200px; }
 
 .select,
 .input {
@@ -160,11 +157,17 @@
 }
 
 .photoTile {
-  position: relative;
-  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
+  border: 1px solid var(--color-border-default, #e5e5e5);
   background: var(--color-bg-muted, #f7f7f7);
+}
+
+.photoImgWrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
 }
 
 .photoImg {
@@ -174,28 +177,41 @@
   display: block;
 }
 
+/* Labelled action row below each photo. flex-wrap keeps it content-driven
+   (UX_STANDARDS "Fit beats viewport"); 44px min hit areas per the touch
+   target rule, with visible labels since reorder chevrons are not in the
+   recognised icon-only set. */
 .photoActions {
-  position: absolute;
-  top: 4px;
-  right: 4px;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
+  padding: 2px;
 }
 
 .photoBtn,
 .photoBtnDanger {
   appearance: none;
   border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--color-text-default, #222);
+}
+
+.photoBtn:hover:not(:disabled),
+.photoBtnDanger:hover:not(:disabled) {
+  background: var(--color-bg-subtle, #efefef);
 }
 
 .photoBtn:disabled,
@@ -260,23 +276,11 @@
   margin-left: auto;
 }
 
-/* On narrow mobile, make sure action group buttons take full width to be
-   easy to tap and obviously primary. */
-@media (max-width: 480px) {
-  .actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .actionsRight {
-    margin-left: 0;
-    width: 100%;
-    justify-content: stretch;
-  }
-  .actionsRight > * {
-    flex: 1;
-    min-height: 44px;
-  }
+/* The action group wraps content-driven (UX_STANDARDS "Fit beats viewport")
+   rather than by viewport breakpoint; the group stays right-aligned and its
+   buttons keep their order when wrapping. 44px minimum touch height always. */
+.actionsRight > * {
+  min-height: 44px;
 }
 
 .deleteBtn {
